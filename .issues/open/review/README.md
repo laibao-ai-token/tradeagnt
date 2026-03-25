@@ -6,6 +6,13 @@
   - `open`：待执行审查/未回填
   - `review`：已完成审查并回填
 
+## 目录结构
+
+- [`.issues/open/review/100-commit-review-batch-001-010/README.md`](/public/home/lixh6/laibao/proj/tx_test_0106/tradecat-origin/.issues/open/review/100-commit-review-batch-001-010/README.md)
+  - 存放 `001-010` 这批按 commit 拆分的 review 记录
+- [`.issues/open/review/000-repo-review/README.md`](/public/home/lixh6/laibao/proj/tx_test_0106/tradecat-origin/.issues/open/review/000-repo-review/README.md)
+  - 存放仓库级总览、架构治理、卫生治理、后续映射文档
+
 | ID | Commit | 本地文档 | Linear | Linear 状态 | 备注 |
 |---|---|---|---|---|---|
 | 001 | `8f617f5c` | `review` | `TRA-25` | `Done` | 已闭环（审查回填完成） |
@@ -18,3 +25,13 @@
 | 008 | `4ad34428` | `review` | `TRA-32` | `Done` | 已闭环（结果已回填） |
 | 009 | `9c6fdf25` | `review` | `TRA-33` | `Done` | 已闭环（旧库兼容已补齐） |
 | 010 | `a719462a` | `review` | `TRA-34` | `Done` | 已闭环（文档证据/脚本可执行已修复） |
+
+## 仓库级 Review
+
+- 仓库级审计与治理文档统一放在 [`.issues/open/review/000-repo-review/README.md`](/public/home/lixh6/laibao/proj/tx_test_0106/tradecat-origin/.issues/open/review/000-repo-review/README.md)
+- 当前已整理：
+  - [`.issues/open/review/000-repo-review/001-architecture-audit.md`](/public/home/lixh6/laibao/proj/tx_test_0106/tradecat-origin/.issues/open/review/000-repo-review/001-architecture-audit.md)
+  - [`.issues/open/review/000-repo-review/002-repository-hygiene-audit.md`](/public/home/lixh6/laibao/proj/tx_test_0106/tradecat-origin/.issues/open/review/000-repo-review/002-repository-hygiene-audit.md)
+- 约定：
+  - `100-commit-review-batch-001-010/` 存放已闭环的提交级 review 批次
+  - `000-repo-review/` 存放仓库级总览、架构治理、卫生治理、后续映射文档
