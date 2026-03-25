@@ -1,8 +1,9 @@
 ---
 title: "006-07-feature-backtest-p2-3-multi-benchmark-comparison"
-status: open
+status: closed
 created: 2026-03-08
-updated: 2026-03-13
+updated: 2026-03-21
+closed: 2026-03-21
 owner: lixh6
 priority: medium
 type: feature
@@ -12,10 +13,10 @@ type: feature
 
 ## 进度条
 
-- 总体：`██████░░░░ 60%`
+- 总体：`██████████ 100%`
 - Phase 1：`██████████ 100%`
-- Phase 2：`███████░░░ 70%`
-- Phase 3：`███░░░░░░░ 30%`
+- Phase 2：`██████████ 100%`
+- Phase 3：`██████████ 100%`
 
 ## 背景
 
@@ -71,20 +72,20 @@ type: feature
 - [x] `metrics.json` 输出多基准收益与相对收益字段
 - [x] `report.md` 输出多基准摘要与 strongest baseline
 - [x] walk-forward summary 输出多基准均值字段
-- [ ] 真实窗口上复核多基准对比是否符合预期
+- [x] 真实窗口上复核多基准对比是否符合预期
 
 ### Phase 3：验证与校准
 
 - [x] 增加 reporter / walk-forward 定向测试
 - [x] 回归通过 signal-service 回测相关测试
-- [ ] 用真实窗口校准 benchmark 口径与阈值解释
+- [x] 用真实窗口校准 benchmark 口径与阈值解释
 
 ## 验收标准
 
 - [x] 单次回测可同时输出 `buy_hold / risk_parity / momentum`
 - [x] `metrics.json` / `report.md` 可解释相对不同基准的超额收益
 - [x] walk-forward 摘要可聚合多基准收益
-- [ ] 真实窗口下多基准比较不过度乐观或悲观
+- [x] 真实窗口下多基准比较不过度乐观或悲观
 
 ## 相关文件
 
@@ -103,11 +104,26 @@ type: feature
 
 ## 进展记录
 
+### 2026-03-21
+
+- [x] 使用 `INDICATOR_SQLITE_PATH=artifacts/indicator_db/00604-compare-btc-eth-60d.db` 完成真实窗口复核（BTCUSDT/ETHUSDT）
+- [x] 单窗复核产物（同窗）：
+  - `artifacts/backtest/00606-calib-constrained-sqlite/metrics.json`
+  - `artifacts/backtest/00606-calib-unconstrained-sqlite/metrics.json`
+- [x] Walk-Forward 复核产物：
+  - `artifacts/backtest/00607-calib-wf-sqlite-v2/walk_forward_summary.json`
+  - `artifacts/backtest/00607-calib-wf-sqlite-v2/walk_forward_folds.csv`
+- [x] 复核结论：
+  - 单窗下 `buy_hold / risk_parity / momentum` 三基准字段齐全，`best_baseline_name` 稳定可解释
+  - Walk-Forward 下三基准折间可聚合，`avg_excess_return_vs_risk_parity_pct` 与 `avg_excess_return_vs_momentum_pct` 口径一致
+  - 多基准结果未出现明显“过度乐观/悲观”失真（基准强弱关系随窗口变化但保持可解释）
+- [x] `#006-07` 闭环完成
+
 ### 2026-03-13
 
 - [x] `#006` 的 P0/P1 主链路已关闭，`#006-07` 继续作为 P2 增强项推进
 - [x] 已创建 Linear / Symphony 派单：`TRA-24` `[006-07] 复核多基准比较：risk parity / momentum 的真实窗口解释力`
-- [ ] 下一步由 Symphony 在真实窗口下复核多基准解释力，必要时调整默认报告口径
+- [x] 已完成真实窗口下多基准解释力复核，默认报告口径保持不变
 
 ### 2026-03-08
 
@@ -115,7 +131,7 @@ type: feature
 - [x] 已补 `buy_hold / risk_parity / momentum` 三类 baseline
 - [x] `metrics.json` / `report.md` / walk-forward 摘要已输出多基准收益字段
 - [x] 已补并通过 reporter / walk-forward 定向测试 + signal-service 回测相关 49 项测试
-- [ ] 下一步用真实窗口复核 benchmark 解释力与阈值口径
+- [x] 已完成真实窗口复核 benchmark 解释力与阈值口径
 
 ## 备注
 

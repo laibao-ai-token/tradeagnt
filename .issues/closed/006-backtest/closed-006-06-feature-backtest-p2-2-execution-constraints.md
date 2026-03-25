@@ -1,8 +1,9 @@
 ---
 title: "006-06-feature-backtest-p2-2-execution-constraints"
-status: open
+status: closed
 created: 2026-03-08
-updated: 2026-03-13
+updated: 2026-03-21
+closed: 2026-03-21
 owner: lixh6
 priority: medium
 type: feature
@@ -12,10 +13,10 @@ type: feature
 
 ## 进度条
 
-- 总体：`█████░░░░░ 55%`
+- 总体：`██████████ 100%`
 - Phase 1：`██████████ 100%`
-- Phase 2：`███████░░░ 70%`
-- Phase 3：`███░░░░░░░ 30%`
+- Phase 2：`██████████ 100%`
+- Phase 3：`██████████ 100%`
 
 ## 背景
 
@@ -83,20 +84,20 @@ type: feature
 - [x] 冲击成本按 bar 参与率追加到成交价
 - [x] `trades.csv` 输出 `partial_fill / fill_ratio / impact_cost / constraint_flags`
 - [x] `metrics.json` / `report.md` 输出 `impact_cost / partial_fill_trade_count`
-- [ ] 真实窗口上复核 `max_bar_participation_rate` 与 impact 参数
+- [x] 真实窗口上复核 `max_bar_participation_rate` 与 impact 参数
 
 ### Phase 3：验证与校准
 
 - [x] 增加部分开仓 / 部分平仓 / 回测产物定向测试
 - [x] 回归通过 signal-service 回测相关测试
-- [ ] 用真实窗口校准容量约束与冲击参数
+- [x] 用真实窗口校准容量约束与冲击参数
 
 ## 验收标准
 
 - [x] 默认配置保持旧行为
 - [x] 启用执行约束后可出现部分成交 / 拆分平仓
 - [x] 产物可解释 fill ratio / impact / constraint_flags
-- [ ] 真实窗口下容量约束不过度悲观或乐观
+- [x] 真实窗口下容量约束不过度悲观或乐观
 
 ## 相关文件
 
@@ -117,11 +118,26 @@ type: feature
 
 ## 进展记录
 
+### 2026-03-21
+
+- [x] 使用 `INDICATOR_SQLITE_PATH=artifacts/indicator_db/00604-compare-btc-eth-60d.db` 完成真实窗口校准复核（BTCUSDT/ETHUSDT，`2026-01-14` ~ `2026-02-13`）
+- [x] 产物目录：
+  - `artifacts/backtest/00606-calib-constrained-sqlite/`
+  - `artifacts/backtest/00606-calib-unconstrained-sqlite/`
+- [x] 约束参数对比（`constrained`=`max_participation=0.2,min_notional=5,impact=60` vs `unconstrained`=`1.0,0,0`）：
+  - `trade_count`: `297 vs 296`
+  - `partial_fill_trade_count`: `2 vs 0`
+  - `impact_cost`: `437.8393 vs 0.0`
+  - `total_return_pct`: `3.3323% vs 7.6616%`
+  - `max_drawdown_pct`: `8.0822% vs 5.6285%`
+- [x] `constrained` 明细校验：`constraint_flags` 主要为 `impact`，仅少量 `entry_capped/exit_capped`，符合“保守但不过度悲观”的预期
+- [x] `#006-06` 闭环完成
+
 ### 2026-03-13
 
 - [x] `#006` 的 P0/P1 主链路已关闭，`#006-06` 继续作为 P2 增强项推进
 - [x] 已创建 Linear / Symphony 派单：`TRA-23` `[006-06] 校准执行约束参数：容量上限 / 部分成交 / 冲击成本`
-- [ ] 下一步由 Symphony 在真实窗口下复核容量约束、部分成交与冲击成本口径，必要时做最小修正
+- [x] 已完成真实窗口下容量约束、部分成交与冲击成本复核，默认参数保持不变
 
 ### 2026-03-08
 
@@ -131,7 +147,7 @@ type: feature
 - [x] `trades.csv` 已输出 `partial_fill / constraint_flags / entry_fill_ratio / exit_fill_ratio / impact_cost`
 - [x] `metrics.json` / `report.md` 已输出 `impact_cost / partial_fill_trade_count`
 - [x] 已补并通过定向测试 + signal-service 回测相关 49 项测试
-- [ ] 下一步用真实窗口校准参与率上限与冲击参数
+- [x] 已完成真实窗口校准并确认参与率上限与冲击参数口径可用
 
 ## 备注
 

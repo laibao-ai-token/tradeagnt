@@ -179,7 +179,7 @@
 ### 2026-02-26 23:20（SSU5）
 
 - [x] 30 天离线评估脚本落地：
-  - 脚本：`scripts/etf_backtest.py`
+  - 脚本：`scripts/analysis/etf_backtest.py`
   - 报告输出：`artifacts/analysis/etf_backtest_*.json/.md`
   - 评估结果：策略累计收益 1.06% vs 基准 1.20%
 - [x] JSON 配置化落地：

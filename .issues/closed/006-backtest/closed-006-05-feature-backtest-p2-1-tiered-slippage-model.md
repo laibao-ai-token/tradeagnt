@@ -1,8 +1,9 @@
 ---
 title: "006-05-feature-backtest-p2-1-tiered-slippage-model"
-status: open
+status: closed
 created: 2026-03-08
-updated: 2026-03-13
+updated: 2026-03-21
+closed: 2026-03-21
 owner: lixh6
 priority: medium
 type: feature
@@ -12,10 +13,10 @@ type: feature
 
 ## 进度条
 
-- 总体：`██████░░░░ 60%`
+- 总体：`██████████ 100%`
 - Phase 1：`██████████ 100%`
-- Phase 2：`████████░░ 80%`
-- Phase 3：`████░░░░░░ 40%`
+- Phase 2：`██████████ 100%`
+- Phase 3：`██████████ 100%`
 
 ## 背景
 
@@ -83,20 +84,20 @@ type: feature
 - [x] 增加滑点 cap，避免极端场景无限放大
 - [x] `trades.csv` 输出 entry / exit slippage bps 与 cost
 - [x] `metrics.json` / `report.md` 输出 `slippage_cost`
-- [ ] 真实窗口上复核 layered 参数的保守性
+- [x] 真实窗口上复核 layered 参数的保守性
 
 ### Phase 3：验证与校准
 
 - [x] 增加定向单测，锁定薄量高波动场景下 layered > fixed
 - [x] 回归通过 signal-service 回测相关测试
-- [ ] 用真实窗口校准时段权重、volume window 与 cap
+- [x] 用真实窗口校准时段权重、volume window 与 cap
 
 ## 验收标准
 
 - [x] 仍支持固定滑点口径
 - [x] `layered` 模式会随市场状态动态调节滑点
 - [x] `trades.csv` / `metrics.json` / `report.md` 可解释滑点成本
-- [ ] 真实窗口下 layered 参数不过度夸大或低估成交成本
+- [x] 真实窗口下 layered 参数不过度夸大或低估成交成本
 
 ## 相关文件
 
@@ -117,11 +118,26 @@ type: feature
 
 ## 进展记录
 
+### 2026-03-21
+
+- [x] 使用 `INDICATOR_SQLITE_PATH=artifacts/indicator_db/00604-compare-btc-eth-60d.db` 进行真实窗口校准复核（BTCUSDT/ETHUSDT，`2026-01-14` ~ `2026-02-13`）
+- [x] 产物目录：
+  - `artifacts/backtest/00605-calib-fixed-sqlite/`
+  - `artifacts/backtest/00605-calib-layered-sqlite/`
+- [x] `fixed vs layered` 对比（同样 `trade_count=297`）：
+  - `total_return_pct`: `3.3323% -> 0.4376%`
+  - `net_pnl`: `333.2331 -> 43.7608`
+  - `slippage_cost`: `941.6234 -> 1232.0343`（`+30.84%`）
+  - `max_drawdown_pct`: `8.0822% -> 9.6608%`
+- [x] 分层滑点分布复核：单边 `max=7.4423bps`，未触发 `slippage_max_bps=9` cap（命中率 `0/594`）
+- [x] 结论：layered 口径较 fixed 更保守，且成本抬升在可解释区间内（未出现过度夸大）
+- [x] `#006-05` 闭环完成
+
 ### 2026-03-13
 
 - [x] `#006` 的 P0/P1 主链路已关闭，`#006-05` 继续作为 P2 增强项推进
 - [x] 已创建 Linear / Symphony 派单：`TRA-22` `[006-05] 校准 layered slippage 真实窗口参数与保守性结论`
-- [ ] 下一步由 Symphony 在真实窗口下复核 `fixed vs layered`，必要时收敛默认参数与 cap
+- [x] 已完成真实窗口下 `fixed vs layered` 复核，默认参数与 cap 保持不变
 
 ### 2026-03-08
 
@@ -131,7 +147,7 @@ type: feature
 - [x] `trades.csv` 已输出 `entry_slippage_bps / exit_slippage_bps / entry_slippage_cost / exit_slippage_cost`
 - [x] `metrics.json` / `report.md` 已输出 `slippage_cost`
 - [x] 已补并通过定向测试 + signal-service 回测相关 46 项测试
-- [ ] 下一步用真实窗口校准 layered 权重与 cap
+- [x] 已完成真实窗口校准并确认 layered 权重与 cap 在当前窗口内有效
 
 ## 备注
 

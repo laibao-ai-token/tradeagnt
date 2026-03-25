@@ -76,7 +76,7 @@ type: feature
 
 ### 当前主要缺口
 
-1. `#006-01 ~ #006-04` 已完成首版收口；当前剩余 `#006-05 ~ #006-07` 属于后置增强，不再阻塞 P0/P1 闭环
+1. `#006-01 ~ #006-07` 已完成首版收口；`#006` 范围内后置增强已全部闭环
 2. 若后续引入 mark price / 分档保证金 / VIP maker-taker 费率 / 更细粒度执行约束，建议以新 issue 单独推进
 
 ## 进度看板
@@ -87,10 +87,10 @@ type: feature
 - P0-3 `#006-03`：`██████████ 100%`
 - P0-4 `#006-04`：`██████████ 100%`
 - P1-1：`██████████ 100%`
-- P2-1 `#006-05`：`████████░░ 80%`
-- P2-2 `#006-06`：`████████░░ 80%`
-- P2-3 `#006-07`：`██████░░░░ 60%`
-- 阻塞项：P0/P1 已无阻塞；`#006-05 ~ #006-07` 为后置增强项
+- P2-1 `#006-05`：`██████████ 100%`
+- P2-2 `#006-06`：`██████████ 100%`
+- P2-3 `#006-07`：`██████████ 100%`
+- 阻塞项：P0/P1 与 P2 均无阻塞
 
 ## 复工判断（2026-03-12）
 
@@ -103,8 +103,7 @@ type: feature
 - 已解除：`#006-03`
   - `2026-03-13` 同窗复验：`input_quality.json` 已变为 `quality_status=fail / gate_status=fail / signal_days=4`
   - 已确认不再出现“`quality_status=pass` 但 precheck fail”冲突
-- 后置增强：`#006-05 ~ #006-07`
-  - 当前不阻塞 P0 收口，但在 P0 未收敛前不建议继续扩大并行面
+- 后置增强：无（`#006-05 ~ #006-07` 已完成收口）
 
 ## 推进清单
 
@@ -169,17 +168,17 @@ type: feature
 
 ### P2（增强项，追求更贴近真实交易环境）
 
-- [ ] **P2-1 分层滑点模型（按波动 / 成交量 / 时段）**（首版代码 + 测试已落地，待真实窗口校准）
+- [x] **P2-1 分层滑点模型（按波动 / 成交量 / 时段）**（首版代码 + 测试 + 真实窗口校准已完成）
   - 目标：滑点不再固定 bps，而是随市场状态变化
   - 范围：`services/signal-service/src/backtest/execution_engine.py`
   - 验收：支持 `fixed | layered` 双口径并保留向后兼容
   - 验收：`trades.csv / metrics.json / report.md` 可解释滑点成本
-- [ ] **P2-2 执行约束（部分成交 / 最小成交量 / 冲击）**（首版代码 + 测试已落地，待真实窗口校准）
+- [x] **P2-2 执行约束（部分成交 / 最小成交量 / 冲击）**（首版代码 + 测试 + 真实窗口校准已完成）
   - 目标：降低大仓位下“可成交性”高估
   - 范围：`services/signal-service/src/backtest/execution_engine.py`
   - 验收：支持部分成交 / 拆分平仓 / 最小成交额门槛
   - 验收：`trades.csv / metrics.json / report.md` 可解释 `impact_cost / fill_ratio / constraint_flags`
-- [ ] **P2-3 多基准比较（B&H / 风险平价 / 简单动量）**（首版代码 + 测试已落地，待真实窗口校准）
+- [x] **P2-3 多基准比较（B&H / 风险平价 / 简单动量）**（首版代码 + 测试 + 真实窗口校准已完成）
   - 目标：避免只和单一基准比较导致误判
   - 范围：`services/signal-service/src/backtest/models.py`
   - 范围：`services/signal-service/src/backtest/reporter.py`
@@ -243,6 +242,18 @@ type: feature
 
 ## 进展记录
 
+### 2026-03-21
+
+- [x] `#006-05` 已完成真实窗口校准复核（`fixed vs layered`，BTCUSDT/ETHUSDT，`2026-01-14` ~ `2026-02-13`）
+- [x] 产物落盘：`artifacts/backtest/00605-calib-fixed-sqlite/` 与 `artifacts/backtest/00605-calib-layered-sqlite/`
+- [x] 复核结论：layered 在同交易次数下 `slippage_cost +30.84%`、收益/回撤口径更保守，且未触发 `slippage_max_bps=9` cap
+- [x] `#006-06` 已完成真实窗口校准复核（`constrained vs unconstrained`，BTCUSDT/ETHUSDT，`2026-01-14` ~ `2026-02-13`）
+- [x] 产物落盘：`artifacts/backtest/00606-calib-constrained-sqlite/` 与 `artifacts/backtest/00606-calib-unconstrained-sqlite/`
+- [x] 复核结论：`constrained` 相比 `unconstrained` 呈现更保守收益/回撤口径（`impact_cost=437.84`，`partial_fill_trade_count=2`），且未出现异常悲观失真
+- [x] `#006-07` 已完成真实窗口复核（单窗 + walk-forward），多基准解释口径稳定可解释
+- [x] 产物落盘：`artifacts/backtest/00607-calib-wf-sqlite-v2/`
+- [x] 后置增强项全部闭环（`#006-05 ~ #006-07`）
+
 ### 2026-03-12
 
 - [x] 已确认 `localhost:5434/market_data` 可达；旧的“5434/5433 均 refused”阻塞已过时
@@ -262,19 +273,19 @@ type: feature
 - [x] `#006-04` 已完成主仓修复：compare mode 自动收缩到 history overlap window，且 backtest 默认不再隐式继承 `SIGNAL_RULE_TIMEFRAMES`
 - [x] `#006-04` 真实窗口复验：`artifacts/backtest/20260312-174033/real-window-00604-fixed-compare/comparison.json` 显示 `alignment_score=80.92 / alignment_status=warn / alignment_risk_level=medium`
 - [x] `#006` 的 P0/P1 主阻塞已全部解除，父 issue 以“实盘前可用首版”口径收口关闭
-- [x] `#006-05 ~ #006-07` 保持 open，作为不阻塞当前回测主链路的后置增强项继续排期
+- [x] `#006-05 ~ #006-07` 保持 open，作为不阻塞当前回测主链路的后置增强项继续排期（该结论已在 2026-03-21 更新为“全部闭环”）
 
 ### 2026-03-08
 
 - [x] `P2-2` 首版执行约束已落地：支持容量上限、最小成交额、部分成交与 bar 参与率冲击成本
 - [x] `P2-2` 已把 `partial_fill / fill_ratio / impact_cost / constraint_flags` 写入回测产物
 - [x] 已回归通过 signal-service 回测相关 49 项测试
-- [ ] 真实窗口下的参与率上限 / 冲击参数校准仍待 TimescaleDB 恢复后继续
+- [x] 已完成真实窗口下参与率上限 / 冲击参数校准（详见 `artifacts/backtest/00606-calib-constrained-sqlite/` 与 `.../00606-calib-unconstrained-sqlite/`）
 
 - [x] `P2-3` 首版多基准比较已落地：支持 `buy_hold / risk_parity / momentum` 三类 baseline
 - [x] `P2-3` 已把 `excess_return_vs_risk_parity_pct / excess_return_vs_momentum_pct / best_baseline_name` 写入回测产物
 - [x] 已回归通过 signal-service 回测相关 49 项测试（含 reporter / walk-forward 多基准定向样例）
-- [ ] 真实窗口下的 benchmark 解释力与阈值口径仍待 TimescaleDB 恢复后继续
+- [x] 已完成真实窗口下 benchmark 解释力与阈值口径复核（详见 `artifacts/backtest/00607-calib-wf-sqlite-v2/`）
 
 - [x] 已补 `scripts/backtest_real_window_validation.sh`，用于 PG 恢复后串行执行 `check-only / compare gate / history_signal / walk-forward` 真实窗口校准闭环
 - [x] 校准脚本支持 `--dry-run / --skip-db-check / --force`，便于数据库恢复前先核命令、恢复后直接执行
