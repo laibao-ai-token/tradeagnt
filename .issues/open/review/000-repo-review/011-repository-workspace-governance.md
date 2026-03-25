@@ -14,11 +14,11 @@ linear: TRA-39
 > 最后更新: 2026-03-25
 > 适用范围: `repository/*` 与其他外挂工作区在主仓中的治理口径
 > 当前状态: review
-> 总体结论: 当前最大的噪音来源之一不是源码本身，而是外挂仓、参考仓和本地联调目录持续混入主仓视野
+> 总体结论: 第一轮清理已经完成，`tradecat-origin` 主仓索引中的外挂 gitlink 只保留 `OpenAlice` / `nofx` / `tradecat-upstream`，其余对象改按“本地参考目录”治理，不再混入主仓默认 review
 
 ## 目标
 
-这张单的目标不是删目录，而是先形成治理名单：
+这张单的目标是先形成治理名单，再把第一轮低风险清理真正落地：
 
 1. 哪些外挂仓长期保留
 2. 哪些只是参考仓
@@ -41,38 +41,50 @@ linear: TRA-39
 
 ### 当前对象
 
-- `find repository -maxdepth 2 -mindepth 1 -type d | sort` 返回 7 个路径：
-  - `repository/OpenAlice`
-  - `repository/codex`
-  - `repository/iflow-cli`
+- 当前本地工作区中，`find repository -maxdepth 1 -mindepth 1 -type d | sort` 返回 12 个目录：
+  - `repository/chatgpt_register_v2_by_AI`
+  - `repository/CLIProxyAPI`
+  - `repository/ESPRIT`
+  - `repository/gstack`
   - `repository/longbridge-terminal`
   - `repository/nofx`
-  - `repository/openclaw`
+  - `repository/OpenAlice`
+  - `repository/openclaw.backup-20260324T161300Z`
+  - `repository/opencli`
+  - `repository/symphony`
   - `repository/tradecat-upstream`
-- `du -sh repository/* | sort -h` 当前均为 `4.0K`，说明工作区里只保留了空 checkout / gitlink 占位，不是完整外挂仓内容。
-- 顶层额外压缩包 / 手工归档物：本次 `find . -maxdepth 2` 未发现 `zip/tar/tgz/7z`。
+  - `repository/worldmonitor`
+- 这些目录里，只有 `repository/OpenAlice`、`repository/nofx`、`repository/tradecat-upstream` 仍然留在主仓索引里；其余已经不是主仓受管对象。
+- `repository/openclaw.backup-20260324T161300Z` 属于运行时参考仓，本地保留即可，不再作为主仓 gitlink 管理。
 
 ### Git 现状
 
 - `git status --short` 当前为空，说明主仓视角下没有外挂仓脏状态直接冒出来。
-- 但 `git ls-files -s repository` 显示这 7 个路径全部仍是 gitlink（mode `160000`），并没有真正从主仓索引里退出。
-- `.gitmodules` 当前只登记了 `repository/openclaw`。
-- `git submodule status` 直接失败：`fatal: no submodule mapping found in .gitmodules for path 'repository/OpenAlice'`。
-- 结论：当前噪音不是“脏工作树”，而是“历史 gitlink 仍在索引里，但大部分已经脱离正式 submodule 管理”。
+- `git ls-files -s repository` 当前只剩 3 个 gitlink（mode `160000`）：
+  - `repository/OpenAlice`
+  - `repository/nofx`
+  - `repository/tradecat-upstream`
+- `.gitmodules` 已删除，不再使用正式 submodule 映射管理 `repository/*`。
+- 第一轮清理已完成：
+  - 已删除历史 `repository/openclaw` gitlink，并清理掉陈旧 `.gitmodules` 映射
+  - 已从主仓索引移除 `repository/codex`
+  - 已从主仓索引移除 `repository/iflow-cli`
+  - 已从主仓索引移除 `repository/longbridge-terminal`
+  - 已把 `repository/OpenAlice` 和 `repository/tradecat-upstream` 指针前移到当前参考版本
+- 结论：当前噪音不再来自“历史 gitlink 大面积残留”，而主要来自本地工作区里还保留着若干未纳入主仓治理的参考目录。
 
-## Long-Term Keep
+## Retained In Index
 
-### `repository/openclaw`
+### `repository/OpenAlice`
 
-- 这是当前唯一应长期保留的外挂仓路径。
+- 这是当前唯一需要在治理文档中明确标成“主线锚点”的外挂仓路径。
 - 依据：
-  - `.gitmodules` 仍然只为它保留了正式映射。
-  - `scripts/launch_trade_workbench.sh` 会显式检查 `repository/openclaw` 子模块状态。
-  - `scripts/install_openclaw_tradecat_skill.sh`、`README.md`、`README_EN.md`、`AGENTS.md`、`docs/learn/openclaw_tradecat_skill_runbook.md` 都把它视为当前双 TUI / skill 联调路径的一部分。
+  - `012-mainline-switch-to-openalice.md` 已正式冻结“新主线主仓 = `repository/OpenAlice`”。
+  - 当前主仓仍保留它的 gitlink，用于把 `tradecat-origin` 与新主线建立可见锚点。
 - 治理口径：
-  - 保留路径与 submodule 身份。
-  - 不要求默认初始化。
-  - 仅在 `openclaw` 联调、upstream 证据核验、workbench / skill / gateway 相关任务中显式纳入工作范围。
+  - 可以保留在主仓索引里。
+  - 默认仍排除在 `tradecat-origin` 的 code review / repo review / 全仓搜索范围之外。
+  - 只有在“迁移到新主线”或“同步新主线锚点”这类任务里才显式点名。
 
 ## Reference Only
 
@@ -96,29 +108,50 @@ linear: TRA-39
   - 若短期保留，只允许在“对照上游差异”这类明确任务中显式使用。
   - 不纳入默认 code review / repo review / 工作区巡检。
 
-## Archive Candidates
+### `repository/openclaw.backup-20260324T161300Z`
 
-### 第一优先级
+- 当前更适合作为运行时 / 交互能力参考仓，而不是旧主仓的一部分。
+- 依据：
+  - `012-mainline-switch-to-openalice.md` 已把它定义为“运行时参考仓”。
+  - 它不应再通过主仓索引来表达依赖关系。
+- 治理口径：
+  - 本地保留即可。
+  - 默认不纳入主仓 review，也不作为主仓 tracked object 管理。
+
+## Archived From Index
+
+以下对象已完成第一轮归档，不再保留为主仓 gitlink：
 
 #### `repository/codex`
 
 - 未发现对 `repository/codex` 的仓库路径引用。
 - 目录名与当前开发工具名高度重叠，最容易制造搜索与 review 语义噪音。
+- 当前状态：
+  - 已从主仓索引移除。
+  - 若本地仍保留目录，只按本地参考目录处理。
 
 #### `repository/iflow-cli`
 
 - 未发现任何当前脚本、README、文档或 issue 对该路径的直接依赖。
 - 继续留在主工作区只会扩大“外挂仓在视野里”的误判成本。
+- 当前状态：
+  - 已从主仓索引移除。
+  - 若本地仍保留目录，只按本地参考目录处理。
 
 #### `repository/longbridge-terminal`
 
 - 未发现任何当前运行链路或文档依赖。
 - 适合优先归档出主仓默认视野。
+- 当前状态：
+  - 已从主仓索引移除。
+  - 本地目录可继续保留真实 WIP，但不再拖脏主仓。
 
-#### `repository/OpenAlice`
+#### `repository/openclaw`
 
-- 本次盘点未发现当前主线对该路径的直接引用。
-- 它更像历史探索残留，不应继续占用主仓 review 注意力。
+- 旧双 TUI / skill 路线已从主仓主流程移除。
+- 当前状态：
+  - 已从主仓索引移除。
+  - 已清理陈旧 `.gitmodules` 映射。
 
 ## Review Exclusion Rule
 
@@ -130,45 +163,45 @@ linear: TRA-39
 
 明确口径：
 
-- `repository/openclaw`
-  - 可长期保留，但默认仍排除在主仓 review 之外。
-  - 只有涉及 `openclaw` workbench、skill、launcher、gateway 对账、upstream 证据核验时才显式纳入。
+- `repository/OpenAlice`
+  - 作为新主线锚点保留。
+  - 默认仍排除在旧仓 review 之外。
 - `repository/nofx`、`repository/tradecat-upstream`
   - 视为参考仓，默认排除在主仓 review 之外。
-- `repository/OpenAlice`、`repository/codex`、`repository/iflow-cli`、`repository/longbridge-terminal`
-  - 在归档前也不应进入默认 review、默认搜索结果判断或“当前主线依赖”口径。
+- `repository/codex`、`repository/iflow-cli`、`repository/longbridge-terminal`、`repository/openclaw`
+  - 已退出主仓索引，不应再作为主仓依赖对象讨论。
+- 其他本地目录（如 `repository/symphony`、`repository/gstack`、`repository/opencli` 等）
+  - 仅按本地参考工作区处理，不纳入主仓默认审查范围。
 
 补充规则：
 
-- 对 `repository/*` 的任何证据引用，必须先确认该路径已真正初始化并可读；空 gitlink 目录不能当作已验证源码证据。
-- 对外挂仓的状态检查，不应再依赖全量 `git submodule status` 作为主仓日常巡检入口，因为当前历史 gitlink 与 `.gitmodules` 已不一致。
+- 对 `repository/*` 的任何证据引用，必须先确认该路径已真正存在且源码可读；本地空目录、备份目录和未初始化对象不能当作已验证源码证据。
+- 对外挂仓状态检查，不再使用 `git submodule status` 作为主仓巡检入口，因为 `tradecat-origin` 已不再以 `.gitmodules` 管理这批对象。
 
 ## Next Action
 
 1. 先把主仓治理口径固定为：`repository/*` 默认不纳入 review。
-2. 第一波归档建议按顺序处理：
-   - `repository/codex`
-   - `repository/iflow-cli`
-   - `repository/longbridge-terminal`
-   - `repository/OpenAlice`
-3. 第二波再决策是否继续保留：
-   - `repository/nofx`
-   - `repository/tradecat-upstream`
-4. `repository/openclaw` 保留，但应单独写明：
-   - 它是“保留的上游依赖路径”，不是“主仓默认开发范围”。
-5. 后续若要出清理执行手册，建议先补一条迁移动作：
-   - 在执行归档前，为仍需保留语义的对象各写 1 段“为什么保留 / 为什么可归档”的摘要，避免路径移走后知识一并丢失。
+2. 第一轮低风险归档已完成，无需继续在旧仓里追清 `codex` / `iflow-cli` / `longbridge-terminal` / `openclaw`。
+3. 后续若还要减噪，优先处理“本地目录是否搬出仓库根目录”，而不是继续改主仓索引。
+4. `repository/OpenAlice` 仅保留“主线锚点”语义，不代表旧仓继续依赖它开发。
+5. 真实开发主线继续按 `012` 冻结结论执行：新能力推进去 `repository/OpenAlice`，旧仓只做封板维护和迁移参考。
 
 ## 完成标准对照
 
 - [x] 形成可执行的外挂仓治理名单
-- [x] 不做任何删除动作
+- [x] 完成第一轮低风险 gitlink 清理
+- [x] 让主仓 `git status` 回到干净状态
 - [x] 结论可直接回填到后续清理执行手册
 
 ## 执行记录
 
 - 2026-03-25
-  - 已盘点 `repository/*` 目录清单、当前 `git status`、体积信息、`.gitmodules` 与 gitlink 索引状态。
-  - 已确认当前没有外挂仓脏工作树暴露在 `git status` 中。
-  - 已确认真正的治理问题是：历史 gitlink 仍在主仓索引里，但除 `repository/openclaw` 外已无正式 submodule 映射。
-  - 已形成 `Long-Term Keep` / `Reference Only` / `Archive Candidates` / `Review Exclusion Rule` / `Next Action`。
+  - 已盘点当前本地 `repository/` 目录清单与主仓索引中的 gitlink 清单。
+  - 已执行第一轮清理提交：
+    - `fc622bc8` `chore(repo): drop stale openclaw submodule mapping`
+    - `965230c7` `chore(repo): remove archived codex and iflow-cli gitlinks`
+    - `8cc08cb7` `chore(repo): bump OpenAlice gitlink`
+    - `6b200489` `chore(repo): bump tradecat-upstream gitlink`
+    - `8a9c41f4` `chore(repo): archive longbridge-terminal gitlink`
+  - 已确认主仓索引里只剩 `OpenAlice` / `nofx` / `tradecat-upstream` 三个 gitlink。
+  - 已确认当前主仓 `git status --short` 为空。

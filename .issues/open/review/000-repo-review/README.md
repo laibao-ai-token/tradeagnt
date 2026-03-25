@@ -20,7 +20,7 @@
 | 008 | `008-scripts-surface-final-pass.md` | review | 已回填 SYM 执行结果，`scripts/` 根目录收口结论已固定 |
 | 009 | `009-signal-service-domain-readiness-review.md` | review | 已回填 SYM 审查结论，明确 `signal-service` 只宜承接信号域 |
 | 010 | `010-trading-service-backfill-and-core-review.md` | review | 已回填 SYM 审查结论，下一刀应优先减重 `backfill_indicators.py` |
-| 011 | `011-repository-workspace-governance.md` | review | 已回填 SYM 治理结论，`repository/*` 默认排除出主仓 review |
+| 011 | `011-repository-workspace-governance.md` | review | 已回填并执行首轮清理，主仓索引只保留 `OpenAlice` / `nofx` / `tradecat-upstream` |
 | 012 | `012-mainline-switch-to-openalice.md` | decision | 已定稿：`OpenAlice` 为新主仓，`TradeCat` 封板，`openclaw.backup` 仅作参考 |
 
 ## 当前阶段结论
@@ -37,7 +37,7 @@
   - `008`：`scripts/` 表层分层已固定，主入口与桥接命令边界已明确
   - `009`：`signal-service` 适合作为 signal intent / rule evaluation 层，不宜直接长成完整交易主域
   - `010`：`trading-service` 当前最大维护热点是 `backfill_indicators.py`
-  - `011`：`repository/*` 已形成长期保留 / 参考 / 归档候选治理口径
+  - `011`：`repository/*` 已形成治理口径并完成首轮清理，旧仓默认不再 review 外挂仓
 - `012` 已正式冻结主仓切换口径：
   - `repository/OpenAlice` = 新主线主仓
   - `tradecat-origin` = 封板旧仓 / 能力来源仓
