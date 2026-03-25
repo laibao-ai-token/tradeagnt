@@ -188,13 +188,13 @@ def get_database_url():
 
 ### 2.3 设计缺陷
 
-#### 问题 #6: 端口配置混乱（5433 vs 5434）
+#### 问题 #6: 端口配置曾混乱（5433 vs 5434）
 
 **位置**:
 - `config/.env.example` (默认 5434)
-- `scripts/export_timescaledb.sh` (默认 5433)
-- `scripts/timescaledb_compression.sh` (默认 5433)
-- 各服务 README.md (混用)
+- `scripts/data/export_timescaledb.sh` (现默认 5434)
+- `scripts/data/timescaledb_compression.sh` (现默认 5434)
+- 各服务 README.md / 历史分析文档 (可能仍混用)
 
 **影响**:
 - 新用户容易配错端口
@@ -244,7 +244,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 | TD-002 | telegram-service/cards | 20+ 卡片代码重复，需抽象基类 | 中 |
 | TD-003 | api-service/routers | 缺少统一数据访问层 | 中 |
 | TD-004 | */config.py | 配置管理分散，键名不一致 | 中 |
-| TD-005 | scripts/*.sh | 端口硬编码 5433，与 .env.example 不一致 | 高 |
+| TD-005 | scripts/data/*.sh | 历史上端口硬编码 5433；现已统一为 5434，需继续清理文档残留 | 中 |
 | TD-006 | */logging | 日志格式不统一 | 低 |
 | TD-007 | AGENTS.md | 存在重复段落（7.8 端口冲突写了两遍） | 低 |
 

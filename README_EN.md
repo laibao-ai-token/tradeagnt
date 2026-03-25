@@ -196,8 +196,7 @@ vim config/.env
 ```
 
 > Note: top-level `./scripts/start.sh` manages `data-service`, `signal-service`, `trading-service`.  
-> Retained preview services: `cd services-preview/markets-service && ./scripts/start.sh start` (multi-market), `cd services-preview/markets-service && ./scripts/start.sh start-news` (24x7 news collection), `cd services-preview/tui-service && ./scripts/start.sh run` (terminal TUI; it auto-starts data-service and signal-service by default, then stops TUI-started data/signal services after 1 hour on exit; tune with `TUI_AUTO_START_DATA=0` / `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=0` / `TUI_SIGNAL_STOP_DELAY_SECONDS`). You can also launch it from repo root via `./scripts/start.sh run`; to keep news collection running while viewing the TUI, use `cd services-preview/tui-service && ./scripts/start.sh run-news 2`. The default news pipeline now already includes a curated WorldMonitor trading/macro RSS subset and excludes feeds that now consistently return `403`, time out, or ship malformed XML; if you want to keep only the original fast-news layer, set `NEWS_RSS_PRESET=core` (or `TUI_NEWS_RSS_PRESET=core` for a TUI-only override). The default `markets-service` path now also absorbs the TUI `direct://` fast-news connectors and inherits WorldMonitor-style per-feed failure cooldown and health logging so broken feeds stop slowing every polling round. Raw news now keeps only the most recent `24h` by default (tunable via `NEWS_RETENTION_HOURS` / `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS`) so `alternative.news_articles` does not grow without bound. The TUI news page now prefers the unified `alternative.news_articles` table and only falls back to local direct/RSS fetching when the database is unavailable or still empty.
-> Dual TUI workbench: `./scripts/launch_trade_workbench.sh` (uses `tmux` to launch the native `TradeCat TUI` and native `openclaw tui` side by side; if `tmux` is missing, it prints a two-terminal fallback).
+> Retained preview services: `cd services-preview/markets-service && ./scripts/start.sh start` (multi-market), `cd services-preview/markets-service && ./scripts/start.sh start-news` (24x7 news collection), `cd services-preview/tui-service && ./scripts/start.sh run` (terminal TUI; it auto-starts data-service and signal-service by default, then stops TUI-started data/signal services after 1 hour on exit; tune with `TUI_AUTO_START_DATA=0` / `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=0` / `TUI_SIGNAL_STOP_DELAY_SECONDS`). Root `./scripts/start.sh run` now starts the TradeCat TUI directly, and `./scripts/start.sh run-single` remains as a compatibility alias. To keep news collection running while viewing the TUI, use `cd services-preview/tui-service && ./scripts/start.sh run-news 2`. The default news pipeline now already includes a curated WorldMonitor trading/macro RSS subset and excludes feeds that now consistently return `403`, time out, or ship malformed XML; if you want to keep only the original fast-news layer, set `NEWS_RSS_PRESET=core` (or `TUI_NEWS_RSS_PRESET=core` for a TUI-only override). The default `markets-service` path now also absorbs the TUI `direct://` fast-news connectors and inherits WorldMonitor-style per-feed failure cooldown and health logging so broken feeds stop slowing every polling round. Raw news now keeps only the most recent `24h` by default (tunable via `NEWS_RETENTION_HOURS` / `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS`) so `<ALTERNATIVE_DB_SCHEMA>.news_articles` (default `alternative.news_articles`) does not grow without bound. The TUI news page now prefers the unified `<ALTERNATIVE_DB_SCHEMA>.news_articles` table (default `alternative.news_articles`) and only falls back to local direct/RSS fetching when the database is unavailable or still empty.
 > Backtest (M1 minimal loop): `cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml` (outputs to `artifacts/backtest/latest`).
 > Artifact layout: each run creates a timestamp session directory `artifacts/backtest/YYYYMMDD-HHMMSS/`; single-mode outputs are written directly there, `compare_history_rule` writes `<base>-history` / `<base>-rules` / `<base>-compare` subdirectories, and `--walk-forward` writes summary files plus per-fold `*-wfXX` subdirectories under the same session.
 > `input_quality.json` now separates `signal_days` (history-signal day coverage) from `aggregated_signal_bucket_count` (execution buckets); top-level `quality_status` includes the precheck gate result while `score_status` preserves the raw score-only outcome.
@@ -216,8 +215,8 @@ vim config/.env
 > Risk capital overrides: `--initial-equity`, `--leverage`, `--position-size-pct` (example: `./scripts/backtest.sh --symbols BTCUSDT,ETHUSDT --initial-equity 3000 --leverage 2 --position-size-pct 0.2`).
 > Metrics now include multi-benchmark comparison: `buy_hold_return_pct` (equal-weight buy-and-hold), `risk_parity_return_pct` (inverse-volatility weighted), and `momentum_return_pct` (simple time-series momentum), plus `excess_return_vs_risk_parity_pct` / `excess_return_vs_momentum_pct` / `best_baseline_name`.
 > Optional walk-forward: `./scripts/backtest.sh --walk-forward --wf-train-days 7 --wf-test-days 3 --wf-step-days 3 --walk-forward-max-folds 6 --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"`.
-> Real-window validation shortcut: use `./scripts/backtest_real_window_validation.sh --dry-run` to preview the commands, then run `./scripts/backtest_real_window_validation.sh` once TimescaleDB is back; it chains `check-only / compare gate / history_signal / walk-forward`.
-> Issue-fill draft helper: after validation, run `python3 scripts/backtest_issue_fill.py --run-prefix <your run_prefix> --print` to generate paste-ready notes for `#006-01/#006-02/#006-03/#006-04`; use `--apply-issues` to write them back into the issue files directly.
+> Real-window validation shortcut: use `./scripts/backtest/real_window_validation.sh --dry-run` to preview the commands, then run `./scripts/backtest/real_window_validation.sh` once TimescaleDB is back; it chains `check-only / compare gate / history_signal / walk-forward`.
+> Issue-fill draft helper: after validation, run `python3 scripts/backtest/backtest_issue_fill.py --run-prefix <your run_prefix> --print` to generate paste-ready notes for `#006-01/#006-02/#006-03/#006-04`; use `--apply-issues` to write them back into the issue files directly.
 > `walk_forward_summary.json` / `metrics.json` now record per-fold `selected_params`; by default walk-forward runs a lightweight train-window search across `base` / `aggressive` / `conservative` candidates so you can track parameter-to-return relationships.
 > Single-run artifacts now also include `stability_report.json/.md`, summarizing return/drawdown/win-rate drift across recent comparable runs to spot overfit-style collapses.
 > Walk-forward uses auto fallback by default for thin history-signal folds (`--walk-forward-auto-fallback`, disable via `--no-walk-forward-auto-fallback`).
@@ -239,35 +238,9 @@ vim config/.env
   - AI/Trading: `AI_INDICATOR_TABLES`, `AI_INDICATOR_TABLES_DISABLED`, `LLM_BACKEND`, `LLM_API_BASE_URL`, `EXTERNAL_API_KEY`, `LLM_MODEL`, `LLM_MAX_TOKENS`, `AI_LARGE_PAYLOAD_CHAR_LIMIT`, `AI_FORCE_GEMINI_ON_LARGE_PAYLOAD`, `AI_DEFAULT_PROMPT`, `AI_RECORD_ENABLED`, `AI_RECORD_PAYLOAD`, `AI_RECORD_PROMPT`, `AI_RECORD_MESSAGES`, `AI_RECORD_ANALYSIS`, `AI_RECORD_MAX_DIRS`, `BINANCE_API_KEY`, `BINANCE_API_SECRET`
   - i18n: `DEFAULT_LOCALE` (default en), `SUPPORTED_LOCALES` (zh-CN,en), `FALLBACK_LOCALE`
 
-### 🪟 Dual TUI Workbench (TradeCat + openclaw)
+### 🔌 TradeCat Read-Only Bridge Commands
 
 ```bash
-# Requires tmux and a working openclaw tui command on this machine
-./scripts/launch_trade_workbench.sh
-
-# Print the manual two-terminal fallback without launching tmux
-./scripts/launch_trade_workbench.sh --print-manual
-```
-
-Minimal runbook:
-
-- Left pane runs the native `TradeCat TUI`; right pane runs the native `openclaw tui`
-- Switch panes with `Ctrl+b`, then an arrow key, or press `o`
-- Detach from the workspace with `Ctrl+b d`
-- Re-attach with `tmux attach -t tradecat-workbench`
-- End the workspace by quitting both pane programs and then running `exit`, or use `Ctrl+b :kill-session -t tradecat-workbench`
-- If `tmux` is missing, the launcher prints a two-terminal fallback immediately
-- If `openclaw` is not on `PATH`, set `TRADE_WORKBENCH_OPENCLAW_CMD='your openclaw launch command'`
-- If `openclaw tui` exits on first use because local config is missing, run `openclaw configure`
-
-### 🔌 Trade Agent Read-Only Bridge Commands
-
-For `openclaw` integration, start with the runbook: `docs/learn/openclaw_tradecat_skill_runbook.md`
-
-```bash
-# Install the TradeCat -> openclaw workspace skill
-./scripts/install_openclaw_tradecat_skill.sh
-
 # Quotes
 python scripts/tradecat_get_quotes.py NVDA
 python scripts/tradecat_get_quotes.py --market crypto_spot BTC_USDT ETH_USDT
@@ -285,8 +258,8 @@ python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 
 Notes:
 
-- `./scripts/install_openclaw_tradecat_skill.sh` renders the current repo into `~/.openclaw/workspace/skills/tradecat-bridge/SKILL.md`
 - All four commands emit stable JSON with top-level `ok`, `tool`, `ts`, `source`, `request`, `data`, and `error`
+- These commands remain as stable local bridge entrypoints for upper-layer orchestration or external runtimes; TradeCat no longer maintains the retired workbench / skill path internally
 - `tradecat_get_quotes` supports single/multi-symbol queries; pass `--market` explicitly for ambiguous numeric CN fund/stock codes
 - `tradecat_get_signals` reads `signal_history.db` in read-only mode and returns `ok=true` + `data=[]` when no rows match
 - `tradecat_get_news` reads `<ALTERNATIVE_DB_SCHEMA>.news_articles` (default: `alternative.news_articles`) and supports `symbol` / `query` / `limit` / `since_minutes`
@@ -307,10 +280,10 @@ Download pre-built datasets from HuggingFace to skip lengthy historical backfill
 services/data-service/.venv/bin/pip install pandas psycopg2-binary huggingface_hub
 
 # Download Main4 dataset by default (BTC/ETH/BNB/SOL, 415MB)
-python scripts/download_hf_data.py
+python scripts/data/download_hf_data.py
 
 # Or specify symbols
-python scripts/download_hf_data.py --symbols BTCUSDT,ETHUSDT,BNBUSDT
+python scripts/data/download_hf_data.py --symbols BTCUSDT,ETHUSDT,BNBUSDT
 ```
 
 Script features:
@@ -935,15 +908,19 @@ tradecat/
 │   ├── install.sh                  # One-click install
 │   ├── init.sh                     # Initialization script
 │   ├── start.sh                    # Unified start/daemon script
-│   ├── launch_trade_workbench.sh   # Dual-TUI workbench launcher
 │   ├── tradecat_get_quotes.py      # Read-only quotes JSON command
 │   ├── tradecat_get_signals.py     # Read-only signals JSON command
 │   ├── tradecat_get_news.py        # Read-only news JSON command
 │   ├── tradecat_get_backtest_summary.py # Read-only backtest summary JSON command
 │   ├── verify.sh                   # Verification script
-│   ├── sync_market_data_to_rds.py  # SQLite -> PostgreSQL incremental sync
-│   ├── export_timescaledb.sh       # Data export
-│   └── timescaledb_compression.sh  # Compression management
+│   ├── dev/archive_symphony_workspace.sh # Symphony workspace archive helper
+│   ├── quality/check_i18n_keys.py  # i18n key alignment check
+│   ├── backtest/real_window_validation.sh # Real-window backtest validation workflow
+│   ├── data/download_hf_data.py    # HuggingFace data download
+│   ├── data/sync_market_data_to_rds.py  # SQLite -> PostgreSQL incremental sync
+│   ├── data/export_timescaledb.sh  # Data export
+│   ├── data/export_timescaledb_main4.sh # Main4 dataset export
+│   └── data/timescaledb_compression.sh  # Compression management
 │
 ├── 📂 services/                    # Core Microservices (3)
 │   │
@@ -1209,7 +1186,7 @@ LIMIT 10;
 
 ```bash
 # Run export script (background)
-nohup ./scripts/export_timescaledb.sh &
+nohup ./scripts/data/export_timescaledb.sh &
 
 # Check progress
 tail -f backups/timescaledb/export.log

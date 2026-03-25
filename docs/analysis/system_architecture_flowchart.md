@@ -204,7 +204,7 @@ graph TB
             SCR_INIT["init.sh<br>环境初始化"]
             SCR_VERIFY["verify.sh<br>代码验证"]
             SCR_CHECK["check_env.sh<br>环境检查"]
-            SCR_EXPORT["export_timescaledb.sh<br>数据导出"]
+            SCR_EXPORT["data/export_timescaledb.sh<br>数据导出"]
         end
         
         subgraph LIBS["共享库 libs/common"]
@@ -776,7 +776,7 @@ graph TD
         SCR_START["start.sh<br>━━━━━━━━━━<br>start/stop/status<br>daemon 模式<br>自动重启"]
         SCR_VERIFY["verify.sh<br>━━━━━━━━━━<br>ruff 检查<br>py_compile<br>i18n 检查"]
         SCR_CHECK["check_env.sh<br>━━━━━━━━━━<br>Python 版本<br>依赖完整性<br>数据库连接<br>网络连通"]
-        SCR_EXPORT["export_timescaledb.sh<br>━━━━━━━━━━<br>数据备份<br>zstd 压缩"]
+        SCR_EXPORT["data/export_timescaledb.sh<br>━━━━━━━━━━<br>数据备份<br>zstd 压缩"]
     end
 
     subgraph 服务Makefile["服务级 Makefile"]

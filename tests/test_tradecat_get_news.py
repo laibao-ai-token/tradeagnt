@@ -99,8 +99,8 @@ def test_main_outputs_ok_json(capsys) -> None:
     ]
 
     with patch.object(cli, "resolve_news_database_url", return_value="postgresql://example"), patch.object(
-        cli, "query_news_articles", return_value=rows
-    ):
+        cli, "resolve_news_database_schema", return_value="alternative"
+    ), patch.object(cli, "query_news_articles", return_value=rows):
         code = cli.main(["--symbol", "BTCUSDT", "--query", "btc", "--limit", "1", "--since-minutes", "120"])
 
     captured = capsys.readouterr()
@@ -136,8 +136,8 @@ def test_main_outputs_ok_json(capsys) -> None:
 
 def test_main_outputs_structured_error_json(capsys) -> None:
     with patch.object(cli, "resolve_news_database_url", return_value="postgresql://example"), patch.object(
-        cli, "query_news_articles", side_effect=RuntimeError("psql_not_found")
-    ):
+        cli, "resolve_news_database_schema", return_value="alternative"
+    ), patch.object(cli, "query_news_articles", side_effect=RuntimeError("psql_not_found")):
         code = cli.main(["--limit", "2"])
 
     captured = capsys.readouterr()

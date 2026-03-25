@@ -30,17 +30,21 @@ from psycopg2.extras import execute_values
 
 # ==================== 基础配置 ====================
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_COOLDOWN_DB = PROJECT_ROOT / "libs/database/services/signal-service/cooldown.db"
 DEFAULT_HISTORY_DB = PROJECT_ROOT / "libs/database/services/signal-service/signal_history.db"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "artifacts/analysis/signal_correlation"
 logger = logging.getLogger(__name__)
 
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+
 try:
-    # Running as file path: `python scripts/signal_correlation_analysis.py`
+    # Running as file path: `python scripts/analysis/signal_correlation_analysis.py`
     from lib.repo_env_loader import load_repo_env_compat
 except ModuleNotFoundError:
-    # Running as module: `python -m scripts.signal_correlation_analysis`
+    # Running as module: `python -m scripts.analysis.signal_correlation_analysis`
     from scripts.lib.repo_env_loader import load_repo_env_compat
 
 load_repo_env_compat(PROJECT_ROOT, set_os_env=True, override=False)

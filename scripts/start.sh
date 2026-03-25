@@ -263,7 +263,7 @@ daemon_stop() {
 }
 
 # ==================== TUI 快捷入口（根目录直启） ====================
-run_tui() {
+run_tui_single() {
     local tui_dir="$ROOT/services-preview/tui-service"
     if [ ! -d "$tui_dir" ]; then
         echo "✗ tui-service 目录不存在: $tui_dir"
@@ -271,6 +271,10 @@ run_tui() {
     fi
     cd "$tui_dir"
     ./scripts/start.sh run "$@"
+}
+
+run_tui() {
+    run_tui_single "$@"
 }
 
 run_tui_dev() {
@@ -303,13 +307,15 @@ case "${1:-status}" in
     daemon)      daemon_all ;;
     daemon-stop) daemon_stop ;;
     run)         shift || true; run_tui "$@" ;;
+    run-single)  shift || true; run_tui_single "$@" ;;
     run-dev)     shift || true; run_tui_dev "$@" ;;
     run-equity)  shift || true; run_tui_equity "$@" ;;
     tui)         shift || true; run_tui "$@" ;;
+    tui-single)  shift || true; run_tui_single "$@" ;;
     tui-dev)     shift || true; run_tui_dev "$@" ;;
     tui-equity)  shift || true; run_tui_equity "$@" ;;
     *)
-        echo "用法: $0 {start|stop|status|restart|daemon|daemon-stop|run|run-dev|run-equity|tui|tui-dev|tui-equity}"
+        echo "用法: $0 {start|stop|status|restart|daemon|daemon-stop|run|run-single|run-dev|run-equity|tui|tui-single|tui-dev|tui-equity}"
         echo ""
         echo "命令说明:"
         echo "  start       - 启动所有核心服务"
@@ -318,9 +324,11 @@ case "${1:-status}" in
         echo "  restart     - 重启所有服务"
         echo "  daemon      - 启动守护进程模式（自动重启崩溃的服务）"
         echo "  daemon-stop - 停止守护进程和所有服务"
-        echo "  run/tui     - 从根目录启动 TUI（默认单实例+热重载，自动联动 signal-service）"
+        echo "  run/tui     - 从根目录启动 TradeCat TUI"
+        echo "  run-single  - run/tui 的兼容别名"
         echo "  run-dev     - 从根目录启动 TUI 开发模式（强制热重载）"
         echo "  run-equity  - 从根目录启动 TUI + markets equity 采集"
+        echo "  tui-single  - run-single 的别名"
         echo "  tui-dev     - run-dev 的别名"
         echo "  tui-equity  - run-equity 的别名"
         exit 1

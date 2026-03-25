@@ -13,9 +13,9 @@
 - `services-preview/markets-service` 本地测试结果：`11 passed`（仅保留 pydantic deprecation warnings）。
 - CI 已扩展为全仓检查：`services/`、`services-preview/`、`libs/`、`scripts/` 均纳入 ruff 与语法校验。
 - `services/data-service` 已新增 11 个 smoke 测试（配置、下载器、调度），并补充 3 个采集链路集成测试（采集/解析/落盘）。
-- 已在 CI 增加 `scripts/check_no_print_services.py`，阻止 `services*/src` 回归使用 `print()`。
+- 已在 CI 增加 `scripts/quality/check_no_print_services.py`，阻止 `services*/src` 回归使用 `print()`。
 - 已清理一批脚本层 `print()`（回填/同步/分析/导入脚本），全仓 `print()` 从 129 降到 106。
-- 继续清理核心脚本（`download_hf_data.py`、`etf_backtest.py`），全仓 `print()` 进一步降到 53。
+- 继续清理工具脚本（`scripts/data/download_hf_data.py`、`scripts/analysis/etf_backtest.py`），全仓 `print()` 进一步降到 53。
 - 继续清理检查脚本与 shell 内联 Python 输出，`print()` 进一步降到 0（扫描范围内已清零）。
 - 已将脚本侧 `.env` 加载统一到共享兼容入口 `scripts/lib/repo_env_loader.py`。
 - 已移除工具模块中的 `load_dotenv` 直读，统一改为 `common.config_loader`。
@@ -124,7 +124,7 @@
 rg -n "sys\\.path\\.insert\\s*\\(" services services-preview libs scripts -g '*.py' | wc -l
 rg -n "\\bglobal\\b" services services-preview libs scripts -g '*.py' | wc -l
 rg -n "time\\.sleep\\(" services services-preview libs scripts -g '*.py' | wc -l
-python3 scripts/check_async_sleep.py
+python3 scripts/quality/check_async_sleep.py
 rg -n "\\bprint\\s*\\(" services services-preview libs scripts -g '*.py' -g '*.sh' | wc -l
 rg -n "except\\s+Exception\\s*:\\s*pass" services services-preview libs scripts -g '*.py' | wc -l
 rg -n "^\\s*except\\s*:\\s*$" services services-preview libs scripts -g '*.py' | wc -l

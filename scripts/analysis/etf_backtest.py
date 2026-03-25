@@ -3,7 +3,7 @@
 ETF 自动驾驶选基策略 30天离线评估脚本
 
 用法:
-    python scripts/etf_backtest.py [--days 30] [--top-n 5]
+    python scripts/analysis/etf_backtest.py [--days 30] [--top-n 5]
 
 输出:
     artifacts/analysis/etf_backtest_YYYYMMDD.json
@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 # Add src to path for imports
-_REPO_ROOT = Path(__file__).parent.parent.resolve()
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _TUI_ROOT = _REPO_ROOT / "services-preview" / "tui-service"
 _TUI_SRC_ROOT = _TUI_ROOT / "src"
 logger = logging.getLogger(__name__)

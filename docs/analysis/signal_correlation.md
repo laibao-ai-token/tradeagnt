@@ -1,6 +1,6 @@
 # 信号相关性分析说明
 
-本文档描述 `signal_correlation_analysis.py` 的数据来源、方法口径、输出文件与限制。
+本文档描述 `scripts/analysis/signal_correlation_analysis.py` 的数据来源、方法口径、输出文件与限制。
 
 ---
 
@@ -52,7 +52,7 @@ artifacts/analysis/signal_correlation/
 ```bash
 cd /path/to/tradecat
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/market_data \
-python3 scripts/signal_correlation_analysis.py
+python3 scripts/analysis/signal_correlation_analysis.py
 ```
 
 常用参数：

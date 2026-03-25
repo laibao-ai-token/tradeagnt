@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACTS_ROOT = REPO_ROOT / "artifacts" / "backtest"
 DEFAULT_ISSUES_ROOT = REPO_ROOT / ".issues" / "open" / "006-backtest"
 ISSUE_FILES = {
@@ -227,7 +227,7 @@ def _section_header(ctx: dict[str, Any]) -> list[str]:
     return [
         "## 真实窗口回填模板",
         "",
-        f"> 本区块由 `scripts/backtest_issue_fill.py` 自动生成，时间：`{ctx['generated_at']}`",
+        f"> 本区块由 `scripts/backtest/backtest_issue_fill.py` 自动生成，时间：`{ctx['generated_at']}`",
         "> 带“需人工复核 / 待人工补充”的项仍需人工最终确认。",
         "",
     ]

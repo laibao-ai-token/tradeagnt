@@ -64,7 +64,7 @@ class TestAgentEvents(unittest.TestCase):
             turn_id="turn-1",
             source="adapter",
             raw={"upstream_type": "tool_call", "arguments": {"symbol": "BTCUSDT"}},
-            meta={"adapter": "openclaw"},
+            meta={"adapter": "external-runtime"},
             tool_call_id="call-1",
             tool_name="get_crypto_price",
             args={"symbol": "BTCUSDT"},
@@ -75,7 +75,7 @@ class TestAgentEvents(unittest.TestCase):
         self.assertEqual(payload["type"], "tool.start")
         self.assertEqual(payload["args"], {"symbol": "BTCUSDT"})
         self.assertEqual(payload["raw"]["arguments"]["symbol"], "BTCUSDT")
-        self.assertEqual(payload["meta"]["adapter"], "openclaw")
+        self.assertEqual(payload["meta"]["adapter"], "external-runtime")
         self.assertEqual(payload["timeout_s"], 5.0)
 
     def test_tool_error_to_dict_strips_none_recursively(self) -> None:

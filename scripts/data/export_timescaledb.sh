@@ -6,7 +6,7 @@ set -e
 
 # 自动获取项目根目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 source "$PROJECT_ROOT/scripts/lib/db_url.sh"
 
 DB_URL="$(tc_resolve_db_url "$PROJECT_ROOT" "postgresql://postgres:postgres@localhost:5434/market_data" "DATABASE_URL")"

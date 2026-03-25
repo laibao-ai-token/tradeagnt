@@ -70,7 +70,7 @@ done
 # 4. 阻塞调用检查
 echo ""
 echo "4. 阻塞调用检查..."
-if python3 scripts/check_async_sleep.py; then
+if python3 scripts/quality/check_async_sleep.py; then
     success "异步阻塞调用检查通过"
 else
     fail "发现 async def 中的 time.sleep"
@@ -100,7 +100,7 @@ echo ""
 echo "6. i18n 词条对齐检查..."
 if [ -f "services/telegram-service/locales/zh_CN/LC_MESSAGES/bot.po" ] && \
    [ -f "services/telegram-service/locales/en/LC_MESSAGES/bot.po" ]; then
-    if python3 scripts/check_i18n_keys.py; then
+    if python3 scripts/quality/check_i18n_keys.py; then
         success "i18n 代码键与词条对齐"
     else
         fail "i18n 代码键缺失，请补充 bot.po"

@@ -70,7 +70,7 @@ class TestNewsDb(unittest.TestCase):
             "def,1709799900.0,www.benzinga.com,https://www.benzinga.com/a,Headline B,Summary B,NVDA,company,en\n"
         )
 
-        with patch("src.news_db.subprocess.run") as mock_run:
+        with patch("src.news_db._shared.subprocess.run") as mock_run:
             mock_run.return_value = SimpleNamespace(returncode=0, stdout=stdout, stderr="")
             rows = fetch_recent_news_articles(
                 "postgresql://postgres:postgres@localhost:5434/market_data",
@@ -102,7 +102,7 @@ class TestNewsDb(unittest.TestCase):
             SimpleNamespace(returncode=0, stdout=stdout, stderr=""),
         ]
 
-        with patch("src.news_db.subprocess.run", side_effect=side_effect) as mock_run:
+        with patch("src.news_db._shared.subprocess.run", side_effect=side_effect) as mock_run:
             rows = fetch_recent_news_articles(
                 "postgresql://postgres:postgres@localhost:5432/market_data",
                 limit=10,
@@ -115,7 +115,7 @@ class TestNewsDb(unittest.TestCase):
         self.assertIn(":5434/market_data", mock_run.call_args_list[1].args[0][1])
 
     def test_fetch_recent_news_articles_raises_runtime_error(self) -> None:
-        with patch("src.news_db.subprocess.run") as mock_run:
+        with patch("src.news_db._shared.subprocess.run") as mock_run:
             mock_run.return_value = SimpleNamespace(returncode=2, stdout="", stderr="permission denied")
             with self.assertRaises(RuntimeError):
                 fetch_recent_news_articles(
@@ -126,7 +126,7 @@ class TestNewsDb(unittest.TestCase):
                 )
 
     def test_fetch_recent_news_articles_timeout_maps_to_runtime_error(self) -> None:
-        with patch("src.news_db.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["psql"], timeout=3.0)):
+        with patch("src.news_db._shared.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["psql"], timeout=3.0)):
             with self.assertRaises(RuntimeError):
                 fetch_recent_news_articles(
                     "postgresql://postgres:postgres@localhost:5434/market_data",

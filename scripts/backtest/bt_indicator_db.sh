@@ -4,7 +4,7 @@ set -euo pipefail
 # Generate a dedicated indicator SQLite DB for backtests (offline_rule_replay),
 # and run it in background via nohup. This does NOT touch config/.env.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN_DIR="${ROOT_DIR}/run"
 LOG_DIR="${ROOT_DIR}/logs"
 OUT_DIR="${ROOT_DIR}/artifacts/indicator_db"
@@ -23,10 +23,10 @@ DEFAULT_FAST_WORKERS="4"
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/bt_indicator_db.sh start   # start background backfill (writes run/* pointers)
-  scripts/bt_indicator_db.sh status  # show current job status + tail log
-  scripts/bt_indicator_db.sh stop    # stop current job (SIGTERM)
-  scripts/bt_indicator_db.sh paths   # print output db + log paths
+  scripts/backtest/bt_indicator_db.sh start   # start background backfill (writes run/* pointers)
+  scripts/backtest/bt_indicator_db.sh status  # show current job status + tail log
+  scripts/backtest/bt_indicator_db.sh stop    # stop current job (SIGTERM)
+  scripts/backtest/bt_indicator_db.sh paths   # print output db + log paths
 
 Environment overrides (optional):
   BT_SYMBOLS="BTCUSDT ETHUSDT"

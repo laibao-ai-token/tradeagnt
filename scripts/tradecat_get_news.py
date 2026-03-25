@@ -17,6 +17,7 @@ try:
         clamp_limit,
         clamp_since_minutes,
         query_news_articles,
+        resolve_news_database_schema,
         resolve_news_database_url,
     )
 except ModuleNotFoundError:
@@ -26,6 +27,7 @@ except ModuleNotFoundError:
         clamp_limit,
         clamp_since_minutes,
         query_news_articles,
+        resolve_news_database_schema,
         resolve_news_database_url,
     )
 
@@ -59,10 +61,10 @@ def _article_payload(article: StoredNewsArticle) -> dict[str, object]:
     }
 
 
-def _source_payload() -> dict[str, object]:
+def _source_payload(table_name: str = DEFAULT_NEWS_SOURCE) -> dict[str, object]:
     return {
         "type": "postgresql",
-        "table": DEFAULT_NEWS_SOURCE,
+        "table": table_name,
         "reader": "scripts/lib/tradecat_news.py",
         "writes": False,
     }
@@ -140,6 +142,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     request = _request_payload(args)
     db_url = (args.database_url or "").strip() or resolve_news_database_url(PROJECT_ROOT)
+    schema = resolve_news_database_schema(PROJECT_ROOT)
+    table_name = f"{schema}.news_articles"
 
     try:
         rows = query_news_articles(
@@ -149,6 +153,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             limit=int(request["limit"]),
             since_minutes=int(request["since_minutes"]),
             timeout_s=float(args.timeout),
+            schema=schema,
         )
     except Exception as exc:
         _emit(
@@ -156,7 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "ok": False,
                 "tool": TOOL_NAME,
                 "ts": _utc_now_iso(),
-                "source": _source_payload(),
+                "source": _source_payload(table_name),
                 "request": request,
                 "data": [],
                 "error": _error_payload(_query_error_code(exc), str(exc) or exc.__class__.__name__),
@@ -169,7 +174,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ok": True,
             "tool": TOOL_NAME,
             "ts": _utc_now_iso(),
-            "source": _source_payload(),
+            "source": _source_payload(table_name),
             "request": request,
             "data": [_article_payload(row) for row in rows],
             "error": None,

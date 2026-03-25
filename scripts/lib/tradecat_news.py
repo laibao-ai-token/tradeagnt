@@ -15,7 +15,9 @@ from urllib.parse import urlparse, urlunparse
 
 
 DEFAULT_NEWS_DATABASE_URL = "postgresql://postgres:postgres@localhost:5434/market_data"
-DEFAULT_NEWS_SOURCE = "alternative.news_articles"
+DEFAULT_NEWS_DATABASE_SCHEMA = "alternative"
+DEFAULT_NEWS_TABLE = "news_articles"
+DEFAULT_NEWS_SOURCE = f"{DEFAULT_NEWS_DATABASE_SCHEMA}.{DEFAULT_NEWS_TABLE}"
 MAX_NEWS_LIMIT = 200
 MAX_SINCE_MINUTES = 60 * 24 * 30
 _COMMON_QUOTE_SUFFIXES = ("USDT", "USD", "USDC", "BUSD", "FDUSD", "BTC", "ETH")
@@ -83,6 +85,21 @@ def resolve_news_database_url(repo_root: Path, env: Mapping[str, str] | None = N
         if value:
             return value
     return DEFAULT_NEWS_DATABASE_URL
+
+
+def resolve_news_database_schema(repo_root: Path, env: Mapping[str, str] | None = None) -> str:
+    """Resolve the news schema from env vars, config/.env, or the local default."""
+
+    data = os.environ if env is None else env
+    value = str(data.get("ALTERNATIVE_DB_SCHEMA", "") or "").strip()
+    if value:
+        return value
+
+    env_file = repo_root / "config" / ".env"
+    value = _read_env_value(env_file, "ALTERNATIVE_DB_SCHEMA").strip()
+    if value:
+        return value
+    return DEFAULT_NEWS_DATABASE_SCHEMA
 
 
 def clamp_limit(limit: int) -> int:
@@ -205,6 +222,12 @@ def _sql_text_array(items: list[str]) -> str:
     return f"ARRAY[{escaped}]::text[]"
 
 
+def _quote_sql_identifier(value: str, *, default: str) -> str:
+    identifier = str(value or "").strip() or default
+    escaped = identifier.replace(chr(34), chr(34) * 2)
+    return f'"{escaped}"'
+
+
 def _build_symbol_filter_sql(symbol_value: str) -> str:
     terms = _symbol_search_terms(symbol_value)
     if not terms:
@@ -241,11 +264,19 @@ def _build_query_filter_sql(query: str) -> str:
 """.rstrip()
 
 
-def _build_copy_sql(*, limit: int, since_minutes: int, symbol: str, query: str) -> str:
+def _build_filtered_copy_sql(
+    *,
+    limit: int,
+    since_minutes: int,
+    symbol: str,
+    query: str,
+    schema: str = DEFAULT_NEWS_DATABASE_SCHEMA,
+) -> str:
     safe_limit = clamp_limit(limit)
     safe_since_minutes = clamp_since_minutes(since_minutes)
     symbol_filter = _build_symbol_filter_sql(symbol)
     query_filter = _build_query_filter_sql(query)
+    schema_sql = _quote_sql_identifier(schema, default=DEFAULT_NEWS_DATABASE_SCHEMA)
 
     return f"""
 COPY (
@@ -259,7 +290,7 @@ COPY (
         COALESCE(array_to_string(symbols, '|'), '') AS symbols,
         COALESCE(array_to_string(categories, '|'), '') AS categories,
         COALESCE(language, 'en') AS language
-    FROM {DEFAULT_NEWS_SOURCE}
+    FROM {schema_sql}.{DEFAULT_NEWS_TABLE}
     WHERE published_at >= NOW() - INTERVAL '{safe_since_minutes} minutes'
 {symbol_filter}
 {query_filter}
@@ -269,30 +300,77 @@ COPY (
 """.strip()
 
 
-def query_news_articles(
-    db_url: str,
+def _build_recent_copy_sql(
+    limit: int,
+    window_hours: int,
     *,
-    symbol: str = "",
-    query: str = "",
-    limit: int = 20,
-    since_minutes: int = 24 * 60,
-    timeout_s: float = 5.0,
-) -> list[StoredNewsArticle]:
-    """Query recent news rows from TimescaleDB via `psql` and parse them into dataclasses."""
+    schema: str = DEFAULT_NEWS_DATABASE_SCHEMA,
+) -> str:
+    safe_limit = max(1, int(limit))
+    safe_window_hours = max(1, int(window_hours))
+    schema_sql = _quote_sql_identifier(schema, default=DEFAULT_NEWS_DATABASE_SCHEMA)
 
+    return f"""
+COPY (
+    SELECT
+        dedup_hash,
+        EXTRACT(EPOCH FROM published_at) AS published_at,
+        COALESCE(source, '') AS source,
+        COALESCE(url, '') AS url,
+        COALESCE(title, '') AS title,
+        COALESCE(summary, '') AS summary,
+        COALESCE(array_to_string(symbols, '|'), '') AS symbols,
+        COALESCE(array_to_string(categories, '|'), '') AS categories,
+        COALESCE(language, 'en') AS language
+    FROM {schema_sql}.{DEFAULT_NEWS_TABLE}
+    WHERE published_at >= NOW() - INTERVAL '{safe_window_hours} hours'
+    ORDER BY published_at DESC
+    LIMIT {safe_limit}
+) TO STDOUT WITH (FORMAT CSV, HEADER TRUE)
+""".strip()
+
+
+def _parse_article_rows(stdout: str) -> list[StoredNewsArticle]:
+    reader = csv.DictReader(io.StringIO(stdout))
+    rows: list[StoredNewsArticle] = []
+    for row in reader:
+        if not isinstance(row, dict):
+            continue
+        try:
+            published_at = float(row.get("published_at") or 0.0)
+        except Exception:
+            published_at = 0.0
+        if published_at <= 0:
+            continue
+
+        title = str(row.get("title") or "").strip()
+        if not title:
+            continue
+
+        rows.append(
+            StoredNewsArticle(
+                dedup_hash=str(row.get("dedup_hash") or "").strip(),
+                published_at=published_at,
+                source=str(row.get("source") or "").strip(),
+                url=str(row.get("url") or "").strip(),
+                title=title,
+                summary=str(row.get("summary") or "").strip(),
+                symbols=_split_pipe(str(row.get("symbols") or "")),
+                categories=_split_pipe(str(row.get("categories") or "")),
+                language=str(row.get("language") or "en").strip() or "en",
+            )
+        )
+    return rows
+
+
+def _run_copy_query(db_url: str, *, sql: str, timeout_s: float, app_name: str) -> list[StoredNewsArticle]:
     target = str(db_url or "").strip()
     if not target:
         return []
 
     env = dict(os.environ)
-    env.setdefault("PGAPPNAME", "tradecat_get_news")
+    env.setdefault("PGAPPNAME", app_name)
     last_error = ""
-    sql = _build_copy_sql(
-        limit=limit,
-        since_minutes=since_minutes,
-        symbol=symbol,
-        query=query,
-    )
 
     for candidate in _candidate_database_urls(target):
         cmd = [
@@ -328,35 +406,42 @@ def query_news_articles(
                 continue
             raise RuntimeError(last_error)
 
-        reader = csv.DictReader(io.StringIO(proc.stdout))
-        rows: list[StoredNewsArticle] = []
-        for row in reader:
-            if not isinstance(row, dict):
-                continue
-            try:
-                published_at = float(row.get("published_at") or 0.0)
-            except Exception:
-                published_at = 0.0
-            if published_at <= 0:
-                continue
-
-            title = str(row.get("title") or "").strip()
-            if not title:
-                continue
-
-            rows.append(
-                StoredNewsArticle(
-                    dedup_hash=str(row.get("dedup_hash") or "").strip(),
-                    published_at=published_at,
-                    source=str(row.get("source") or "").strip(),
-                    url=str(row.get("url") or "").strip(),
-                    title=title,
-                    summary=str(row.get("summary") or "").strip(),
-                    symbols=_split_pipe(str(row.get("symbols") or "")),
-                    categories=_split_pipe(str(row.get("categories") or "")),
-                    language=str(row.get("language") or "en").strip() or "en",
-                )
-            )
-        return rows
+        return _parse_article_rows(proc.stdout)
 
     raise RuntimeError(last_error or "psql_connection_failed")
+
+
+def query_news_articles(
+    db_url: str,
+    *,
+    symbol: str = "",
+    query: str = "",
+    limit: int = 20,
+    since_minutes: int = 24 * 60,
+    timeout_s: float = 5.0,
+    schema: str = DEFAULT_NEWS_DATABASE_SCHEMA,
+) -> list[StoredNewsArticle]:
+    """Query recent news rows from TimescaleDB via `psql` and parse them into dataclasses."""
+
+    sql = _build_filtered_copy_sql(
+        limit=limit,
+        since_minutes=since_minutes,
+        symbol=symbol,
+        query=query,
+        schema=schema,
+    )
+    return _run_copy_query(db_url, sql=sql, timeout_s=timeout_s, app_name="tradecat_get_news")
+
+
+def fetch_recent_news_articles(
+    db_url: str,
+    *,
+    limit: int = 300,
+    window_hours: int = 72,
+    timeout_s: float = 5.0,
+    schema: str = DEFAULT_NEWS_DATABASE_SCHEMA,
+) -> list[StoredNewsArticle]:
+    """Fetch recent news rows without symbol/query filters for UI consumers."""
+
+    sql = _build_recent_copy_sql(limit=limit, window_hours=window_hours, schema=schema)
+    return _run_copy_query(db_url, sql=sql, timeout_s=timeout_s, app_name="tradecat-tui-news")

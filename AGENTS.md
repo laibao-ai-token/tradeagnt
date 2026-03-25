@@ -38,6 +38,13 @@
 
 > 提醒：服务启动脚本会检查 `config/.env` 权限（需 600/400），不符合直接退出。
 
+### 1.4 Multi-Agent 协作原则
+
+- **默认优先使用 multi-agent**：只要任务可以安全拆分，应优先并行使用多个 Agent 处理检索、分析、实现、验证等子任务
+- 若任务强依赖同一上下文、改动极小，或串行处理更安全，可退回单 Agent 执行，但应先评估是否存在合适的并行切分点
+- 多 Agent 并行时需明确职责边界，避免重复分析、重复实现，或同时修改同一文件造成相互覆盖
+- 主 Agent 负责汇总结论、整合改动与最终交付，不得将关键决策完全下放给子 Agent
+
 ---
 
 ## 2. Golden Path（推荐执行路径）
@@ -75,8 +82,10 @@ cd services-preview/markets-service && ./scripts/start.sh start-news
 # tui-service（终端信号看板，默认自动拉起 data-service + signal-service）
 cd services-preview/tui-service && ./scripts/start.sh run
 cd services-preview/tui-service && ./scripts/start.sh run-news 15
-# 或在仓库根目录直接启动：
+# 或在仓库根目录直接启动 TradeCat TUI：
 ./scripts/start.sh run
+# 兼容别名：
+./scripts/start.sh run-single
 # 默认退出 TUI 后 1 小时自动停止由 TUI 启动的 data/signal 服务。
 # 若只看行情且不自动启动 data/signal：
 TUI_AUTO_START_DATA=0 TUI_AUTO_START_SIGNAL=0 ./scripts/start.sh run
@@ -84,27 +93,19 @@ TUI_AUTO_START_DATA=0 TUI_AUTO_START_SIGNAL=0 ./scripts/start.sh run
 TUI_DATA_STOP_DELAY_SECONDS=0 TUI_SIGNAL_STOP_DELAY_SECONDS=0 ./scripts/start.sh run
 ```
 
-### 2.3 双 TUI 工作台
+### 2.3 只读桥接命令
 
 ```bash
-# 需安装 tmux，并确保 openclaw CLI 可用
-./scripts/launch_trade_workbench.sh
-
-# 只打印双终端降级命令，不创建 tmux 会话
-./scripts/launch_trade_workbench.sh --print-manual
-
-# 重新连接默认会话
-tmux attach -t tradecat-workbench
+python scripts/tradecat_get_quotes.py NVDA
+python scripts/tradecat_get_signals.py --symbol BTCUSDT --timeframe 1m --limit 5
+python scripts/tradecat_get_news.py --symbol BTCUSDT --limit 5 --since-minutes 120
+python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 ```
 
-最小 runbook：
-- 左 pane：原生 `TradeCat TUI`
-- 右 pane：原生 `openclaw tui`
-- 切 pane：`Ctrl+b` 后按方向键，或按 `o`
-- 暂离工作台：`Ctrl+b d`
-- 若缺少 `tmux`，launcher 会直接输出“两个终端分别执行”的降级命令
-- 若 `openclaw` 不在 PATH，可设置 `TRADE_WORKBENCH_OPENCLAW_CMD='...'`
-- 若右侧首次运行因本机未配置 openclaw 而退出，先执行 `openclaw configure`
+约定：
+- 这些命令是稳定的本地只读桥接入口
+- 供上层编排或外部运行时消费
+- TradeCat 主仓内不再维护旧 workbench / skill 路线
 
 ### 2.4 开发/修改流程
 
@@ -139,17 +140,15 @@ cd /path/to/tradecat
 | `./scripts/init.sh --all` | 初始化全部服务（含 preview） |
 | `./scripts/start.sh start\|stop\|status\|restart` | 核心服务管理 |
 | `./scripts/start.sh daemon\|daemon-stop` | 守护进程模式（自动重启崩溃服务） |
-| `./scripts/launch_trade_workbench.sh` | 通过 tmux 并排启动 TradeCat TUI + openclaw tui 工作台 |
-| `./scripts/install_openclaw_tradecat_skill.sh` | 安装当前仓库对应的 openclaw workspace skill（`tradecat-bridge`） |
 | `./scripts/check_env.sh` | 环境检查（Python/依赖/配置/网络/数据库） |
 | `./scripts/verify.sh` | 代码验证（ruff + py_compile + i18n） |
 | `python scripts/tradecat_get_quotes.py NVDA` | 只读行情 JSON 命令（支持单/多 symbol，必要时显式传 `--market`） |
 | `python scripts/tradecat_get_signals.py --symbol BTCUSDT --timeframe 1m --limit 5` | 只读最近信号 JSON 命令（默认读 `signal_history.db`） |
-| `python scripts/tradecat_get_news.py --symbol BTCUSDT --limit 5 --since-minutes 120` | 只读最近新闻 JSON 命令（默认读 `alternative.news_articles`） |
+| `python scripts/tradecat_get_news.py --symbol BTCUSDT --limit 5 --since-minutes 120` | 只读最近新闻 JSON 命令（读取 `<ALTERNATIVE_DB_SCHEMA>.news_articles`，默认 `alternative.news_articles`） |
 | `python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>` | 只读已有回测摘要 JSON 命令（不触发重新回测） |
-| `python scripts/download_hf_data.py` | 从 HuggingFace 下载历史数据并导入 |
-| `python scripts/check_i18n_keys.py` | 检查 i18n 翻译键对齐 |
-| `python scripts/sync_market_data_to_rds.py` | 增量同步 SQLite `market_data.db` 到 PostgreSQL（RDS/Aurora） |
+| `python scripts/data/download_hf_data.py` | 从 HuggingFace 下载历史数据并导入 |
+| `python scripts/quality/check_i18n_keys.py` | 检查 i18n 翻译键对齐 |
+| `python scripts/data/sync_market_data_to_rds.py` | 增量同步 SQLite `market_data.db` 到 PostgreSQL（RDS/Aurora） |
 | `cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml` | 回测 M1 最小闭环（输出到 artifacts/backtest/latest；每次运行会创建 `artifacts/backtest/YYYYMMDD-HHMMSS/` 时间戳目录；单次 run 会额外产出 `stability_report.json/.md`） |
 | `./scripts/backtest.sh` | 回测 M1 最小闭环（脚本转发） |
 | `./scripts/backtest.sh --run-id tune-b-strict --long-threshold 90 --short-threshold 90 --close-threshold 15` | 回测参数调优示例（阈值覆盖） |
@@ -162,12 +161,12 @@ cd /path/to/tradecat
 | `./scripts/backtest.sh --symbols BTCUSDT,ETHUSDT --initial-equity 3000 --leverage 2 --position-size-pct 0.2` | 回测资金口径覆盖示例（本金/杠杆/仓位） |
 | `./scripts/backtest.sh --config src/backtest/strategies/default.crypto.btc_eth.safe.yaml` | BTC/ETH 保守模板（阈值 200/200，低频） |
 | `./scripts/backtest.sh --walk-forward --wf-train-days 7 --wf-test-days 3 --wf-step-days 3 --walk-forward-max-folds 6 --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | Walk-Forward（滚动窗口）回测摘要输出；默认会在训练窗对 `base/aggressive/conservative` 候选做轻量选参，`walk_forward_summary.json/metrics.json` 会记录每折 `selected_params` |
-| `./scripts/backtest_real_window_validation.sh --dry-run` | 真实窗口校准闭环脚本（`check-only / compare gate / history_signal / walk-forward`）；`--dry-run` 可在 TimescaleDB 未恢复时先预览命令 |
-| `python3 scripts/backtest_issue_fill.py --run-prefix <run_prefix> --print` | 从真实窗口校准产物中提取 `#006-01/#006-02/#006-03/#006-04` 的 issue 回填草稿；加 `--apply-issues` 可直接写回 issue 文件 |
+| `./scripts/backtest/real_window_validation.sh --dry-run` | 真实窗口校准闭环脚本（`check-only / compare gate / history_signal / walk-forward`）；`--dry-run` 可在 TimescaleDB 未恢复时先预览命令 |
+| `python3 scripts/backtest/backtest_issue_fill.py --run-prefix <run_prefix> --print` | 从真实窗口校准产物中提取 `#006-01/#006-02/#006-03/#006-04` 的 issue 回填草稿；加 `--apply-issues` 可直接写回 issue 文件 |
 | `./scripts/backtest.sh --walk-forward --walk-forward-auto-fallback --min-signal-days 7 --min-signal-count 200` | Walk-Forward 分折自动回放兜底（历史信号不足时切 offline_replay） |
-| `./scripts/export_timescaledb.sh` | 导出 TimescaleDB 数据（默认端口 5433） |
-| `./scripts/export_timescaledb_main4.sh` | 导出 Main4 精简数据集（默认端口 5433） |
-| `./scripts/timescaledb_compression.sh` | 压缩管理（默认端口 5433） |
+| `./scripts/data/export_timescaledb.sh` | 导出 TimescaleDB 数据（默认端口 5434） |
+| `./scripts/data/export_timescaledb_main4.sh` | 导出 Main4 精简数据集（默认端口 5434） |
+| `./scripts/data/timescaledb_compression.sh` | 压缩管理（默认端口 5434） |
 
 ### 3.2 Make 快捷命令
 
@@ -216,14 +215,14 @@ make status      # 查看状态
 
 ### 3.4 数据库操作
 
-> **端口说明**：`config/.env.example` 默认端口为 **5434**（新库），但导出/压缩脚本默认 **5433**（旧库）。请根据实际部署选择统一端口。
+> **端口说明**：`config/.env.example` 与导出/压缩脚本默认端口均为 **5434**（新库）；**5433** 旧库仅保留给历史迁移场景。请根据实际部署选择统一端口。
 
 ```bash
 # 连接 TimescaleDB（根据 config/.env 中 DATABASE_URL 端口）
 # 新库（5434）
 PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d market_data
 
-# 旧库（5433，脚本默认）
+# 旧库（5433，历史迁移）
 PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d market_data
 
 # 查看 K线数据量
@@ -361,22 +360,21 @@ tradecat/
 │   ├── install.sh                  # 一键安装
 │   ├── start.sh                    # 统一启动脚本
 │   ├── verify.sh                   # 验证脚本（ruff + py_compile + i18n）
-│   ├── launch_trade_workbench.sh   # 双 TUI 工作台启动脚本
-│   ├── install_openclaw_tradecat_skill.sh # 安装 openclaw workspace skill
 │   ├── check_env.sh                # 环境检查
 │   ├── tradecat_get_quotes.py      # 只读行情 JSON 命令
 │   ├── tradecat_get_signals.py     # 只读信号 JSON 命令
 │   ├── tradecat_get_news.py        # 只读新闻 JSON 命令
 │   ├── tradecat_get_backtest_summary.py # 只读回测摘要 JSON 命令
-│   ├── check_i18n_keys.py          # i18n 翻译键对齐检查
-│   ├── download_hf_data.py         # HuggingFace 数据下载
-│   ├── signal_correlation_analysis.py # 信号相关性分析（cooldown + PG）
-│   ├── sync_market_data_to_rds.py  # SQLite -> PostgreSQL 增量同步
-│   ├── backtest_real_window_validation.sh # 真实窗口回测校准闭环脚本
-│   ├── backtest_issue_fill.py    # 从回测产物提取 issue 回填草稿
-│   ├── export_timescaledb.sh       # 数据导出（默认端口 5433）
-│   ├── export_timescaledb_main4.sh # 导出 Main4 精简数据集（默认端口 5433）
-│   └── timescaledb_compression.sh  # 压缩管理（默认端口 5433）
+│   ├── quality/check_i18n_keys.py  # i18n 翻译键对齐检查
+│   ├── dev/archive_symphony_workspace.sh # Symphony 工作区归档工具
+│   ├── data/download_hf_data.py    # HuggingFace 数据下载
+│   ├── analysis/signal_correlation_analysis.py # 信号相关性分析（cooldown + PG）
+│   ├── data/sync_market_data_to_rds.py  # SQLite -> PostgreSQL 增量同步
+│   ├── backtest/real_window_validation.sh # 真实窗口回测校准闭环脚本
+│   ├── backtest/backtest_issue_fill.py # 从回测产物提取 issue 回填草稿
+│   ├── data/export_timescaledb.sh  # 数据导出（默认端口 5434）
+│   ├── data/export_timescaledb_main4.sh # 导出 Main4 精简数据集（默认端口 5434）
+│   └── data/timescaledb_compression.sh  # 压缩管理（默认端口 5434）
 │
 ├── services/                       # 核心微服务 (3个)
 │   ├── data-service/               # 加密货币数据采集
@@ -586,32 +584,32 @@ sudo cp /tmp/tradecat-logrotate.conf /etc/logrotate.d/tradecat
 ### 7.8 端口冲突（双库架构）
 
 ```bash
-# 旧库（5433）：与早期数据采集链兼容，export/compression 脚本默认使用
-# 新库（5434）：多 schema 架构（raw/agg/quality），.env.example 默认
+# 旧库（5433）：与早期数据采集链兼容
+# 新库（5434）：多 schema 架构（raw/agg/quality），.env.example 与 export/compression 脚本默认值
 
 # 确认当前使用端口
 grep "DATABASE_URL" config/.env | grep -oP ':\K\d+(?=/)'
 
 # 若需切换端口，需同步修改：
 # - config/.env 中 DATABASE_URL
-# - scripts/export_timescaledb.sh
-# - scripts/timescaledb_compression.sh
+# - scripts/data/export_timescaledb.sh
+# - scripts/data/timescaledb_compression.sh
 # - README.md 中所有示例命令
 ```
 
 ### 7.8 端口冲突（双库架构）
 
 ```bash
-# 旧库（5433）：与早期数据采集链兼容，export/compression 脚本默认使用
-# 新库（5434）：多 schema 架构（raw/agg/quality），.env.example 默认
+# 旧库（5433）：与早期数据采集链兼容
+# 新库（5434）：多 schema 架构（raw/agg/quality），.env.example 与 export/compression 脚本默认值
 
 # 确认当前使用端口
 grep "DATABASE_URL" config/.env | grep -oP ':\K\d+(?=/)'
 
 # 若需切换端口，需同步修改：
 # - config/.env 中 DATABASE_URL
-# - scripts/export_timescaledb.sh
-# - scripts/timescaledb_compression.sh
+# - scripts/data/export_timescaledb.sh
+# - scripts/data/timescaledb_compression.sh
 ```
 
 ---
@@ -729,6 +727,7 @@ CI（`.github/workflows/ci.yml`）仅执行：
 | `COMPUTE_BACKEND` | trading-service | 计算后端（thread/process/hybrid） |
 | `HIGH_PRIORITY_TOP_N` | trading-service | auto 模式高优先级币种数量 |
 | `MARKETS_SERVICE_DATABASE_URL` | markets-service | 独立数据库连接 |
+| `ALTERNATIVE_DB_SCHEMA` | markets-service / tui-service | 统一新闻表 schema（读写 `<ALTERNATIVE_DB_SCHEMA>.news_articles`，默认 `alternative`） |
 | `CRYPTO_WRITE_MODE` | markets-service | 写入模式（raw/legacy） |
 | `ORDER_BOOK_TICK_INTERVAL` | markets-service | L1 tick 采样间隔（秒，默认 1） |
 | `ORDER_BOOK_FULL_INTERVAL` | markets-service | L2 full 采样间隔（秒，默认 5） |
@@ -758,10 +757,8 @@ CI（`.github/workflows/ci.yml`）仅执行：
 # 单服务管理
 cd services/<name> && make start|stop|status
 
-# 双 TUI 工作台（tmux）
-./scripts/launch_trade_workbench.sh
-# 或仅打印手工降级命令
-./scripts/launch_trade_workbench.sh --print-manual
+# 根目录启动 TUI
+./scripts/start.sh run
 
 # 代码检查
 cd services/<name> && make lint format test
@@ -770,10 +767,10 @@ cd services/<name> && make lint format test
 ./scripts/verify.sh
 
 # Trade Agent 只读桥接命令
-./scripts/install_openclaw_tradecat_skill.sh
 python scripts/tradecat_get_quotes.py NVDA
 python scripts/tradecat_get_quotes.py --market crypto_spot BTC_USDT ETH_USDT
 python scripts/tradecat_get_signals.py --symbol BTCUSDT --timeframe 1m --limit 5
+# 读取 <ALTERNATIVE_DB_SCHEMA>.news_articles（默认 alternative.news_articles）
 python scripts/tradecat_get_news.py --symbol BTCUSDT --limit 5 --since-minutes 120
 python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 
@@ -801,9 +798,9 @@ cd services/signal-service && python -m src.backtest --config src/backtest/strat
 ./scripts/backtest.sh --walk-forward --wf-train-days 7 --wf-test-days 3 --wf-step-days 3 --walk-forward-max-folds 6 --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"
 # 产物会在 walk_forward_summary.json / metrics.json 记录每折 selected_params（默认先做 train window 轻量选参）
 # 真实窗口校准闭环（PG 恢复后执行；未恢复可先 --dry-run）
-./scripts/backtest_real_window_validation.sh --dry-run
+./scripts/backtest/real_window_validation.sh --dry-run
 # issue 回填草稿提取（校准完成后使用；若要直接写回 issue，可加 --apply-issues）
-python3 scripts/backtest_issue_fill.py --run-prefix <run_prefix> --print
+python3 scripts/backtest/backtest_issue_fill.py --run-prefix <run_prefix> --print
 # 分层滑点：strategy YAML 可设置 execution.slippage_model=layered，并用 slippage_max_bps / slippage_*_weight / slippage_volume_window 控制动态滑点
 # 执行约束：strategy YAML 可设置 max_bar_participation_rate / min_order_notional / impact_bps_per_bar_participation，产物会输出 partial_fill / fill_ratio / impact_cost
 # 多基准对比：metrics/report/walk_forward_summary 会额外输出 buy_hold / risk_parity / momentum 三类基准收益，以及 excess_return_vs_* / best_baseline_name
@@ -813,7 +810,7 @@ PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d market_data
 sqlite3 libs/database/services/telegram-service/market_data.db
 
 # 备份
-./scripts/export_timescaledb.sh
+./scripts/data/export_timescaledb.sh
 ```
 
 ---

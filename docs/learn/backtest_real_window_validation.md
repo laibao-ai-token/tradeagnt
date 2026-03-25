@@ -26,31 +26,31 @@
 先只看将执行哪些命令：
 
 ```bash
-./scripts/backtest_real_window_validation.sh --dry-run
+./scripts/backtest/real_window_validation.sh --dry-run
 ```
 
 确认无误后正式执行：
 
 ```bash
-./scripts/backtest_real_window_validation.sh
+./scripts/backtest/real_window_validation.sh
 ```
 
 校准结束后，可自动生成 issue 回填草稿：
 
 ```bash
-python3 scripts/backtest_issue_fill.py --run-prefix <run_prefix> --print
+python3 scripts/backtest/backtest_issue_fill.py --run-prefix <run_prefix> --print
 ```
 
 如果确认要直接回写本地 issue 文件：
 
 ```bash
-python3 scripts/backtest_issue_fill.py --run-prefix <run_prefix> --apply-issues
+python3 scripts/backtest/backtest_issue_fill.py --run-prefix <run_prefix> --apply-issues
 ```
 
 如需指定窗口：
 
 ```bash
-./scripts/backtest_real_window_validation.sh \
+./scripts/backtest/real_window_validation.sh \
   --symbols BTCUSDT,ETHUSDT,SOLUSDT \
   --start "2026-02-01 00:00:00" \
   --end "2026-03-01 00:00:00"

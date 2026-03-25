@@ -3,7 +3,7 @@
 从 HuggingFace 下载历史数据并导入 TimescaleDB
 
 用法:
-    python scripts/download_hf_data.py [--symbols BTCUSDT,ETHUSDT]
+    python scripts/data/download_hf_data.py [--symbols BTCUSDT,ETHUSDT]
 
 默认下载 main4 币种 (BTC/ETH/BNB/SOL) 的全部历史数据
 Main4 数据集约 415MB，包含 1150 万条记录（2020-2026）
@@ -17,14 +17,18 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
+SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 logger = logging.getLogger(__name__)
 
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+
 try:
-    # Running as file path: `python scripts/download_hf_data.py`
+    # Running as file path: `python scripts/data/download_hf_data.py`
     from lib.repo_env_loader import load_repo_env_compat
 except ModuleNotFoundError:
-    # Running as module: `python -m scripts.download_hf_data`
+    # Running as module: `python -m scripts.data.download_hf_data`
     from scripts.lib.repo_env_loader import load_repo_env_compat
 
 try:

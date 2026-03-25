@@ -7,7 +7,7 @@ set -euo pipefail
 ORIGINAL_ARGS=("$@")
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 BACKTEST_SH="$REPO_ROOT/scripts/backtest.sh"
 DB_URL_HELPER="$REPO_ROOT/scripts/lib/db_url.sh"
 
@@ -29,7 +29,7 @@ fail() { echo -e "${RED}✗${NC} $1"; }
 
 usage() {
     cat <<'USAGE'
-用法：./scripts/backtest_real_window_validation.sh [options]
+用法：./scripts/backtest/real_window_validation.sh [options]
 
 说明：
   用于 TimescaleDB 恢复后，串行执行真实窗口回测校准闭环：
@@ -63,9 +63,9 @@ usage() {
   --help                        显示帮助
 
 示例：
-  ./scripts/backtest_real_window_validation.sh
-  ./scripts/backtest_real_window_validation.sh --dry-run
-  ./scripts/backtest_real_window_validation.sh --symbols BTCUSDT,ETHUSDT,SOLUSDT --start "2026-02-01 00:00:00" --end "2026-03-01 00:00:00"
+  ./scripts/backtest/real_window_validation.sh
+  ./scripts/backtest/real_window_validation.sh --dry-run
+  ./scripts/backtest/real_window_validation.sh --symbols BTCUSDT,ETHUSDT,SOLUSDT --start "2026-02-01 00:00:00" --end "2026-03-01 00:00:00"
 USAGE
 }
 
@@ -270,7 +270,7 @@ run_step \
     --walk-forward-max-folds "$WF_MAX_FOLDS" \
     "${FORCE_ARGS[@]}"
 
-ISSUE_FILL_CMD=(python3 "$REPO_ROOT/scripts/backtest_issue_fill.py" --run-prefix "$RUN_PREFIX" --db-target "$DB_TARGET" --executed-command "$(quote_cmd ./scripts/backtest_real_window_validation.sh "${ORIGINAL_ARGS[@]}")")
+ISSUE_FILL_CMD=(python3 "$REPO_ROOT/scripts/backtest/backtest_issue_fill.py" --run-prefix "$RUN_PREFIX" --db-target "$DB_TARGET" --executed-command "$(quote_cmd ./scripts/backtest/real_window_validation.sh "${ORIGINAL_ARGS[@]}")")
 ISSUE_FILL_SUGGEST_ARGS=(--print)
 if [[ "$AUTO_APPLY_ISSUES" -eq 1 ]]; then
     ISSUE_FILL_SUGGEST_ARGS=(--apply-issues)

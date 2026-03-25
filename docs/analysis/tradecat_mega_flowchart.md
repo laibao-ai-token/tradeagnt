@@ -251,7 +251,7 @@ graph TB
             SCR_START["start.sh 启动/守护"]
             SCR_VERIFY["verify.sh 代码验证"]
             SCR_CHECK["check_env.sh 环境检查"]
-            SCR_EXPORT["export_timescaledb.sh 备份"]
+            SCR_EXPORT["data/export_timescaledb.sh 备份"]
         end
         
         subgraph LIBS["共享库 libs/common/"]

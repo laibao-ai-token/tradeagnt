@@ -65,7 +65,7 @@ clean:
 
 # 数据库导出
 export-db:
-	@./scripts/export_timescaledb.sh
+	@./scripts/data/export_timescaledb.sh
 
 # 回测（M1）
 backtest:

@@ -26,9 +26,9 @@
 
 **变更文件清单**:
 ```
-scripts/export_timescaledb.sh          # 改 5433→5434
-scripts/export_timescaledb_main4.sh    # 改 5433→5434
-scripts/timescaledb_compression.sh     # 改 5433→5434
+scripts/data/export_timescaledb.sh          # 改 5433→5434
+scripts/data/export_timescaledb_main4.sh    # 改 5433→5434
+scripts/data/timescaledb_compression.sh     # 改 5433→5434
 README.md                              # 更新所有示例命令
 README_EN.md                           # 更新所有示例命令
 AGENTS.md                              # 更新第 7.8 节
@@ -37,12 +37,12 @@ AGENTS.md                              # 更新第 7.8 节
 **执行步骤**:
 ```bash
 # 1. 备份当前脚本
-cp scripts/export_timescaledb.sh scripts/export_timescaledb.sh.bak
+cp scripts/data/export_timescaledb.sh scripts/data/export_timescaledb.sh.bak
 
 # 2. 批量替换（使用 sed）
-sed -i 's/5433/5434/g' scripts/export_timescaledb.sh
-sed -i 's/5433/5434/g' scripts/export_timescaledb_main4.sh
-sed -i 's/5433/5434/g' scripts/timescaledb_compression.sh
+sed -i 's/5433/5434/g' scripts/data/export_timescaledb.sh
+sed -i 's/5433/5434/g' scripts/data/export_timescaledb_main4.sh
+sed -i 's/5433/5434/g' scripts/data/timescaledb_compression.sh
 
 # 3. 验证
 grep -r "5433" scripts/
