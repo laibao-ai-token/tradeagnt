@@ -15,6 +15,11 @@ from typing import Callable, Iterable, Optional
 
 from common.scheduler import wait_seconds
 
+from .fund_symbols import (
+    cn_fund_exchange_candidates as _shared_cn_fund_exchange_candidates,
+    normalize_cn_fund_symbol as _shared_normalize_cn_fund_symbol,
+)
+
 
 @dataclass(frozen=True)
 class Quote:
@@ -372,39 +377,11 @@ def _to_float(raw: str) -> float:
 
 
 def _normalize_cn_fund_symbol(symbol: str) -> str:
-    s = (symbol or "").strip().upper()
-    if not s:
-        return ""
-    s = s.replace("/", "").replace("-", "").replace("_", "")
-    if s.endswith(".SH"):
-        s = "SH" + s[:-3]
-    elif s.endswith(".SZ"):
-        s = "SZ" + s[:-3]
-    if s.startswith(("SH", "SZ")):
-        digits = "".join(ch for ch in s[2:] if ch.isdigit())
-        if len(digits) == 6:
-            return s[:2] + digits
-        return ""
-    digits = "".join(ch for ch in s if ch.isdigit())
-    if len(digits) == 6:
-        return digits
-    return ""
+    return _shared_normalize_cn_fund_symbol(symbol)
 
 
 def _cn_fund_exchange_candidates(symbol: str) -> list[str]:
-    sym = _normalize_cn_fund_symbol(symbol)
-    if not sym:
-        return []
-    if sym.startswith(("SH", "SZ")):
-        return [sym]
-    # Try both exchanges for 6-digit raw code; ETF/LOF codes are exchange-scoped.
-    code = sym
-    out: list[str] = []
-    if code[0] in {"5", "6", "9"}:
-        out.append("SH" + code)
-    if code.startswith(("15", "16", "18")):
-        out.append("SZ" + code)
-    return out
+    return _shared_cn_fund_exchange_candidates(symbol)
 
 
 def _parse_fundgz_jsonp(payload: str) -> Quote | None:
@@ -704,17 +681,20 @@ def _normalize_tencent_equity_code(symbol: str, market: str) -> tuple[str, str]:
             sym = "SH" + sym[:-3]
         elif sym.endswith(".SZ") and len(sym) > 3:
             sym = "SZ" + sym[:-3]
-        if sym.isdigit() and len(sym) == 6:
-            if m == "cn_fund":
-                if sym[0] in {"5", "6", "9"}:
-                    sym = "SH" + sym
-                elif sym.startswith(("15", "16", "18")):
-                    sym = "SZ" + sym
-                else:
-                    # Off-market fund codes (e.g. 024389) don't have minute bars.
-                    return "", sym
+        if m == "cn_fund":
+            fund_sym = _normalize_cn_fund_symbol(sym)
+            if not fund_sym:
+                return "", ""
+            cands = _cn_fund_exchange_candidates(fund_sym)
+            if cands:
+                sym = cands[0]
+            elif _SAFE_CN_FUND_CODE_RE.match(fund_sym):
+                # Off-market fund codes (e.g. 024389) don't have minute bars.
+                return "", fund_sym
             else:
-                sym = ("SH" if sym[0] in {"5", "6", "9"} else "SZ") + sym
+                return "", ""
+        elif sym.isdigit() and len(sym) == 6:
+            sym = ("SH" if sym[0] in {"5", "6", "9"} else "SZ") + sym
         if not (sym.startswith("SH") or sym.startswith("SZ")):
             return "", ""
         digits = "".join([c for c in sym[2:] if c.isdigit()])
@@ -889,6 +869,21 @@ def _normalize_eastmoney_cn_secid(symbol: str, market: str) -> tuple[str, str]:
         return "", ""
 
     sym = raw.upper()
+    if m == "cn_fund":
+        fund_sym = _normalize_cn_fund_symbol(sym)
+        if not fund_sym:
+            return "", ""
+        cands = _cn_fund_exchange_candidates(fund_sym)
+        if cands:
+            ex_sym = cands[0]
+            digits = ex_sym[2:]
+            secid = ("1." if ex_sym.startswith("SH") else "0.") + digits
+            return secid, ex_sym
+        # Off-market fund codes don't have Eastmoney exchange secid.
+        if _SAFE_CN_FUND_CODE_RE.match(fund_sym):
+            return "", fund_sym
+        return "", ""
+
     if sym.endswith(".SH") and len(sym) > 3:
         sym = "SH" + sym[:-3]
     elif sym.endswith(".SZ") and len(sym) > 3:
@@ -905,14 +900,6 @@ def _normalize_eastmoney_cn_secid(symbol: str, market: str) -> tuple[str, str]:
     digits = "".join(ch for ch in sym if ch.isdigit())
     if len(digits) != 6:
         return "", ""
-
-    if m == "cn_fund":
-        if digits[0] in {"5", "6", "9"}:
-            return "1." + digits, "SH" + digits
-        if digits.startswith(("15", "16", "18")):
-            return "0." + digits, "SZ" + digits
-        # Off-market fund codes don't have Eastmoney exchange secid.
-        return "", digits
 
     if digits[0] in {"5", "6", "9"}:
         return "1." + digits, "SH" + digits

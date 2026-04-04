@@ -42,6 +42,10 @@ from .etf_profiles import (
     load_dynamic_auto_driving_symbols,
 )
 from .etf_selector import select_etf_candidates
+from .fund_symbols import (
+    match_cn_fund_signal as _match_cn_fund_signal_shared,
+    normalize_cn_fund_symbol as _normalize_cn_fund_symbol_shared,
+)
 from .micro import Candle, MicroConfig, MicroEngine, MicroSnapshot
 from .news_db import (
     StoredNewsArticle,
@@ -68,6 +72,7 @@ from .news_health import (
     load_news_collector_health,
     resolve_news_health_log_path,
 )
+from .fund_bridge import DirectFundBridge, seed_curve_from_daily_candles
 from .quote import Quote, fetch_daily_curve_1d, fetch_intraday_curve_1m, fetch_quote, fetch_quotes
 from .watchlists import (
     Watchlists,
@@ -407,7 +412,9 @@ _MARKET_MICRO_LEFT_FLOOR_MIN_WIDTH = 24
 _MARKET_MICRO_LEFT_MIN_RATIO = 0.24
 _MARKET_MICRO_RIGHT_MIN_WIDTH = 28
 _RENDER_IDLE_REDRAW_S = 2.0
-_RENDER_FRAME_INTERVAL_S = 1.0 / 30.0
+_RENDER_FRAME_INTERVAL_S = max(0.05, float(os.environ.get("TUI_RENDER_FRAME_INTERVAL_S", "0.10")))
+_IDLE_POLL_SLEEP_S = max(0.02, float(os.environ.get("TUI_IDLE_POLL_SLEEP_S", "0.10")))
+_SERVICE_STATUS_REFRESH_S = max(1.0, float(os.environ.get("TUI_SERVICE_STATUS_REFRESH_S", "3.0")))
 _SWITCH_DEBOUNCE_S = 0.15
 _PRIMARY_MARKET_VIEWS = ("market_us", "market_cn", "market_hk", "market_fund_cn", "market_micro", "market_news")
 _BACKTEST_VIEW = "market_backtest"
@@ -1866,23 +1873,7 @@ def _normalize_cn_symbol(symbol: str) -> str:
 
 
 def _normalize_cn_fund_symbol(symbol: str) -> str:
-    s = (symbol or "").strip().upper()
-    if not s:
-        return ""
-    s = s.replace("/", "").replace("-", "").replace("_", "")
-    if s.endswith(".SH"):
-        s = "SH" + s[:-3]
-    elif s.endswith(".SZ"):
-        s = "SZ" + s[:-3]
-    if s.startswith(("SH", "SZ")):
-        digits = "".join(ch for ch in s[2:] if ch.isdigit())
-        if len(digits) == 6:
-            return s[:2] + digits
-        return ""
-    digits = "".join(ch for ch in s if ch.isdigit())
-    if len(digits) == 6:
-        return digits
-    return ""
+    return _normalize_cn_fund_symbol_shared(symbol)
 
 
 def _normalize_hk_symbol(symbol: str) -> str:
@@ -1909,16 +1900,7 @@ def _match_signal_to_symbol(signal_symbol: str, quote_symbol: str, market: str) 
     if m == "cn_stock":
         return _normalize_cn_symbol(signal_symbol) == _normalize_cn_symbol(qsym)
     if m == "cn_fund":
-        qfund = _normalize_cn_fund_symbol(qsym)
-        sfund = _normalize_cn_fund_symbol(signal_symbol)
-        if qfund.startswith(("SH", "SZ")):
-            return _normalize_cn_symbol(sfund) == _normalize_cn_symbol(qfund)
-        # 支持场外基金(6位代码)匹配，避免基金页“有信号但显示0”。
-        qdigits = "".join(ch for ch in qfund if ch.isdigit())
-        sdigits = "".join(ch for ch in sfund if ch.isdigit())
-        if len(qdigits) == 6:
-            return sdigits == qdigits
-        return False
+        return _match_cn_fund_signal_shared(signal_symbol, qsym)
     return False
 
 
@@ -3766,12 +3748,26 @@ def _main(
     poll_fund_cn = QuotePoller(quote_cfgs.fund_cn)
     poll_crypto = QuotePoller(quote_cfgs.crypto)
     poll_metals = QuotePoller(quote_cfgs.metals)
+    pollers_by_name: dict[str, QuotePoller] = {
+        "us": poll_us,
+        "hk": poll_hk,
+        "cn": poll_cn,
+        "fund_cn": poll_fund_cn,
+        "crypto": poll_crypto,
+        "metals": poll_metals,
+    }
     poll_us.start()
     poll_hk.start()
     poll_cn.start()
     poll_fund_cn.start()
     poll_crypto.start()
     poll_metals.start()
+
+    fund_bridge = DirectFundBridge(
+        provider=quote_cfgs.fund_cn.provider,
+        market=quote_cfgs.fund_cn.market,
+        timeout_s=6.0,
+    )
 
     news_poller: RssNewsPoller | None = None
     raw_news_feeds = (os.getenv("TUI_NEWS_RSS_FEEDS", "") or os.getenv("NEWS_RSS_FEEDS", "") or "").strip()
@@ -3862,7 +3858,7 @@ def _main(
     fund_cn_last_ingested_fetch: dict[str, float] = {}
     crypto_last_ingested_fetch: dict[str, float] = {}
     service_status = _collect_service_status()
-    service_status_refresh_s = 1.0
+    service_status_refresh_s = _SERVICE_STATUS_REFRESH_S
     render_state = RenderState()
     runtime_state = RuntimeState()
     agent_state = _seed_agent_shell_state()
@@ -3895,10 +3891,48 @@ def _main(
     def _canonical_view(v: str) -> str:
         return view_aliases.get(v, v)
 
+    def _desired_quote_poller_names(v: str) -> set[str]:
+        cur = _canonical_view(v)
+        if v in {"quotes_metals"}:
+            return {"metals"}
+        if cur == "market_us":
+            return {"us"}
+        if cur == "market_cn":
+            return {"cn"}
+        if cur == "market_hk":
+            return {"hk"}
+        if cur == "market_fund_cn":
+            return {"fund_cn"}
+        if cur == "market_micro":
+            return {"crypto"}
+        return set()
+
+    def _should_poll_news(v: str) -> bool:
+        return _canonical_view(v) == "market_news"
+
+    poller_sync_sig: tuple[tuple[str, ...], bool, bool] | None = None
+
+    def _sync_background_activity(force: bool = False) -> None:
+        nonlocal poller_sync_sig
+
+        active_quote_names = tuple(sorted(_desired_quote_poller_names(view)))
+        news_active = _should_poll_news(view)
+        sync_sig = (active_quote_names, bool(filt.paused), bool(news_active))
+        if not force and sync_sig == poller_sync_sig:
+            return
+
+        active_quote_set = set(active_quote_names)
+        for name, poller in pollers_by_name.items():
+            poller.set_paused(bool(filt.paused) or name not in active_quote_set)
+        if news_poller is not None:
+            news_poller.set_paused(bool(filt.paused) or not news_active)
+        poller_sync_sig = sync_sig
+
     last_primary_view = _canonical_view(view)
     if last_primary_view not in _PRIMARY_MARKET_VIEWS:
         last_primary_view = "market_micro"
     backtest_parent_view = last_primary_view
+    _sync_background_activity(force=True)
 
     def _remember_primary_view(v: str) -> None:
         nonlocal last_primary_view
@@ -4134,12 +4168,11 @@ def _main(
     def _refresh_all_data() -> None:
         nonlocal last_refresh
         last_refresh = 0.0
-        poll_us.request_refresh()
-        poll_hk.request_refresh()
-        poll_cn.request_refresh()
-        poll_fund_cn.request_refresh()
-        poll_crypto.request_refresh()
-        poll_metals.request_refresh()
+        for name, poller in pollers_by_name.items():
+            if name in _desired_quote_poller_names(view):
+                poller.request_refresh()
+        if news_poller is not None and _should_poll_news(view):
+            news_poller.request_refresh()
         us_curve_seed_attempts.clear()
         hk_curve_seed_attempts.clear()
         cn_curve_seed_attempts.clear()
@@ -4293,6 +4326,7 @@ def _main(
     try:
         while True:
             now = time.time()
+            _sync_background_activity()
             dirty = DirtyFlags(forced=pending_force_redraw)
             pending_force_redraw = False
             if hot_reload_watcher is not None and hot_reload_watcher.should_reload(now):
@@ -4510,8 +4544,7 @@ def _main(
                 _maybe_seed_fund_curve_from_daily_history(
                     curves=fund_cn_daily_curves,
                     symbols={selected_fund_symbol},
-                    market=quote_cfgs.fund_cn.market,
-                    provider=quote_cfgs.fund_cn.provider,
+                    bridge=fund_bridge,
                     attempts=fund_cn_curve_seed_attempts,
                     now_ts=now,
                     lookback_days=_FUND_CN_CURVE_DAYS,
@@ -4730,7 +4763,7 @@ def _main(
                 next_frame_at = now + _RENDER_FRAME_INTERVAL_S
             key = stdscr.getch()
             if key == -1:
-                sleep_for = min(0.03, max(0.0, next_frame_at - time.time()))
+                sleep_for = min(_IDLE_POLL_SLEEP_S, max(0.0, next_frame_at - time.time()))
                 if sleep_for > 0:
                     wait_seconds(sleep_for)
                 continue
@@ -4786,14 +4819,7 @@ def _main(
                 return
             if key in (ord(" "),):
                 filt.paused = not filt.paused
-                poll_us.set_paused(filt.paused)
-                poll_hk.set_paused(filt.paused)
-                poll_cn.set_paused(filt.paused)
-                poll_fund_cn.set_paused(filt.paused)
-                poll_crypto.set_paused(filt.paused)
-                poll_metals.set_paused(filt.paused)
-                if news_poller is not None:
-                    news_poller.set_paused(filt.paused)
+                _sync_background_activity(force=True)
             elif key == ord("\t"):
                 if view == "market_news":
                     focus_order = ("middle", "right")
@@ -6432,8 +6458,7 @@ def _maybe_seed_fund_curve_from_daily_history(
     *,
     curves: dict[str, deque[Candle]],
     symbols: set[str],
-    market: str,
-    provider: str,
+    bridge: DirectFundBridge,
     attempts: dict[str, float],
     now_ts: float,
     lookback_days: int = 15,
@@ -6459,16 +6484,10 @@ def _maybe_seed_fund_curve_from_daily_history(
             continue
         attempts[symbol] = now_ts
 
-        series = fetch_daily_curve_1d(
-            provider=provider,
-            market=market,
-            symbol=symbol,
-            timeout_s=6.0,
-            limit=days,
-        )
+        series = bridge.fetch_daily_candles(symbol, limit=days)
         if not series:
             continue
-        _seed_curve_from_daily_series(
+        seed_curve_from_daily_candles(
             curves,
             symbol,
             series,

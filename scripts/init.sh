@@ -1,25 +1,33 @@
 #!/usr/bin/env bash
 # tradecat Pro 初始化脚本
 # 用法: ./scripts/init.sh [service-name]
-# 示例: ./scripts/init.sh              # 初始化全部核心服务
-#       ./scripts/init.sh data-service  # 初始化单个服务
-#       ./scripts/init.sh --all         # 初始化全部（含 preview）
+# 示例: ./scripts/init.sh                   # 初始化全部核心服务
+#       ./scripts/init.sh collector-service # 初始化单个服务
+#       ./scripts/init.sh --all            # 初始化全部（含 preview）
 
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 DB_URL_HELPER="$ROOT/scripts/lib/db_url.sh"
+PY_RUNTIME_HELPER="$ROOT/scripts/lib/python_runtime.sh"
 if [[ -f "$DB_URL_HELPER" ]]; then
     # shellcheck disable=SC1090
     source "$DB_URL_HELPER"
 fi
+if [[ -f "$PY_RUNTIME_HELPER" ]]; then
+    # shellcheck disable=SC1090
+    source "$PY_RUNTIME_HELPER"
+fi
 
 # 核心服务（services/ 目录）
-CORE_SERVICES=(data-service trading-service signal-service)
+CORE_SERVICES=(collector-service trading-service signal-service)
 
 # 预览服务（services-preview/ 目录）
-PREVIEW_SERVICES=(markets-service tui-service)
+PREVIEW_SERVICES=(tui-service)
+
+# 显式入口服务（当前为空；保留扩展位）
+OPTIONAL_SERVICES=()
 
 # ==================== 工具函数 ====================
 success() { echo -e "\033[0;32m✓ $1\033[0m"; }
@@ -93,6 +101,8 @@ find_service_dir() {
 init_service() {
     local svc="$1"
     local svc_dir
+    local venv_python
+    local base_python
     
     svc_dir=$(find_service_dir "$svc") || {
         warn "服务目录不存在: $svc (跳过)"
@@ -104,30 +114,42 @@ init_service() {
     cd "$svc_dir"
     
     # 1. 创建虚拟环境
-    if [ ! -d ".venv" ]; then
-        info "创建虚拟环境..."
-        python3 -m venv .venv
+    venv_python="$svc_dir/.venv/bin/python"
+    if [ -x "$venv_python" ]; then
+        if tc_python_is_compatible "$venv_python"; then
+            info "虚拟环境已存在"
+        else
+            fail "$svc 的 .venv Python 版本过低: $(tc_python_version_string "$venv_python")（需要 3.12+，请删除后重建）"
+        fi
     else
-        info "虚拟环境已存在"
+        base_python="$(tc_pick_python 2>/dev/null || true)"
+        if [[ -z "$base_python" ]]; then
+            fail "未找到兼容的 Python 解释器（需要 3.12+，可通过 TRADECAT_PYTHON 指定）"
+        fi
+        info "创建虚拟环境... ($base_python)"
+        "$base_python" -m venv .venv
+    fi
+
+    if [ ! -x "$venv_python" ]; then
+        fail "$svc 虚拟环境创建失败: $venv_python 不存在"
     fi
     
     # 2. 安装依赖
     info "安装依赖..."
-    source .venv/bin/activate
-    pip install -q --upgrade pip
+    "$venv_python" -m pip install -q --upgrade pip
     
     if [ -f "requirements.txt" ]; then
-        pip install -q -r requirements.txt 2>/dev/null || {
+        "$venv_python" -m pip install -q -r requirements.txt 2>/dev/null || {
             warn "部分依赖安装失败，请检查 requirements.txt"
         }
     elif [ -f "pyproject.toml" ]; then
-        pip install -q -e . 2>/dev/null || {
+        "$venv_python" -m pip install -q -e . 2>/dev/null || {
             warn "pyproject.toml 安装失败"
         }
     fi
 
     # 安装共享 common 包（editable），避免各服务依赖 sys.path hack
-    pip install -q -e "$ROOT/libs" 2>/dev/null || {
+    "$venv_python" -m pip install -q -e "$ROOT/libs" 2>/dev/null || {
         warn "共享包安装失败: $ROOT/libs"
     }
     
@@ -136,36 +158,39 @@ init_service() {
     
     # 4. 设置脚本权限
     [ -f "scripts/start.sh" ] && chmod +x scripts/start.sh
-    
-    deactivate 2>/dev/null || true
+
     success "$svc 初始化完成"
 }
 
 # ==================== 系统依赖检查 ====================
 check_system() {
     echo "=== 系统依赖检查 ==="
+    local base_python=""
+    local py_ver=""
     
     # Python 版本检查
-    if command -v python3 &>/dev/null; then
-        local py_ver=$(python3 -c "import sys; sys.stdout.write(f'{sys.version_info.major}.{sys.version_info.minor}')")
-        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)"; then
-            success "Python3: $py_ver"
-        else
-            fail "Python 版本需要 3.10+，当前: $py_ver"
-        fi
+    base_python="$(tc_pick_python 2>/dev/null || true)"
+    if [[ -n "$base_python" ]]; then
+        py_ver="$(tc_python_version_string "$base_python")"
+        success "Python: $py_ver ($base_python)"
     else
-        fail "Python3 未安装"
+        if command -v python3 &>/dev/null; then
+            py_ver="$(python3 -c "import sys; sys.stdout.write(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")"
+            fail "Python 版本需要 3.12+，当前 python3: $py_ver"
+        else
+            fail "未找到兼容的 Python 解释器（需要 3.12+）"
+        fi
     fi
     
     # pip
-    if python3 -m pip --version &>/dev/null; then
-        success "pip: $(python3 -m pip --version | cut -d' ' -f2)"
+    if [[ -n "$base_python" ]] && "$base_python" -m pip --version &>/dev/null; then
+        success "pip: $("$base_python" -m pip --version | cut -d' ' -f2)"
     else
-        fail "pip 未安装，请运行: python3 -m ensurepip"
+        fail "pip 未安装，请运行: ${base_python:-python3} -m ensurepip"
     fi
     
     # TA-Lib (可选)
-    if python3 -c "import talib" 2>/dev/null; then
+    if [[ -n "$base_python" ]] && "$base_python" -c "import talib" 2>/dev/null; then
         success "TA-Lib: 已安装"
     else
         info "TA-Lib: 未安装（K线形态检测需要）"
@@ -301,6 +326,12 @@ case "${1:-}" in
         echo ""
         info "初始化预览服务..."
         for svc in "${PREVIEW_SERVICES[@]}"; do
+            init_service "$svc"
+        done
+
+        echo ""
+        info "初始化显式入口服务..."
+        for svc in "${OPTIONAL_SERVICES[@]}"; do
             init_service "$svc"
         done
         

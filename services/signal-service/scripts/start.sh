@@ -6,8 +6,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(dirname "$(dirname "$PROJECT_DIR")")"
+PY_RUNTIME_HELPER="$REPO_ROOT/scripts/lib/python_runtime.sh"
 PID_FILE="$PROJECT_DIR/logs/signal-service.pid"
 LOG_FILE="$PROJECT_DIR/logs/signal-service.log"
+
+if [[ -f "$PY_RUNTIME_HELPER" ]]; then
+    # shellcheck disable=SC1090
+    source "$PY_RUNTIME_HELPER"
+fi
 
 # 安全加载 .env（兼容含空格/括号/行尾注释的模板）
 safe_load_env() {
@@ -44,29 +50,58 @@ safe_load_env() {
 # 加载配置
 safe_load_env "$REPO_ROOT/config/.env"
 
-# 确保虚拟环境存在
 VENV_DIR="$PROJECT_DIR/.venv"
-if [[ ! -d "$VENV_DIR" ]]; then
-    echo "创建虚拟环境..."
-    python3 -m venv "$VENV_DIR"
-    "$VENV_DIR/bin/pip" install -q --upgrade pip
-    if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
-        "$VENV_DIR/bin/pip" install -q -r "$PROJECT_DIR/requirements.txt"
-    fi
-    if [[ -f "$REPO_ROOT/libs/pyproject.toml" ]]; then
-        "$VENV_DIR/bin/pip" install -q -e "$REPO_ROOT/libs"
-    fi
-fi
+PYTHON=""
 
-# 兼容旧虚拟环境：若缺少共享包则补装，避免 symbols 读取逻辑退化到默认值。
-if ! "$VENV_DIR/bin/python" -c "import common.symbols" >/dev/null 2>&1; then
-    if [[ -f "$REPO_ROOT/libs/pyproject.toml" ]]; then
-        "$VENV_DIR/bin/pip" install -q -e "$REPO_ROOT/libs"
+ensure_runtime() {
+    if [[ -x "$VENV_DIR/bin/python" ]]; then
+        if declare -f tc_python_is_compatible >/dev/null 2>&1 && ! tc_python_is_compatible "$VENV_DIR/bin/python"; then
+            echo "❌ signal-service 虚拟环境 Python 版本过低: $(tc_python_version_string "$VENV_DIR/bin/python")"
+            echo "   需要 3.12+，请删除 $VENV_DIR 后重新初始化"
+            exit 1
+        fi
+    elif [[ -d "$VENV_DIR" ]]; then
+        echo "❌ signal-service 虚拟环境损坏: 缺少 $VENV_DIR/bin/python"
+        echo "   请删除 $VENV_DIR 后重新执行 ./scripts/init.sh signal-service"
+        exit 1
+    else
+        local base_python=""
+        base_python="$(tc_pick_python 2>/dev/null || true)"
+        if [[ -z "$base_python" ]]; then
+            echo "❌ 未找到兼容的 Python 解释器（需要 3.12+）"
+            exit 1
+        fi
+        echo "创建虚拟环境... ($base_python)"
+        "$base_python" -m venv "$VENV_DIR"
     fi
-fi
 
-PYTHON="$VENV_DIR/bin/python"
-mkdir -p "$PROJECT_DIR/logs"
+    if [[ ! -x "$VENV_DIR/bin/pip" ]]; then
+        echo "❌ signal-service 虚拟环境缺少 pip: $VENV_DIR/bin/pip"
+        echo "   请删除 $VENV_DIR 后重新执行 ./scripts/init.sh signal-service"
+        exit 1
+    fi
+
+    if [[ ! -f "$VENV_DIR/.tradecat_bootstrap_complete" ]]; then
+        "$VENV_DIR/bin/pip" install -q --upgrade pip
+        if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
+            "$VENV_DIR/bin/pip" install -q -r "$PROJECT_DIR/requirements.txt"
+        fi
+        if [[ -f "$REPO_ROOT/libs/pyproject.toml" ]]; then
+            "$VENV_DIR/bin/pip" install -q -e "$REPO_ROOT/libs"
+        fi
+        touch "$VENV_DIR/.tradecat_bootstrap_complete"
+    fi
+
+    # 兼容旧虚拟环境：若缺少共享包则补装，避免 symbols 读取逻辑退化到默认值。
+    if ! "$VENV_DIR/bin/python" -c "import common.symbols" >/dev/null 2>&1; then
+        if [[ -f "$REPO_ROOT/libs/pyproject.toml" ]]; then
+            "$VENV_DIR/bin/pip" install -q -e "$REPO_ROOT/libs"
+        fi
+    fi
+
+    PYTHON="$VENV_DIR/bin/python"
+    mkdir -p "$PROJECT_DIR/logs"
+}
 
 run_detached() {
     # Some environments kill background jobs tied to the launching shell/pipeline.
@@ -83,6 +118,7 @@ run_detached() {
 }
 
 start() {
+    ensure_runtime
     if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         echo "signal-service 已在运行 (PID: $(cat "$PID_FILE"))"
         return 1
@@ -129,6 +165,12 @@ case "${1:-status}" in
     restart) stop; sleep 1; start ;;
     *)
         echo "用法: $0 {start|stop|status|restart}"
+        echo ""
+        echo "说明:"
+        echo "  start    - 后台启动 signal-service（默认运行 src --all）"
+        echo "  stop     - 停止当前后台进程"
+        echo "  status   - 查看后台进程状态"
+        echo "  restart  - 重启后台进程"
         exit 1
         ;;
 esac

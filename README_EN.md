@@ -190,13 +190,15 @@ cp config/.env.example config/.env && chmod 600 config/.env
 # Use config/.env DATABASE_URL as the single runtime source of truth (5434 recommended)
 vim config/.env
 
-# 3) Start core services (data + signal + trading)
+# 3) Start core services (collector + signal + trading)
 ./scripts/start.sh start
 ./scripts/start.sh status
 ```
 
-> Note: top-level `./scripts/start.sh` manages `data-service`, `signal-service`, `trading-service`.  
-> Retained preview services: `cd services-preview/markets-service && ./scripts/start.sh start` (multi-market), `cd services-preview/markets-service && ./scripts/start.sh start-news` (24x7 news collection), `cd services-preview/tui-service && ./scripts/start.sh run` (terminal TUI; it auto-starts data-service and signal-service by default, then stops TUI-started data/signal services after 1 hour on exit; tune with `TUI_AUTO_START_DATA=0` / `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=0` / `TUI_SIGNAL_STOP_DELAY_SECONDS`). Root `./scripts/start.sh run` now starts the TradeCat TUI directly, and `./scripts/start.sh run-single` remains as a compatibility alias. To keep news collection running while viewing the TUI, use `cd services-preview/tui-service && ./scripts/start.sh run-news 2`. The default news pipeline now already includes a curated WorldMonitor trading/macro RSS subset and excludes feeds that now consistently return `403`, time out, or ship malformed XML; if you want to keep only the original fast-news layer, set `NEWS_RSS_PRESET=core` (or `TUI_NEWS_RSS_PRESET=core` for a TUI-only override). The default `markets-service` path now also absorbs the TUI `direct://` fast-news connectors and inherits WorldMonitor-style per-feed failure cooldown and health logging so broken feeds stop slowing every polling round. Raw news now keeps only the most recent `24h` by default (tunable via `NEWS_RETENTION_HOURS` / `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS`) so `<ALTERNATIVE_DB_SCHEMA>.news_articles` (default `alternative.news_articles`) does not grow without bound. The TUI news page now prefers the unified `<ALTERNATIVE_DB_SCHEMA>.news_articles` table (default `alternative.news_articles`) and only falls back to local direct/RSS fetching when the database is unavailable or still empty.
+> Note: top-level `./scripts/start.sh` now manages `collector-service`, `signal-service`, and `trading-service` by default.  
+> To inspect/run collector slices explicitly, use `./scripts/start.sh start-collector --only=crypto,fund_cn` or `./scripts/start.sh status-collector --exclude=orderbook`.  
+> `./scripts/init.sh` initializes these 3 core services by default; `./scripts/init.sh --all` additionally initializes `tui-service`.  
+> The active preview entry is `tui-service`: `cd services-preview/tui-service && ./scripts/start.sh run` (terminal TUI; lightweight mode auto-starts `collector-service` for crypto by default, keeps `signal-service` off by default; tune with `TUI_AUTO_START_COLLECTOR=0` / `TUI_COLLECTOR_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=1` / `TUI_SIGNAL_STOP_DELAY_SECONDS`). Root `./scripts/start.sh run` starts the TradeCat TUI directly, and `./scripts/start.sh run-single` remains as a compatibility alias. To keep news collection running while viewing the TUI, use `cd services-preview/tui-service && ./scripts/start.sh run-news 2`; for equity collection + watchlist, use `cd services-preview/tui-service && ./scripts/start.sh run-equity us_stock yfinance NVDA 60 5`. The TUI news page now prefers the unified `<ALTERNATIVE_DB_SCHEMA>.news_articles` table (default `alternative.news_articles`) and only falls back to local direct/RSS fetching when the database is unavailable or still empty.
 > Backtest (M1 minimal loop): `cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml` (outputs to `artifacts/backtest/latest`).
 > Artifact layout: each run creates a timestamp session directory `artifacts/backtest/YYYYMMDD-HHMMSS/`; single-mode outputs are written directly there, `compare_history_rule` writes `<base>-history` / `<base>-rules` / `<base>-compare` subdirectories, and `--walk-forward` writes summary files plus per-fold `*-wfXX` subdirectories under the same session.
 > `input_quality.json` now separates `signal_days` (history-signal day coverage) from `aggregated_signal_bucket_count` (execution buckets); top-level `quality_status` includes the precheck gate result while `score_status` preserves the raw score-only outcome.
@@ -277,7 +279,7 @@ Download pre-built datasets from HuggingFace to skip lengthy historical backfill
 
 ```bash
 # Install dependencies
-services/data-service/.venv/bin/pip install pandas psycopg2-binary huggingface_hub
+services/collector-service/.venv/bin/pip install pandas psycopg2-binary huggingface_hub
 
 # Download Main4 dataset by default (BTC/ETH/BNB/SOL, 415MB)
 python scripts/data/download_hf_data.py
@@ -326,7 +328,7 @@ zstd -d futures_metrics_5m.bin.zst -c | psql -h localhost -p 5434 -U postgres -d
 - Migration script example (migration-only):
 
 ```bash
-cd services-preview/markets-service/scripts
+cd _deprecated/services-preview/markets-service/scripts
 MIGRATION_OLD_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/market_data \
 MIGRATION_NEW_DATABASE_URL=postgresql://postgres:postgres@localhost:5434/market_data \
 ./sync_from_old_db.sh
@@ -384,7 +386,7 @@ cd .. && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
 ./scripts/init.sh
 
 # Or initialize single service
-./scripts/init.sh data-service
+./scripts/init.sh collector-service
 ```
 
 #### 4. Configure Environment Variables
@@ -399,8 +401,8 @@ Signal service tips:
 - `COOLDOWN_SECONDS` (signal-service PG): global cooldown window (seconds) before repeating the same PG signal.
 
 Preview service tips:
-- `TUI_AUTO_START_DATA` / `TUI_AUTO_START_SIGNAL`: auto-start data/signal when TUI launches (default 1).
-- `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_SIGNAL_STOP_DELAY_SECONDS`: delayed stop seconds after TUI exits (default 3600).
+- `TUI_AUTO_START_COLLECTOR` / `TUI_AUTO_START_SIGNAL`: auto-start collector/signal when TUI launches (defaults: `collector=1`, `signal=0`).
+- `TUI_COLLECTOR_STOP_DELAY_SECONDS` / `TUI_SIGNAL_STOP_DELAY_SECONDS`: delayed stop seconds after TUI exits (default 3600).
 
 #### 5. Start Services
 
@@ -502,7 +504,7 @@ Preview service tips:
 <summary><strong>Expand👉 🏗️ Architecture</strong></summary>
 
 ### System Architecture
-> Note: this diagram reflects the historical full architecture; the current core branch keeps only `data-service`, `trading-service`, `signal-service`, `markets-service`, and `tui-service`.
+> Note: this diagram reflects the historical full architecture; the current active branch keeps only `collector-service`, `trading-service`, `signal-service`, and `tui-service`, while `data-service` / `markets-service` are archived under `_deprecated/`.
 
 ```mermaid
 graph TD
@@ -594,8 +596,7 @@ graph TD
 
 | Service | Port | Responsibility | Tech Stack |
 |:---|:---:|:---|:---|
-| **data-service** | - | Crypto candlestick collection, futures metrics, historical backfill | Python, asyncio, ccxt, cryptofeed |
-| **markets-service** | - | Multi-market data collection (US/CN stocks, macro) [preview] | yfinance, akshare, fredapi, QuantLib |
+| **collector-service** | - | Unified data collection (crypto/equity/fund/news); the default core path currently carries the crypto collectors | Python, asyncio, ccxt, requests |
 | **trading-service** | - | 34 technical indicator modules calculation, high-priority token filtering | Python, pandas, numpy, TA-Lib |
 | **signal-service** | - | Standalone signal detection (129 rules, 8 categories, event publishing) | Python, SQLite, psycopg2 |
 | **tui-service** | - | Terminal dashboard (quotes/signals/backtest views) [preview] | Python (stdlib) |
@@ -606,7 +607,7 @@ graph TD
 ```mermaid
 graph LR
     subgraph Collection
-        A["🌐 Binance WebSocket"] --> B["📦 data-service"]
+        A["🌐 Binance WebSocket / RSS / Equity APIs"] --> B["📦 collector-service"]
     end
     
     subgraph Storage
@@ -924,14 +925,14 @@ tradecat/
 │
 ├── 📂 services/                    # Core Microservices (3)
 │   │
-│   ├── 📂 data-service/            # Data collection service
+│   ├── 📂 collector-service/       # Unified data collection service (NEW)
 │   │   ├── 📂 src/
-│   │   │   ├── 📂 collectors/      # WebSocket + REST collectors
-│   │   │   ├── 📂 writers/         # Data writers
-│   │   │   ├── 📂 models/          # Data models
-│   │   │   ├── 📂 backfill/        # Historical backfill
-│   │   │   └── __main__.py         # Entry point
-│   │   ├── 📂 scripts/
+│   │   │   ├── 📂 collectors/      # Collectors (crypto/equity/fund/news)
+│   │   │   ├── 📂 adapters/        # Data source adapters
+│   │   │   ├── 📂 storage/         # Storage layer
+│   │   │   ├── 📂 core/            # Infrastructure
+│   │   │   └── __main__.py         # Entry (--only/--exclude/--run/--once)
+│   │   ├── 📂 tests/
 │   │   ├── Makefile
 │   │   ├── pyproject.toml
 │   │   ├── requirements.txt
@@ -961,23 +962,19 @@ tradecat/
 │       ├── pyproject.toml
 │       └── requirements.txt
 │
-├── 📂 services-preview/            # Preview Microservices (2)
-│   │
-│   ├── 📂 markets-service/         # Multi-market collection (US/CN/macros)
-│   │   ├── 📂 src/
-│   │   │   ├── 📂 providers/       # Data provider adapters
-│   │   │   ├── 📂 collectors/      # Collection scheduler
-│   │   │   ├── 📂 models/          # Normalized models
-│   │   │   └── 📂 core/            # Core framework
-│   │   ├── 📂 scripts/
-│   │   ├── requirements.txt
-│   │   └── requirements.lock.txt
+├── 📂 services-preview/            # Preview Microservices (1)
 │   │
 │   └── 📂 tui-service/             # Terminal TUI dashboard (preview)
 │       ├── 📂 src/                 # UI (quotes/signals/backtest)
 │       ├── 📂 scripts/             # Start scripts
 │       ├── Makefile
 │       └── requirements.txt
+│
+├── 📂 _deprecated/                 # Archived legacy services (read-only reference)
+│   ├── 📂 services/
+│   │   └── 📂 data-service/
+│   └── 📂 services-preview/
+│       └── 📂 markets-service/
 │
 ├── 📂 libs/                        # Shared libraries
 │   ├── 📂 database/                # Database files
@@ -1062,11 +1059,9 @@ tradecat/
 <summary><strong>Expand👉 Single Service Management</strong></summary>
 
 ```bash
-# data-service (supports daemon mode)
-cd services/data-service
-./scripts/start.sh start    # Start (with daemon)
-./scripts/start.sh stop     # Stop
-./scripts/start.sh status   # Status
+# collector-service (explicit entry)
+./scripts/start.sh start-collector --only=crypto
+./scripts/start.sh status-collector
 
 # trading-service / signal-service
 cd services/trading-service  # or signal-service
@@ -1081,11 +1076,12 @@ cd services/trading-service  # or signal-service
 <summary><strong>Expand👉 Initialization</strong></summary>
 
 ```bash
-# Initialize all services
-./scripts/init.sh
+# Initialize all services (including preview + collector-service)
+./scripts/init.sh --all
 
 # Initialize single service
-./scripts/init.sh data-service
+./scripts/init.sh collector-service
+./scripts/init.sh signal-service
 ```
 
 </details>
@@ -1103,10 +1099,9 @@ cd services/trading-service  # or signal-service
 <summary><strong>Expand👉 View Logs</strong></summary>
 
 ```bash
-# data-service logs
-tail -f services/data-service/logs/backfill.log
-tail -f services/data-service/logs/ws_klines.log
-tail -f services/data-service/logs/metrics.log
+# collector-service logs
+tail -f logs/collector-service.log
+tail -f logs/collector-news.log
 
 # trading-service logs
 tail -f services/trading-service/logs/simple_scheduler.log
@@ -1125,7 +1120,7 @@ tail -f logs/daemon.log
 
 ```bash
 # View all related processes
-ps aux | grep -E "data-service|signal-service|trading-service|simple_scheduler"
+ps aux | grep -E "collector-service|signal-service|trading-service|simple_scheduler"
 
 # View resource usage
 htop -p $(pgrep -d',' -f "simple_scheduler|crypto_trading")

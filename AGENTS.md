@@ -40,10 +40,11 @@
 
 ### 1.4 Multi-Agent 协作原则
 
-- **默认优先使用 multi-agent**：只要任务可以安全拆分，应优先并行使用多个 Agent 处理检索、分析、实现、验证等子任务
-- 若任务强依赖同一上下文、改动极小，或串行处理更安全，可退回单 Agent 执行，但应先评估是否存在合适的并行切分点
-- 多 Agent 并行时需明确职责边界，避免重复分析、重复实现，或同时修改同一文件造成相互覆盖
-- 主 Agent 负责汇总结论、整合改动与最终交付，不得将关键决策完全下放给子 Agent
+- **默认强制优先使用 multi-agent**：只要任务可以安全拆分，就应优先并行使用多个 Agent 处理检索、分析、实现、验证等子任务，以缩短端到端完成时间
+- **单 Agent 需要例外理由**：只有在任务强依赖同一上下文、改动极小、写入区域高度重叠，或串行处理明显更安全时，才允许退回单 Agent；执行前应先评估是否存在可并行切分点
+- **推荐拆分方式固定化**：优先按“代码检索 / 文档核对 / 实现改动 / 测试验证”或“不同目录 / 不同服务 / 不同文件所有权”切分，让多个 Agent 并行推进
+- **必须声明边界与归属**：多 Agent 并行时需明确职责边界、文件归属和最终产出，避免重复分析、重复实现，或同时修改同一文件造成相互覆盖
+- **主 Agent 负责收敛与决策**：主 Agent 负责汇总结论、整合改动、冲突裁决与最终交付，不得将关键决策完全下放给子 Agent
 
 ---
 
@@ -62,12 +63,15 @@ cd /path/to/tradecat
 cp config/.env.example config/.env && chmod 600 config/.env
 vim config/.env
 
-# 3) 启动核心服务（data + signal + trading）
+# 3) 启动核心服务（collector + signal + trading）
 ./scripts/start.sh start
 ./scripts/start.sh status
 ```
 
-> 顶层 `./scripts/start.sh` 管理 data-service / signal-service / trading-service。
+> 顶层 `./scripts/start.sh` 默认管理 collector-service / signal-service / trading-service。
+> 如需显式查看/运行 `collector-service` 切片：
+> `./scripts/start.sh start-collector [--only=crypto,fund_cn]`
+> `./scripts/start.sh status-collector [--exclude=orderbook]`
 
 ### 2.2 预览版服务启动
 
@@ -75,22 +79,21 @@ vim config/.env
 # signal-service（信号检测）
 cd services/signal-service && ./scripts/start.sh start
 
-# markets-service（多市场采集）
-cd services-preview/markets-service && ./scripts/start.sh start
-cd services-preview/markets-service && ./scripts/start.sh start-news
-
-# tui-service（终端信号看板，默认自动拉起 data-service + signal-service）
+# tui-service（终端信号看板，默认轻量模式：自动拉起 collector-service 的 crypto 采集，不自动拉起 signal-service）
 cd services-preview/tui-service && ./scripts/start.sh run
 cd services-preview/tui-service && ./scripts/start.sh run-news 15
+cd services-preview/tui-service && ./scripts/start.sh run-equity us_stock yfinance NVDA 60 5
 # 或在仓库根目录直接启动 TradeCat TUI：
 ./scripts/start.sh run
 # 兼容别名：
 ./scripts/start.sh run-single
-# 默认退出 TUI 后 1 小时自动停止由 TUI 启动的 data/signal 服务。
-# 若只看行情且不自动启动 data/signal：
-TUI_AUTO_START_DATA=0 TUI_AUTO_START_SIGNAL=0 ./scripts/start.sh run
-# 若退出 TUI 立即停止 data/signal：
-TUI_DATA_STOP_DELAY_SECONDS=0 TUI_SIGNAL_STOP_DELAY_SECONDS=0 ./scripts/start.sh run
+# 若需要自动启动 signal-service：
+TUI_AUTO_START_SIGNAL=1 ./scripts/start.sh run
+# 若不需要自动启动 collector-service：
+TUI_AUTO_START_COLLECTOR=0 ./scripts/start.sh run
+# 默认退出 TUI 后 1 小时自动停止由 TUI 启动的 collector/signal 服务。
+# 若退出 TUI 立即停止 collector/signal：
+TUI_COLLECTOR_STOP_DELAY_SECONDS=0 TUI_SIGNAL_STOP_DELAY_SECONDS=0 ./scripts/start.sh run
 ```
 
 ### 2.3 只读桥接命令
@@ -137,9 +140,11 @@ cd /path/to/tradecat
 |:---|:---|
 | `./scripts/init.sh` | 初始化所有核心服务虚拟环境 |
 | `./scripts/init.sh <service>` | 初始化单个服务 |
-| `./scripts/init.sh --all` | 初始化全部服务（含 preview） |
+| `./scripts/init.sh --all` | 初始化全部服务（含 preview + collector-service） |
 | `./scripts/start.sh start\|stop\|status\|restart` | 核心服务管理 |
 | `./scripts/start.sh daemon\|daemon-stop` | 守护进程模式（自动重启崩溃服务） |
+| `./scripts/start.sh start-collector [--only=...][--exclude=...]` | 显式运行 collector-service 占位入口（透传选择器） |
+| `./scripts/start.sh status-collector [--only=...][--exclude=...]` | 查看当前 collector-service 启用模块（透传选择器） |
 | `./scripts/check_env.sh` | 环境检查（Python/依赖/配置/网络/数据库） |
 | `./scripts/verify.sh` | 代码验证（ruff + py_compile + i18n） |
 | `python scripts/tradecat_get_quotes.py NVDA` | 只读行情 JSON 命令（支持单/多 symbol，必要时显式传 `--market`） |
@@ -240,24 +245,24 @@ sqlite3 libs/database/services/telegram-service/market_data.db
 
 - **微服务独立**：每个服务有独立的 `.venv`、`requirements.txt`、`pyproject.toml`、`Makefile`
 - **配置统一**：所有配置集中在 `config/.env`，各服务共用
-- **数据流向**：`data-service/markets-service → TimescaleDB → trading-service/signal-service → SQLite/PG → tui-service`
+- **数据流向**：`collector-service → TimescaleDB → trading-service/signal-service → SQLite/PG → tui-service`
 
-### 4.2 服务清单（5 个）
+### 4.2 服务清单（4 个活跃 + 2 个归档）
 
 | 服务 | 位置 | 职责 | 入口 |
 |:---|:---|:---|:---|
-| data-service | services/ | 加密货币数据采集 | `src/__main__.py` |
+| collector-service | services/ | 统一数据采集（加密货币/股票/基金/新闻） | `src/__main__.py` |
 | trading-service | services/ | 指标计算 | `src/__main__.py` |
 | signal-service | services/ | 信号检测（129条规则） | `src/__main__.py` |
-| markets-service | services-preview/ | 全市场采集 | `src/__main__.py` |
 | tui-service | services-preview/ | 终端 TUI 信号看板（预览） | `src/__main__.py` |
+| data-service（归档） | _deprecated/services/ | 历史 crypto 采集实现，仅保留参考 | `src/__main__.py` |
+| markets-service（归档） | _deprecated/services-preview/ | 历史多市场采集实现，仅保留参考 | `src/__main__.py` |
 
 ### 4.3 模块边界
 
 | 服务 | 职责 | 禁止 |
 |:---|:---|:---|
-| data-service | 加密货币数据采集、存储到 TimescaleDB | 禁止计算指标 |
-| markets-service | 全市场数据采集（美股/A股/宏观） | 禁止计算指标 |
+| collector-service | 统一数据采集（加密货币/股票/基金/新闻），存储到 TimescaleDB | 禁止计算指标 |
 | trading-service | 指标计算、写入 SQLite | 禁止直接推送消息 |
 | signal-service | 信号检测、规则引擎（独立服务） | 只读数据库，禁止 UI 依赖 |
 | tui-service | 终端 TUI 信号看板（预览） | 只读数据库，禁止写入/推送 |
@@ -377,13 +382,16 @@ tradecat/
 │   └── data/timescaledb_compression.sh  # 压缩管理（默认端口 5434）
 │
 ├── services/                       # 核心微服务 (3个)
-│   ├── data-service/               # 加密货币数据采集
+│   ├── collector-service/          # 统一数据采集
 │   ├── trading-service/            # 指标计算（34个指标模块）
 │   └── signal-service/             # 信号检测（129条规则）
 │
-├── services-preview/               # 预览版微服务 (2个)
-│   ├── tui-service/                # 终端 TUI 信号看板（预览）
-│   └── markets-service/            # 全市场数据采集
+├── services-preview/               # 预览版微服务 (1个)
+│   └── tui-service/                # 终端 TUI 信号看板（预览）
+│
+├── _deprecated/                    # 已归档旧服务
+│   ├── services/data-service/
+│   └── services-preview/markets-service/
 │
 ├── libs/
 │   ├── database/                   # 数据库文件
@@ -710,14 +718,14 @@ CI（`.github/workflows/ci.yml`）仅执行：
 
 | 变量 | 服务 | 说明 |
 |:---|:---|:---|
-| `BACKFILL_MODE` | data-service | 回填模式（all/days/none） |
-| `BACKFILL_DAYS` | data-service | 回填天数（BACKFILL_MODE=days 时生效） |
-| `BACKFILL_START_DATE` | data-service | 回填起始日期（可选） |
-| `MAX_CONCURRENT` | data-service | 最大并发请求数（默认 5） |
-| `RATE_LIMIT_PER_MINUTE` | data-service | 每分钟最大请求数（默认 1800） |
-| `INTERVALS` | data-service | K线周期（逗号分隔） |
-| `KLINE_INTERVALS` | data-service | WebSocket 订阅周期 |
-| `FUTURES_INTERVALS` | data-service | 期货指标周期（最小 5m） |
+| `BACKFILL_MODE` | collector-service（legacy fallback） | 回填模式（all/days/none） |
+| `BACKFILL_DAYS` | collector-service（legacy fallback） | 回填天数（BACKFILL_MODE=days 时生效） |
+| `BACKFILL_START_DATE` | collector-service（legacy fallback） | 回填起始日期（可选） |
+| `MAX_CONCURRENT` | collector-service（legacy fallback） | 最大并发请求数（默认 5） |
+| `RATE_LIMIT_PER_MINUTE` | collector-service（legacy fallback） | 每分钟最大请求数（默认 1800） |
+| `INTERVALS` | collector-service / trading-service | K线周期（逗号分隔） |
+| `KLINE_INTERVALS` | collector-service（legacy fallback） | WebSocket 订阅周期 |
+| `FUTURES_INTERVALS` | collector-service（legacy fallback） | 期货指标周期（最小 5m） |
 
 ### 10.4 服务配置
 
@@ -726,22 +734,22 @@ CI（`.github/workflows/ci.yml`）仅执行：
 | `MAX_WORKERS` | trading-service | 计算线程数 |
 | `COMPUTE_BACKEND` | trading-service | 计算后端（thread/process/hybrid） |
 | `HIGH_PRIORITY_TOP_N` | trading-service | auto 模式高优先级币种数量 |
-| `MARKETS_SERVICE_DATABASE_URL` | markets-service | 独立数据库连接 |
-| `ALTERNATIVE_DB_SCHEMA` | markets-service / tui-service | 统一新闻表 schema（读写 `<ALTERNATIVE_DB_SCHEMA>.news_articles`，默认 `alternative`） |
-| `CRYPTO_WRITE_MODE` | markets-service | 写入模式（raw/legacy） |
-| `ORDER_BOOK_TICK_INTERVAL` | markets-service | L1 tick 采样间隔（秒，默认 1） |
-| `ORDER_BOOK_FULL_INTERVAL` | markets-service | L2 full 采样间隔（秒，默认 5） |
-| `ORDER_BOOK_DEPTH` | markets-service | 每侧档位数（默认 1000） |
-| `ORDER_BOOK_RETENTION_DAYS` | markets-service | 数据保留天数（默认 30） |
-| `NEWS_RSS_FEEDS` | markets-service / tui-service | 新闻源列表（支持 `direct://...` 与 RSS/Atom URL，逗号或换行分隔） |
-| `NEWS_RSS_POLL_INTERVAL_SECONDS` | markets-service | 新闻采集轮询间隔（秒，默认 2） |
-| `NEWS_RSS_LIMIT` | markets-service | 单轮最多入库文章数（默认 100） |
-| `NEWS_RSS_WINDOW_HOURS` | markets-service | 新闻时间窗口（小时，默认 72） |
-| `NEWS_RSS_TIMEOUT_SECONDS` | markets-service | RSS 抓取超时（秒，默认 20） |
-| `NEWS_RETENTION_HOURS` | markets-service | 原始新闻保留小时数（默认 24；0=不自动清理） |
-| `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS` | markets-service | 执行过期新闻清理的最小间隔（秒，默认 600） |
-| `NEWS_RSS_FAILURE_THRESHOLD` | markets-service | 单个 RSS 源连续失败多少次后进入冷却（默认 2） |
-| `NEWS_RSS_FAILURE_COOLDOWN_SECONDS` | markets-service | RSS 故障源冷却时长（秒，默认 300） |
+| `MARKETS_SERVICE_DATABASE_URL` | collector-service（legacy fallback） | 旧数据库连接键，collector 会兼容读取 |
+| `ALTERNATIVE_DB_SCHEMA` | collector-service / tui-service | 统一新闻表 schema（读写 `<ALTERNATIVE_DB_SCHEMA>.news_articles`，默认 `alternative`） |
+| `CRYPTO_WRITE_MODE` | collector-service（legacy fallback） | 写入模式（raw/legacy） |
+| `ORDER_BOOK_TICK_INTERVAL` | collector-service（legacy fallback） | L1 tick 采样间隔（秒，默认 1） |
+| `ORDER_BOOK_FULL_INTERVAL` | collector-service（legacy fallback） | L2 full 采样间隔（秒，默认 5） |
+| `ORDER_BOOK_DEPTH` | collector-service（legacy fallback） | 每侧档位数（默认 1000） |
+| `ORDER_BOOK_RETENTION_DAYS` | collector-service（legacy fallback） | 数据保留天数（默认 30） |
+| `NEWS_RSS_FEEDS` | collector-service / tui-service | 新闻源列表（支持 `direct://...` 与 RSS/Atom URL，逗号或换行分隔） |
+| `NEWS_RSS_POLL_INTERVAL_SECONDS` | collector-service（legacy fallback） | 新闻采集轮询间隔（秒，默认 2） |
+| `NEWS_RSS_LIMIT` | collector-service（legacy fallback） | 单轮最多入库文章数（默认 100） |
+| `NEWS_RSS_WINDOW_HOURS` | collector-service（legacy fallback） | 新闻时间窗口（小时，默认 72） |
+| `NEWS_RSS_TIMEOUT_SECONDS` | collector-service（legacy fallback） | RSS 抓取超时（秒，默认 20） |
+| `NEWS_RETENTION_HOURS` | collector-service（legacy fallback） | 原始新闻保留小时数（默认 24；0=不自动清理） |
+| `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS` | collector-service（legacy fallback） | 执行过期新闻清理的最小间隔（秒，默认 600） |
+| `NEWS_RSS_FAILURE_THRESHOLD` | collector-service（legacy fallback） | 单个 RSS 源连续失败多少次后进入冷却（默认 2） |
+| `NEWS_RSS_FAILURE_COOLDOWN_SECONDS` | collector-service（legacy fallback） | RSS 故障源冷却时长（秒，默认 300） |
 
 ---
 
@@ -753,6 +761,8 @@ CI（`.github/workflows/ci.yml`）仅执行：
 
 # 启动/停止
 ./scripts/start.sh start|stop|status
+./scripts/start.sh start-collector --only=crypto,fund_cn
+./scripts/start.sh status-collector --exclude=orderbook
 
 # 单服务管理
 cd services/<name> && make start|stop|status

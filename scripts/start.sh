@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tradecat 统一启动脚本
-# 用法: ./scripts/start.sh {start|stop|status|restart|daemon|daemon-stop|run|run-dev|run-equity|tui|tui-dev|tui-equity}
+# 用法: ./scripts/start.sh {start|stop|status|restart|daemon|daemon-stop|start-collector|status-collector|run|run-dev|run-equity}
 
 set -uo pipefail
 
@@ -12,7 +12,10 @@ if [[ -f "$DB_URL_HELPER" ]]; then
 fi
 
 # 核心服务（与 init.sh 保持一致）
-SERVICES=(data-service signal-service trading-service)
+SERVICES=(collector-service signal-service trading-service)
+COLLECTOR_SERVICE_DIR="$ROOT/services/collector-service"
+COLLECTOR_PID="$ROOT/run/collector-service.pid"
+COLLECTOR_LOG="$ROOT/logs/collector-service.log"
 
 # 守护进程配置
 DAEMON_PID="$ROOT/run/daemon.pid"
@@ -28,6 +31,219 @@ mkdir -p "$ROOT/run" "$ROOT/logs"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$DAEMON_LOG"
+}
+
+warn_deprecated_alias() {
+    local alias_name="$1"
+    local canonical_name="$2"
+    echo "⚠ 兼容别名 '$alias_name' 已废弃，建议改用 '$canonical_name'" >&2
+}
+
+collector_python() {
+    local service_dir="$COLLECTOR_SERVICE_DIR"
+    local venv_python="$service_dir/.venv/bin/python"
+    if [[ -x "$venv_python" ]]; then
+        echo "$venv_python"
+        return 0
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        command -v python3
+        return 0
+    fi
+    return 1
+}
+
+collector_has_explicit_enable_flags() {
+    local keys=(
+        COLLECTOR_CRYPTO_KLINE_ENABLED
+        COLLECTOR_CRYPTO_METRICS_ENABLED
+        COLLECTOR_CRYPTO_ORDERBOOK_ENABLED
+        COLLECTOR_EQUITY_ENABLED
+        COLLECTOR_FUND_CN_ENABLED
+        COLLECTOR_NEWS_ENABLED
+    )
+    local key=""
+    for key in "${keys[@]}"; do
+        if [[ -n "${!key:-}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+prepare_collector_runtime_env() {
+    if collector_has_explicit_enable_flags; then
+        return 0
+    fi
+
+    # 默认沿用旧 core 链路口径：collector-service 先承接 crypto 采集。
+    export COLLECTOR_CRYPTO_KLINE_ENABLED=1
+    export COLLECTOR_CRYPTO_METRICS_ENABLED=1
+}
+
+run_collector_cli() {
+    if [[ ! -d "$COLLECTOR_SERVICE_DIR" ]]; then
+        echo "✗ collector-service 目录不存在: $COLLECTOR_SERVICE_DIR" >&2
+        return 1
+    fi
+
+    local python_bin=""
+    if ! python_bin="$(collector_python)"; then
+        echo "✗ 未找到可用的 Python 解释器用于 collector-service" >&2
+        return 1
+    fi
+
+    (
+        cd "$COLLECTOR_SERVICE_DIR"
+        prepare_collector_runtime_env
+        PYTHONPATH="../../libs${PYTHONPATH:+:$PYTHONPATH}" "$python_bin" -m src "$@"
+    )
+}
+
+start_collector() {
+    run_collector_cli --run "$@"
+}
+
+status_collector() {
+    run_collector_cli "$@"
+}
+
+collector_service_is_running() {
+    if [[ ! -f "$COLLECTOR_PID" ]]; then
+        return 1
+    fi
+
+    local pid=""
+    pid="$(cat "$COLLECTOR_PID" 2>/dev/null || true)"
+    if [[ -z "$pid" ]]; then
+        return 1
+    fi
+
+    if kill -0 "$pid" 2>/dev/null; then
+        return 0
+    fi
+
+    rm -f "$COLLECTOR_PID"
+    return 1
+}
+
+collector_service_start() {
+    mkdir -p "$(dirname "$COLLECTOR_PID")" "$(dirname "$COLLECTOR_LOG")"
+
+    if collector_service_is_running; then
+        echo "collector-service 已运行 (PID: $(cat "$COLLECTOR_PID"))"
+        return 0
+    fi
+
+    rm -f "$COLLECTOR_PID"
+
+    (
+        run_collector_cli --run
+    ) >>"$COLLECTOR_LOG" 2>&1 &
+    local pid=$!
+    echo "$pid" > "$COLLECTOR_PID"
+
+    sleep 1
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "collector-service 已启动 (PID: $pid)"
+        echo "  日志: $COLLECTOR_LOG"
+        return 0
+    fi
+
+    rm -f "$COLLECTOR_PID"
+    echo "collector-service 启动失败，请检查日志: $COLLECTOR_LOG" >&2
+    tail -n 20 "$COLLECTOR_LOG" 2>/dev/null || true
+    return 1
+}
+
+collector_service_stop() {
+    if ! collector_service_is_running; then
+        echo "collector-service 未运行"
+        rm -f "$COLLECTOR_PID"
+        return 0
+    fi
+
+    local pid=""
+    pid="$(cat "$COLLECTOR_PID" 2>/dev/null || true)"
+    if [[ -z "$pid" ]]; then
+        echo "collector-service 未运行"
+        rm -f "$COLLECTOR_PID"
+        return 0
+    fi
+
+    kill "$pid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            break
+        fi
+        sleep 0.25
+    done
+
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+
+    rm -f "$COLLECTOR_PID"
+    echo "collector-service 已停止"
+}
+
+collector_service_status() {
+    if collector_service_is_running; then
+        echo "collector-service 运行中 (PID: $(cat "$COLLECTOR_PID"))"
+        echo "  日志: $COLLECTOR_LOG"
+        return 0
+    fi
+
+    echo "collector-service 未运行"
+    return 1
+}
+
+service_start() {
+    local svc="$1"
+    if [[ "$svc" == "collector-service" ]]; then
+        collector_service_start
+        return $?
+    fi
+
+    local svc_dir="$ROOT/services/$svc"
+    if [ -d "$svc_dir" ]; then
+        cd "$svc_dir"
+        ./scripts/start.sh start
+    else
+        echo "$svc 目录不存在，跳过"
+    fi
+}
+
+service_stop() {
+    local svc="$1"
+    if [[ "$svc" == "collector-service" ]]; then
+        collector_service_stop
+        return $?
+    fi
+
+    local svc_dir="$ROOT/services/$svc"
+    if [ -d "$svc_dir" ]; then
+        cd "$svc_dir"
+        ./scripts/start.sh stop
+    fi
+}
+
+service_status() {
+    local svc="$1"
+    if [[ "$svc" == "collector-service" ]]; then
+        collector_service_status
+        return $?
+    fi
+
+    local svc_dir="$ROOT/services/$svc"
+    if [ -d "$svc_dir" ]; then
+        cd "$svc_dir"
+        ./scripts/start.sh status
+        return $?
+    fi
+
+    echo "$svc 目录不存在"
+    return 1
 }
 
 # ==================== 数据库就绪检查 ====================
@@ -80,20 +296,14 @@ check_database() {
 start_all() {
     echo "=== 启动全部服务 ==="
     
-    # 数据库就绪检查（仅对 data-service 和 trading-service）
+    # 数据库就绪检查（仅对 collector-service 和 trading-service）
     if ! check_database; then
         echo "服务启动已取消"
         return 1
     fi
     
     for svc in "${SERVICES[@]}"; do
-        local svc_dir="$ROOT/services/$svc"
-        if [ -d "$svc_dir" ]; then
-            cd "$svc_dir"
-            ./scripts/start.sh start 2>&1 | sed "s/^/  [$svc] /"
-        else
-            echo "  [$svc] 目录不存在，跳过"
-        fi
+        service_start "$svc" 2>&1 | sed "s/^/  [$svc] /"
     done
 }
 
@@ -101,11 +311,7 @@ start_all() {
 stop_all() {
     echo "=== 停止全部服务 ==="
     for svc in "${SERVICES[@]}"; do
-        local svc_dir="$ROOT/services/$svc"
-        if [ -d "$svc_dir" ]; then
-            cd "$svc_dir"
-            ./scripts/start.sh stop 2>&1 | sed "s/^/  [$svc] /"
-        fi
+        service_stop "$svc" 2>&1 | sed "s/^/  [$svc] /"
     done
 }
 
@@ -113,12 +319,8 @@ stop_all() {
 status_all() {
     echo "=== 服务状态 ==="
     for svc in "${SERVICES[@]}"; do
-        local svc_dir="$ROOT/services/$svc"
-        if [ -d "$svc_dir" ]; then
-            cd "$svc_dir"
-            ./scripts/start.sh status 2>&1 | sed "s/^/  [$svc] /"
-            echo ""
-        fi
+        service_status "$svc" 2>&1 | sed "s/^/  [$svc] /"
+        echo ""
     done
 }
 
@@ -163,13 +365,8 @@ daemon_all() {
             current_time=$(date +%s)
             
             for svc in "${SERVICES[@]}"; do
-                local svc_dir="$ROOT/services/$svc"
-                [ ! -d "$svc_dir" ] && continue
-                
-                cd "$svc_dir"
-
                 # 检查服务状态（使用退出码）
-                if ./scripts/start.sh status >/dev/null 2>&1; then
+                if service_status "$svc" >/dev/null 2>&1; then
                     # 服务运行中，重置计数
                     if [ "${restart_counts[$svc]}" -gt 0 ]; then
                         log "$svc: 恢复正常，重置重启计数"
@@ -217,7 +414,7 @@ daemon_all() {
                 last_restart_time[$svc]=$current_time
                 
                 log "$svc: 未运行，重启 (尝试 ${restart_counts[$svc]}/$MAX_RESTART_ATTEMPTS)"
-                ./scripts/start.sh start >> "$DAEMON_LOG" 2>&1
+                service_start "$svc" >> "$DAEMON_LOG" 2>&1
                 
                 # 指数退避（翻倍，但不超过最大值）
                 backoff_time[$svc]=$((${backoff_time[$svc]} * 2))
@@ -306,16 +503,18 @@ case "${1:-status}" in
     restart)     stop_all; sleep 2; start_all ;;
     daemon)      daemon_all ;;
     daemon-stop) daemon_stop ;;
+    start-collector) shift || true; start_collector "$@" ;;
+    status-collector) shift || true; status_collector "$@" ;;
     run)         shift || true; run_tui "$@" ;;
-    run-single)  shift || true; run_tui_single "$@" ;;
+    run-single)  warn_deprecated_alias "run-single" "run"; shift || true; run_tui_single "$@" ;;
     run-dev)     shift || true; run_tui_dev "$@" ;;
     run-equity)  shift || true; run_tui_equity "$@" ;;
-    tui)         shift || true; run_tui "$@" ;;
-    tui-single)  shift || true; run_tui_single "$@" ;;
-    tui-dev)     shift || true; run_tui_dev "$@" ;;
-    tui-equity)  shift || true; run_tui_equity "$@" ;;
+    tui)         warn_deprecated_alias "tui" "run"; shift || true; run_tui "$@" ;;
+    tui-single)  warn_deprecated_alias "tui-single" "run"; shift || true; run_tui_single "$@" ;;
+    tui-dev)     warn_deprecated_alias "tui-dev" "run-dev"; shift || true; run_tui_dev "$@" ;;
+    tui-equity)  warn_deprecated_alias "tui-equity" "run-equity"; shift || true; run_tui_equity "$@" ;;
     *)
-        echo "用法: $0 {start|stop|status|restart|daemon|daemon-stop|run|run-single|run-dev|run-equity|tui|tui-single|tui-dev|tui-equity}"
+        echo "用法: $0 {start|stop|status|restart|daemon|daemon-stop|start-collector|status-collector|run|run-dev|run-equity}"
         echo ""
         echo "命令说明:"
         echo "  start       - 启动所有核心服务"
@@ -324,13 +523,18 @@ case "${1:-status}" in
         echo "  restart     - 重启所有服务"
         echo "  daemon      - 启动守护进程模式（自动重启崩溃的服务）"
         echo "  daemon-stop - 停止守护进程和所有服务"
-        echo "  run/tui     - 从根目录启动 TradeCat TUI"
-        echo "  run-single  - run/tui 的兼容别名"
+        echo "  start-collector  - 显式运行 collector-service，并透传 --only/--exclude"
+        echo "  status-collector - 查看当前 collector-service 启用模块（透传选择器）"
+        echo "  run         - 从根目录启动 TradeCat TUI"
         echo "  run-dev     - 从根目录启动 TUI 开发模式（强制热重载）"
-        echo "  run-equity  - 从根目录启动 TUI + markets equity 采集"
-        echo "  tui-single  - run-single 的别名"
-        echo "  tui-dev     - run-dev 的别名"
-        echo "  tui-equity  - run-equity 的别名"
+        echo "  run-equity  - 从根目录启动 TUI + collector equity 采集"
+        echo ""
+        echo "兼容别名（逐步收敛，后续可能移除）:"
+        echo "  run-single  -> run"
+        echo "  tui         -> run"
+        echo "  tui-single  -> run"
+        echo "  tui-dev     -> run-dev"
+        echo "  tui-equity  -> run-equity"
         exit 1
         ;;
 esac

@@ -1,5 +1,6 @@
 import json
 import tempfile
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 import time
@@ -97,6 +98,14 @@ class TestTencentQuoteParse(unittest.TestCase):
             ["510300", "159915", "SH512100", "024389", "SZ021490"],
         )
 
+    def test_match_signal_to_symbol_cn_fund(self) -> None:
+        from src.tui import _match_signal_to_symbol
+
+        self.assertTrue(_match_signal_to_symbol("510300", "SH510300", "cn_fund"))
+        self.assertTrue(_match_signal_to_symbol("159915", "SZ159915", "cn_fund"))
+        self.assertTrue(_match_signal_to_symbol("024389", "024389", "cn_fund"))
+        self.assertFalse(_match_signal_to_symbol("024389", "SH510300", "cn_fund"))
+
     def test_normalize_crypto_symbols(self) -> None:
         from src.watchlists import normalize_crypto_symbols
 
@@ -127,6 +136,20 @@ class TestTencentQuoteParse(unittest.TestCase):
             )
             wl = load_watchlists(str(path))
             self.assertEqual(wl.fund_cn, ["SH510300", "SZ159915"])
+
+    def test_save_watchlists_normalizes_fund_cn_before_persist(self) -> None:
+        from src.watchlists import Watchlists, save_watchlists
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "watchlists.json"
+            save_watchlists(
+                str(path),
+                Watchlists(
+                    fund_cn=["510300.SH", "159915.SZ", "024389"],
+                ),
+            )
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("fund_cn"), ["SH510300", "SZ159915", "024389"])
 
     def test_parse_hk_line(self) -> None:
         from src.quote import _parse_tencent_quote_line
@@ -299,6 +322,38 @@ class TestTencentQuoteParse(unittest.TestCase):
         self.assertAlmostEqual(low_px, 1.325, places=6)
         self.assertAlmostEqual(close_px, 1.334, places=6)
         self.assertAlmostEqual(volume, 384225.0, places=6)
+
+    def test_maybe_seed_fund_curve_from_daily_history_uses_bridge(self) -> None:
+        from src.micro import Candle
+        from src.tui import _maybe_seed_fund_curve_from_daily_history
+
+        class _FakeBridge:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, int]] = []
+
+            def fetch_daily_candles(self, symbol: str, *, limit: int = 15) -> list[Candle]:
+                self.calls.append((symbol, limit))
+                return [
+                    Candle(ts_open=1, open=1.0, high=1.0, low=1.0, close=1.0, volume_est=0.0, notional_est=0.0),
+                    Candle(ts_open=2, open=1.1, high=1.2, low=1.0, close=1.15, volume_est=1.0, notional_est=1.15),
+                ]
+
+        curves: dict[str, deque[Candle]] = {}
+        attempts: dict[str, float] = {}
+        bridge = _FakeBridge()
+
+        _maybe_seed_fund_curve_from_daily_history(
+            curves=curves,
+            symbols={"SH510300"},
+            bridge=bridge,
+            attempts=attempts,
+            now_ts=1000.0,
+            lookback_days=15,
+        )
+
+        self.assertEqual([("SH510300", 15)], bridge.calls)
+        self.assertIn("SH510300", curves)
+        self.assertEqual(2, len(curves["SH510300"]))
 
     def test_fetch_quotes_cn_fund_keeps_input_keys(self) -> None:
         from src.quote import Quote, fetch_quotes

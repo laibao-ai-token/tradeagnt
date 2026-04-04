@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# trading-service 启动/守护脚本
-# 用法: ./scripts/start.sh {start|stop|status|restart|daemon}
+# trading-service 启动脚本
+# 用法: ./scripts/start.sh {start|stop|status|restart}
 
 set -uo pipefail
 
@@ -8,6 +8,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$(dirname "$SERVICE_DIR")")"
+PY_RUNTIME_HELPER="$PROJECT_ROOT/scripts/lib/python_runtime.sh"
 RUN_DIR="$SERVICE_DIR/pids"
 LOG_DIR="$SERVICE_DIR/logs"
 DAEMON_PID="$RUN_DIR/daemon.pid"
@@ -16,6 +17,11 @@ SERVICE_PID="$RUN_DIR/service.pid"
 SERVICE_LOG="$LOG_DIR/service.log"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
 STOP_TIMEOUT=10
+
+if [[ -f "$PY_RUNTIME_HELPER" ]]; then
+    # shellcheck disable=SC1090
+    source "$PY_RUNTIME_HELPER"
+fi
 
 # 安全加载 .env（只读键值解析，拒绝危险行）
 safe_load_env() {
@@ -173,6 +179,11 @@ start_service() {
         echo "   先执行: ./scripts/init.sh trading-service"
         return 1
     fi
+    if declare -f tc_python_is_compatible >/dev/null 2>&1 && ! tc_python_is_compatible "$vpy"; then
+        echo "❌ trading-service 虚拟环境 Python 版本过低: $(tc_python_version_string "$vpy")"
+        echo "   需要 3.12+，请删除 .venv 后重新初始化"
+        return 1
+    fi
     export PYTHONPATH="$SERVICE_DIR"
 
     if [[ "${MODE:-engine}" == "listener" ]]; then
@@ -252,6 +263,17 @@ case "${1:-status}" in
     restart) check_proxy; stop_service; sleep 2; start_service ;;
     *)
         echo "用法: $0 {start|stop|status|restart}"
+        echo ""
+        echo "说明:"
+        echo "  start    - 后台启动 trading-service"
+        echo "  stop     - 停止当前后台进程"
+        echo "  status   - 查看后台进程和最近日志"
+        echo "  restart  - 重启后台进程"
+        echo ""
+        echo "关键环境变量:"
+        echo "  MODE=engine|simple|listener              默认 engine"
+        echo "  ENGINE_MODE=all|incremental|batch        默认 all"
+        echo "  ENGINE_LOOP_INTERVAL_SECONDS=<seconds>   engine 模式轮询间隔，默认 60"
         exit 1
         ;;
 esac

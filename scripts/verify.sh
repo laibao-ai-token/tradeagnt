@@ -35,7 +35,7 @@ fi
 echo ""
 echo "2. 代码格式检查 (ruff)..."
 if command -v ruff &> /dev/null; then
-    if ruff check services/ services-preview/markets-service/src services-preview/tui-service/src scripts --quiet; then
+    if ruff check services/collector-service/src services/trading-service/src services/signal-service/src services-preview/tui-service/src scripts tests --quiet; then
         success "ruff 检查通过"
     else
         fail "ruff 检查失败"
@@ -48,10 +48,9 @@ fi
 echo ""
 echo "3. Python 语法检查..."
 paths=(
-    "services/data-service/src"
+    "services/collector-service/src"
     "services/trading-service/src"
     "services/signal-service/src"
-    "services-preview/markets-service/src"
     "services-preview/tui-service/src"
 )
 

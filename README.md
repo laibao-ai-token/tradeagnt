@@ -175,13 +175,15 @@ cp config/.env.example config/.env && chmod 600 config/.env
 # 统一以 config/.env 的 DATABASE_URL 为准（推荐保持 5434）
 vim config/.env
 
-# 3) 启动核心服务（data + signal + trading）
+# 3) 启动核心服务（collector + signal + trading）
 ./scripts/start.sh start
 ./scripts/start.sh status
 ```
 
-> 说明：顶层 `./scripts/start.sh` 管理 `data-service`、`signal-service`、`trading-service`。  
-> 预览版服务保留：`cd services-preview/markets-service && ./scripts/start.sh start`（多市场采集）、`cd services-preview/markets-service && ./scripts/start.sh start-news`（7x24 新闻采集）、`cd services-preview/tui-service && ./scripts/start.sh run`（终端 TUI 看板，默认会自动尝试拉起 data-service 与 signal-service，并在退出后 1 小时自动停止由 TUI 启动的 data/signal 服务；可用 `TUI_AUTO_START_DATA=0` / `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=0` / `TUI_SIGNAL_STOP_DELAY_SECONDS` 调整）。根目录 `./scripts/start.sh run` 现在直接启动 TradeCat TUI，`./scripts/start.sh run-single` 作为兼容别名。若要边看边跑新闻采集，可用 `cd services-preview/tui-service && ./scripts/start.sh run-news 2`。新闻链路默认已包含来自 worldmonitor 的一组精选交易/宏观补充 RSS 子集，并已剔除近期稳定返回 `403/超时/XML 异常` 的坏源；如只想保留原始高频主链路，可设置 `NEWS_RSS_PRESET=core`（TUI 可用 `TUI_NEWS_RSS_PRESET=core` 单独覆盖）。`markets-service` 默认链路现已下沉 TUI 里的 `direct://` 高频快讯源，并继承了 worldmonitor 风格的按源失败冷却与健康日志，坏源不会每轮都拖慢抓取。原始新闻默认只保留最近 `24h`（可通过 `NEWS_RETENTION_HOURS` / `NEWS_RETENTION_CLEANUP_INTERVAL_SECONDS` 调整），避免 `<ALTERNATIVE_DB_SCHEMA>.news_articles`（默认 `alternative.news_articles`）无限膨胀。TUI 资讯页现在默认优先读取统一库 `<ALTERNATIVE_DB_SCHEMA>.news_articles`（默认 `alternative.news_articles`），只有数据库不可用或暂时为空时才回退到本地直连/RSS 拉取。
+> 说明：顶层 `./scripts/start.sh` 默认管理 `collector-service`、`signal-service`、`trading-service`。  
+> 若需显式查看/运行 `collector-service` 切片，可用 `./scripts/start.sh start-collector --only=crypto,fund_cn` 或 `./scripts/start.sh status-collector --exclude=orderbook`。  
+> `./scripts/init.sh` 默认初始化这 3 个核心服务；`./scripts/init.sh --all` 会额外初始化 `tui-service`。  
+> 当前预览入口以 `tui-service` 为准：`cd services-preview/tui-service && ./scripts/start.sh run`（终端 TUI 看板；默认轻量模式会自动尝试拉起 `collector-service` 的 crypto 采集、默认不拉起 `signal-service`；可用 `TUI_AUTO_START_COLLECTOR=0` / `TUI_COLLECTOR_STOP_DELAY_SECONDS` / `TUI_AUTO_START_SIGNAL=1` / `TUI_SIGNAL_STOP_DELAY_SECONDS` 调整）。根目录 `./scripts/start.sh run` 可直接启动 TradeCat TUI，`./scripts/start.sh run-single` 作为兼容别名。若要边看边跑新闻采集，可用 `cd services-preview/tui-service && ./scripts/start.sh run-news 2`；若要边看边跑股票采集，可用 `cd services-preview/tui-service && ./scripts/start.sh run-equity us_stock yfinance NVDA 60 5`。TUI 资讯页默认优先读取统一库 `<ALTERNATIVE_DB_SCHEMA>.news_articles`（默认 `alternative.news_articles`），只有数据库不可用或暂时为空时才回退到本地直连/RSS 拉取。
 > 回测（M1 最小闭环）：`cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml`（产物输出到 `artifacts/backtest/latest`）。
 > 产物目录结构：每次回测会创建一个时间戳目录 `artifacts/backtest/YYYYMMDD-HHMMSS/`；单模式结果直接落在该目录，`compare_history_rule` 会在该目录下生成 `<base>-history` / `<base>-rules` / `<base>-compare` 三个子目录，`--walk-forward` 会在该目录写汇总文件并生成 `*-wfXX` 折子目录。
 > `input_quality.json` 现已显式区分 `signal_days`（历史信号覆盖天数）与 `aggregated_signal_bucket_count`（执行聚合 bucket 数）；顶层 `quality_status` 会合并 precheck gate 结果，而 `score_status` 保留原始质量打分状态。
@@ -266,7 +268,7 @@ python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 
 ```bash
 # 安装依赖
-services/data-service/.venv/bin/pip install pandas psycopg2-binary huggingface_hub
+services/collector-service/.venv/bin/pip install pandas psycopg2-binary huggingface_hub
 
 # 默认下载 Main4 数据集（BTC/ETH/BNB/SOL，415MB）
 python scripts/data/download_hf_data.py
@@ -315,7 +317,7 @@ zstd -d futures_metrics_5m.bin.zst -c | psql -h localhost -p 5434 -U postgres -d
 - 迁移脚本示例（仅迁移场景）：
 
 ```bash
-cd services-preview/markets-service/scripts
+cd _deprecated/services-preview/markets-service/scripts
 MIGRATION_OLD_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/market_data \
 MIGRATION_NEW_DATABASE_URL=postgresql://postgres:postgres@localhost:5434/market_data \
 ./sync_from_old_db.sh
@@ -373,7 +375,7 @@ cd .. && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
 ./scripts/init.sh
 
 # 或单独初始化某个服务
-./scripts/init.sh data-service
+./scripts/init.sh collector-service
 ```
 
 #### 4. 配置环境变量
@@ -388,8 +390,8 @@ vim config/.env
 - `COOLDOWN_SECONDS`（signal-service）：PG 信号冷却时间（秒），可与规则级冷却配合，避免重复推送。
 
 关键配置补充（预览服务）：
-- `TUI_AUTO_START_DATA` / `TUI_AUTO_START_SIGNAL`：TUI 启动时是否自动拉起 data/signal（默认 1）。
-- `TUI_DATA_STOP_DELAY_SECONDS` / `TUI_SIGNAL_STOP_DELAY_SECONDS`：退出 TUI 后延迟停止秒数（默认 3600）。
+- `TUI_AUTO_START_COLLECTOR` / `TUI_AUTO_START_SIGNAL`：TUI 启动时是否自动拉起 collector/signal（默认 `collector=1`、`signal=0`）。
+- `TUI_COLLECTOR_STOP_DELAY_SECONDS` / `TUI_SIGNAL_STOP_DELAY_SECONDS`：退出 TUI 后延迟停止秒数（默认 3600）。
 
 #### 5. 启动服务
 
@@ -492,7 +494,7 @@ vim config/.env
 <summary><strong>点击展开👉 🏗️ 架构设计</strong></summary>
 
 ### 系统架构图
-> 注：下图为历史全量架构示意；当前核心分支仅保留 `data-service`、`trading-service`、`signal-service`、`markets-service`、`tui-service`。
+> 注：下图为历史全量架构示意；当前活跃分支仅保留 `collector-service`、`trading-service`、`signal-service`、`tui-service`，旧 `data-service` / `markets-service` 已归档到 `_deprecated/`。
 
 ```mermaid
 graph TD
@@ -584,8 +586,7 @@ graph TD
 
 | 服务 | 端口 | 职责 | 技术栈 |
 |:---|:---:|:---|:---|
-| **data-service** | - | 加密货币 K线采集、期货指标采集、历史数据回填 | Python, asyncio, ccxt, cryptofeed |
-| **markets-service** | - | 全市场数据采集（美股/A股/宏观/衍生品定价） | yfinance, akshare, fredapi, QuantLib |
+| **collector-service** | - | 统一数据采集（crypto/equity/fund/news），默认 core 链路承接 crypto 采集 | Python, asyncio, ccxt, requests |
 | **trading-service** | - | 34个技术指标模块计算、高优先级币种筛选、定时调度 | Python, pandas, numpy, TA-Lib |
 | **signal-service** | - | 独立信号检测服务（129条规则、8分类、事件发布） | Python, SQLite, psycopg2 |
 | **tui-service** | - | 终端看板（多市场行情 + 实时信号 + 回测看板） | Python（stdlib） |
@@ -596,7 +597,7 @@ graph TD
 ```mermaid
 graph LR
     subgraph 数据采集
-        A["🌐 币安 WebSocket"] --> B["📦 data-service"]
+        A["🌐 币安 WebSocket / RSS / Equity APIs"] --> B["📦 collector-service"]
     end
     
     subgraph 数据存储
@@ -914,14 +915,14 @@ tradecat/
 │
 ├── 📂 services/                    # 核心微服务 (3个)
 │   │
-│   ├── 📂 data-service/            # 数据采集服务
+│   ├── 📂 collector-service/       # 统一数据采集服务（新增）
 │   │   ├── 📂 src/
-│   │   │   ├── 📂 collectors/      # WebSocket + REST 采集器
-│   │   │   ├── 📂 writers/         # 数据写入器
-│   │   │   ├── 📂 models/          # 数据模型
-│   │   │   ├── 📂 backfill/        # 历史回填
-│   │   │   └── __main__.py         # 入口
-│   │   ├── 📂 scripts/
+│   │   │   ├── 📂 collectors/      # 采集器（crypto/equity/fund/news）
+│   │   │   ├── 📂 adapters/        # 数据源适配器
+│   │   │   ├── 📂 storage/         # 存储层
+│   │   │   ├── 📂 core/            # 基础设施
+│   │   │   └── __main__.py         # 入口（--only/--exclude/--run/--once）
+│   │   ├── 📂 tests/
 │   │   ├── Makefile
 │   │   ├── pyproject.toml
 │   │   ├── requirements.txt
@@ -951,23 +952,19 @@ tradecat/
 │       ├── pyproject.toml
 │       └── requirements.txt
 │
-├── 📂 services-preview/            # 预览版微服务 (2个)
-│   │
-│   ├── 📂 markets-service/         # 全市场数据采集（美股/A股/宏观）
-│   │   ├── 📂 src/
-│   │   │   ├── 📂 providers/       # 数据源适配器
-│   │   │   ├── 📂 collectors/      # 采集任务调度
-│   │   │   ├── 📂 models/          # 标准化数据模型
-│   │   │   └── 📂 core/            # 核心框架
-│   │   ├── 📂 scripts/
-│   │   ├── requirements.txt
-│   │   └── requirements.lock.txt
+├── 📂 services-preview/            # 预览版微服务 (1个)
 │   │
 │   └── 📂 tui-service/             # 终端 TUI 看板（预览）
 │       ├── 📂 src/                 # 终端 UI（行情/信号/回测）
 │       ├── 📂 scripts/             # 启动脚本
 │       ├── Makefile
 │       └── requirements.txt
+│
+├── 📂 _deprecated/                 # 已归档旧服务（只读历史参考）
+│   ├── 📂 services/
+│   │   └── 📂 data-service/
+│   └── 📂 services-preview/
+│       └── 📂 markets-service/
 │
 ├── 📂 libs/                        # 共享库
 │   ├── 📂 database/                # 数据库文件
@@ -1051,11 +1048,9 @@ tradecat/
 <summary><strong>点击展开👉 单服务管理</strong></summary>
 
 ```bash
-# data-service（支持守护模式）
-cd services/data-service
-./scripts/start.sh start    # 启动（含守护）
-./scripts/start.sh stop     # 停止
-./scripts/start.sh status   # 状态
+# collector-service（显式入口）
+./scripts/start.sh start-collector --only=crypto
+./scripts/start.sh status-collector
 
 # trading-service / signal-service
 cd services/trading-service  # 或 signal-service
@@ -1070,11 +1065,12 @@ cd services/trading-service  # 或 signal-service
 <summary><strong>点击展开👉 初始化</strong></summary>
 
 ```bash
-# 初始化全部服务
-./scripts/init.sh
+# 初始化全部服务（含 preview + collector-service）
+./scripts/init.sh --all
 
 # 初始化单个服务
-./scripts/init.sh data-service
+./scripts/init.sh collector-service
+./scripts/init.sh signal-service
 ```
 
 </details>
@@ -1092,10 +1088,9 @@ cd services/trading-service  # 或 signal-service
 <summary><strong>点击展开👉 查看日志</strong></summary>
 
 ```bash
-# data-service 日志
-tail -f services/data-service/logs/backfill.log
-tail -f services/data-service/logs/ws_klines.log
-tail -f services/data-service/logs/metrics.log
+# collector-service 日志
+tail -f logs/collector-service.log
+tail -f logs/collector-news.log
 
 # trading-service 日志
 tail -f services/trading-service/logs/simple_scheduler.log
@@ -1114,7 +1109,7 @@ tail -f logs/daemon.log
 
 ```bash
 # 查看所有相关进程
-ps aux | grep -E "data-service|signal-service|trading-service|simple_scheduler"
+ps aux | grep -E "collector-service|signal-service|trading-service|simple_scheduler"
 
 # 查看资源占用
 htop -p $(pgrep -d',' -f "simple_scheduler|crypto_trading")

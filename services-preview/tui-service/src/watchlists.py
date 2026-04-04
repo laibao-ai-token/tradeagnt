@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .fund_symbols import normalize_cn_fund_symbols_csv
+
 
 @dataclass
 class Watchlists:
@@ -96,28 +98,7 @@ def normalize_cn_fund_symbols(raw: str) -> list[str]:
     - Exchange-traded ETF/LOF: SH510300 / SZ159915
     - Off-market public funds: 024389 (6-digit fund code)
     """
-    syms: list[str] = []
-    for token in (raw or "").replace(" ", "").split(","):
-        t = token.strip().upper()
-        if not t:
-            continue
-        if t.endswith(".SH"):
-            t = "SH" + t[:-3]
-        elif t.endswith(".SZ"):
-            t = "SZ" + t[:-3]
-        if t.startswith(("SH", "SZ")):
-            ex = t[:2]
-            digits = "".join([c for c in t[2:] if c.isdigit()])
-            if len(digits) != 6:
-                continue
-            syms.append(ex + digits)
-            continue
-        # Keep 6-digit raw fund code for off-market funds.
-        digits = "".join([c for c in t if c.isdigit()])
-        if len(digits) == 6:
-            syms.append(digits)
-            continue
-    return _dedup_keep_order(syms)
+    return normalize_cn_fund_symbols_csv(raw)
 
 
 _CRYPTO_PAIR_RE = re.compile(r"^[A-Z0-9]{2,12}_[A-Z0-9]{2,12}$")
@@ -208,11 +189,12 @@ def load_watchlists(path: str) -> Watchlists:
 def save_watchlists(path: str, wl: Watchlists) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
+    raw_fund_cn = ",".join([s for s in (wl.fund_cn or []) if (s or "").strip()])
     data = {
         "us": _dedup_keep_order([s.strip().upper() for s in (wl.us or []) if s.strip()]),
         "hk": _dedup_keep_order([s.strip().zfill(5) for s in (wl.hk or []) if s.strip()]),
         "cn": _dedup_keep_order([s.strip().upper() for s in (wl.cn or []) if s.strip()]),
-        "fund_cn": _dedup_keep_order([s.strip().upper() for s in (wl.fund_cn or []) if s.strip()]),
+        "fund_cn": normalize_cn_fund_symbols(raw_fund_cn),
         "crypto": _dedup_keep_order([s.strip().upper() for s in (wl.crypto or []) if s.strip()]),
         "metals": _dedup_keep_order([s.strip().upper() for s in (wl.metals or []) if s.strip()]),
     }

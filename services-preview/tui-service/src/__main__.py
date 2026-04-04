@@ -36,7 +36,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="TradeCat TUI (preview): view pg/sqlite signals from signal_history.db")
     parser.add_argument("--db", default="", help="Path to signal_history.db (default: repo libs/database/.../signal_history.db)")
-    parser.add_argument("--refresh", type=float, default=1.0, help="Refresh interval seconds (default: 1.0)")
+    parser.add_argument("--refresh", type=float, default=2.0, help="Refresh interval seconds (default: 2.0)")
     parser.add_argument("--limit", type=int, default=500, help="Max rows to load each refresh (default: 500)")
     parser.add_argument("--no-quote", action="store_true", help="Disable quote line in header (default: enabled)")
     parser.add_argument("--quote-provider", default="tencent", help="Quote provider for stock markets (default: tencent)")
@@ -48,7 +48,7 @@ def main() -> int:
     parser.add_argument("--crypto-timeout", type=float, default=10.0, help="Crypto request timeout seconds (default: 10.0)")
     parser.add_argument("--metals-provider", default="auto", help="Metals quote provider: auto/sina/stooq/yahoo (default: auto)")
     parser.add_argument("--metals-timeout", type=float, default=6.0, help="Metals request timeout seconds (default: 6.0)")
-    parser.add_argument("--quote-refresh", type=float, default=1.0, help="Quote refresh interval seconds (default: 1.0)")
+    parser.add_argument("--quote-refresh", type=float, default=3.0, help="Quote refresh interval seconds (default: 3.0)")
     parser.add_argument("--us-symbols", default="NVDA,META,ORCL", help="US watchlist. Example: NVDA,META,ORCL")
     parser.add_argument("--hk-symbols", default="00700,01810,03690", help="HK watchlist. Example: 00700,01810,03690")
     parser.add_argument("--cn-symbols", default="SH600519,SZ000001,SH688256", help="A-share watchlist. Example: SH600519,SZ000001")
@@ -97,7 +97,7 @@ def main() -> int:
     )
     parser.add_argument("--micro-window", type=int, default=60, help="Micro view max candles in chart (default: 60)")
     parser.add_argument("--micro-flow-rows", type=int, default=30, help="Micro view trade-flow rows (default: 30)")
-    parser.add_argument("--micro-refresh", type=float, default=0.5, help="Micro view refresh seconds (default: 0.5)")
+    parser.add_argument("--micro-refresh", type=float, default=3.0, help="Micro view refresh seconds (default: 3.0)")
     parser.add_argument("--hot-reload", action="store_true", help="Dev mode: auto-restart TUI when src/*.py changes")
     parser.add_argument(
         "--hot-reload-poll",

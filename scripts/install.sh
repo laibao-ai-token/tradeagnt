@@ -47,9 +47,9 @@ echo -e "\n${YELLOW}[3/6] 安装 Python 依赖...${NC}"
 
 pip install --upgrade pip -q
 
-# data-service
-echo "  📦 data-service..."
-pip install -e "$ROOT/services/data-service" -q 2>/dev/null || \
+# collector-service
+echo "  📦 collector-service..."
+pip install -e "$ROOT/services/collector-service" -q 2>/dev/null || \
 pip install cryptofeed ccxt psycopg[binary] psycopg-pool requests python-dotenv -q
 
 # trading-service
@@ -78,15 +78,14 @@ setup_env() {
     fi
 }
 
-setup_env "$ROOT/services/data-service" "data-service"
 setup_env "$ROOT/services/trading-service" "trading-service"
 setup_env "$ROOT/services/signal-service" "signal-service"
 
 # ========== 5. 创建数据目录 ==========
 echo -e "\n${YELLOW}[5/6] 创建数据目录...${NC}"
 
-mkdir -p "$ROOT/services/data-service/logs"
-mkdir -p "$ROOT/services/data-service/pids"
+mkdir -p "$ROOT/services/collector-service/logs"
+mkdir -p "$ROOT/run"
 mkdir -p "$ROOT/services/trading-service/logs"
 mkdir -p "$ROOT/services/signal-service/logs"
 mkdir -p "$ROOT/libs/database/db/state"
@@ -120,5 +119,5 @@ echo "     source .venv/bin/activate"
 echo "     ./scripts/start.sh daemon"
 echo ""
 echo "  4. 或单独启动:"
-echo "     cd services/data-service && ./scripts/start.sh daemon"
+echo "     ./scripts/start.sh start-collector --only=crypto"
 echo "     cd services/signal-service && ./scripts/start.sh start"

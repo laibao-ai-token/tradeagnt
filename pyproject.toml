@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Quantitative Trading for Everyone - Data, Indicators, Signals, AI Analysis"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 authors = [
     {name = "TradeCat Team", email = "team@tradecat.dev"}
 ]
@@ -23,9 +23,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial :: Investment",
@@ -96,7 +93,7 @@ packages = ["src/tradecat"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py312"
 src = ["src", "tests"]
 cache-dir = "cache/ruff"
 exclude = [
@@ -127,7 +124,7 @@ ignore = [
 known-first-party = ["tradecat"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 strict = false
 warn_return_any = true
 warn_unused_ignores = true

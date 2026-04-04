@@ -8,9 +8,14 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 DB_URL_HELPER="$ROOT/scripts/lib/db_url.sh"
+PY_RUNTIME_HELPER="$ROOT/scripts/lib/python_runtime.sh"
 if [[ -f "$DB_URL_HELPER" ]]; then
     # shellcheck disable=SC1090
     source "$DB_URL_HELPER"
+fi
+if [[ -f "$PY_RUNTIME_HELPER" ]]; then
+    # shellcheck disable=SC1090
+    source "$PY_RUNTIME_HELPER"
 fi
 
 # ==================== 工具函数 ====================
@@ -27,6 +32,7 @@ info() { echo -e "${BLUE}→${NC} $1"; }
 
 ERRORS=0
 WARNINGS=0
+TC_SELECTED_PYTHON=""
 
 read_config_key() {
     local key="$1"
@@ -50,33 +56,35 @@ resolve_database_url() {
 check_python() {
     echo ""
     echo "=== Python 环境 ==="
+    local py_bin=""
+    local py_ver=""
     
     # Python 版本
-    if command -v python3 &>/dev/null; then
-        local py_ver=$(python3 -c "import sys; sys.stdout.write(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
-        local py_major=$(python3 -c "import sys; sys.stdout.write(str(sys.version_info.major))")
-        local py_minor=$(python3 -c "import sys; sys.stdout.write(str(sys.version_info.minor))")
-        
-        if [ "$py_major" -ge 3 ] && [ "$py_minor" -ge 10 ]; then
-            success "Python: $py_ver"
-        else
-            fail "Python 版本需要 3.10+，当前: $py_ver"
-        fi
+    py_bin="$(tc_pick_python 2>/dev/null || true)"
+    if [[ -n "$py_bin" ]]; then
+        py_ver="$(tc_python_version_string "$py_bin")"
+        success "Python: $py_ver ($py_bin)"
+        TC_SELECTED_PYTHON="$py_bin"
     else
-        fail "Python3 未安装"
+        if command -v python3 &>/dev/null; then
+            py_ver="$(python3 -c "import sys; sys.stdout.write(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")"
+            fail "Python 版本需要 3.12+，当前 python3: $py_ver"
+        else
+            fail "未找到兼容的 Python 解释器（需要 3.12+）"
+        fi
         return 1
     fi
     
     # pip
-    if python3 -m pip --version &>/dev/null; then
-        local pip_ver=$(python3 -m pip --version | cut -d' ' -f2)
+    if "$py_bin" -m pip --version &>/dev/null; then
+        local pip_ver=$("$py_bin" -m pip --version | cut -d' ' -f2)
         success "pip: $pip_ver"
     else
         fail "pip 未安装"
     fi
     
     # venv
-    if python3 -m venv --help &>/dev/null; then
+    if "$py_bin" -m venv --help &>/dev/null; then
         success "venv: 可用"
     else
         fail "venv 模块不可用，请安装: sudo apt install python3-venv"
@@ -87,6 +95,7 @@ check_python() {
 check_system_deps() {
     echo ""
     echo "=== 系统依赖 ==="
+    local py_bin="${TC_SELECTED_PYTHON:-python3}"
     
     # Git
     if command -v git &>/dev/null; then
@@ -111,7 +120,7 @@ check_system_deps() {
     fi
     
     # TA-Lib (可选)
-    if python3 -c "import talib" 2>/dev/null; then
+    if "$py_bin" -c "import talib" 2>/dev/null; then
         success "TA-Lib: 已安装"
     else
         info "TA-Lib: 未安装 (K线形态检测不可用)"
@@ -123,12 +132,21 @@ check_venvs() {
     echo ""
     echo "=== 虚拟环境 ==="
     
-    local services=(data-service trading-service signal-service)
+    local services=(collector-service trading-service signal-service)
     
     for svc in "${services[@]}"; do
         local svc_dir="$ROOT/services/$svc"
-        if [ -d "$svc_dir/.venv" ] && [ -f "$svc_dir/.venv/bin/python" ]; then
-            success "$svc: .venv 存在"
+        local venv_python="$svc_dir/.venv/bin/python"
+        if [ -d "$svc_dir/.venv" ] && [ -x "$venv_python" ]; then
+            if tc_python_is_compatible "$venv_python"; then
+                if "$venv_python" -m pip --version &>/dev/null; then
+                    success "$svc: .venv 存在且可用 ($(tc_python_version_string "$venv_python"))"
+                else
+                    fail "$svc: .venv 缺少 pip（环境损坏，建议重建）"
+                fi
+            else
+                fail "$svc: .venv Python 版本过低 ($(tc_python_version_string "$venv_python"))，需要重建为 3.12+"
+            fi
         else
             if [ -d "$svc_dir" ]; then
                 fail "$svc: .venv 缺失 (运行 ./scripts/init.sh $svc)"
@@ -260,7 +278,7 @@ check_database() {
     # 解析 user/password（支持无密码，兼容 URL 编码）
     local db_user db_pass
     read -r db_user db_pass < <(
-        python3 - "$db_url" <<'PY'
+        "${TC_SELECTED_PYTHON:-python3}" - "$db_url" <<'PY'
 from urllib.parse import unquote, urlparse
 import sys
 
@@ -312,10 +330,9 @@ check_data_dirs() {
     
     local dirs=(
         "$ROOT/libs/database/services/telegram-service"
-        "$ROOT/services/data-service/logs"
+        "$ROOT/services/collector-service/logs"
         "$ROOT/services/trading-service/logs"
         "$ROOT/services/signal-service/logs"
-        "$ROOT/services-preview/markets-service/logs"
         "$ROOT/services-preview/tui-service/logs"
     )
     
