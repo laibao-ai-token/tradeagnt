@@ -1,0 +1,176 @@
+name: "Default Conservative"
+market: crypto
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+timeframe: 1h
+
+indicators:
+  - name: rsi
+    params:
+      period: 14
+  - name: macd
+    params:
+      fast: 12
+      slow: 26
+      signal: 9
+  - name: ema
+    params:
+      fast: 7
+      medium: 25
+      slow: 99
+  - name: super_trend
+    params:
+      length: 70
+      mult: 1.2
+  - name: volume_ratio
+    params:
+      period: 20
+
+rules:
+  - name: RSI超买区卖出
+    category: momentum
+    subcategory: rsi
+    direction: SELL
+    strength: 65
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_up
+      field: rsi
+      threshold: 70
+    message_template: "RSI超买区: {rsi:.1f}"
+    fields:
+      rsi: rsi
+
+  - name: RSI超卖区买入
+    category: momentum
+    subcategory: rsi
+    direction: BUY
+    strength: 65
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_down
+      field: rsi
+      threshold: 30
+    message_template: "RSI超卖区: {rsi:.1f}"
+    fields:
+      rsi: rsi
+
+  - name: MACD金叉买入
+    category: momentum
+    subcategory: macd
+    direction: BUY
+    strength: 75
+    priority: high
+    cooldown: 7200
+    condition:
+      type: cross_up
+      field_a: macd_dif
+      field_b: macd_dea
+    message_template: "MACD金叉"
+
+  - name: MACD死叉卖出
+    category: momentum
+    subcategory: macd
+    direction: SELL
+    strength: 75
+    priority: high
+    cooldown: 7200
+    condition:
+      type: cross_down
+      field_a: macd_dif
+      field_b: macd_dea
+    message_template: "MACD死叉"
+
+  - name: EMA趋势转多
+    category: trend
+    subcategory: ema
+    direction: BUY
+    strength: 75
+    priority: high
+    cooldown: 10800
+    condition:
+      type: state_change
+      field: ema_trend
+      from_values:
+        - "bearish"
+        - "neutral"
+      to_values:
+        - "bullish"
+    message_template: "EMA趋势转多"
+
+  - name: EMA趋势转空
+    category: trend
+    subcategory: ema
+    direction: SELL
+    strength: 75
+    priority: high
+    cooldown: 10800
+    condition:
+      type: state_change
+      field: ema_trend
+      from_values:
+        - "bullish"
+        - "neutral"
+      to_values:
+        - "bearish"
+    message_template: "EMA趋势转空"
+
+  - name: SuperTrend翻多
+    category: trend
+    subcategory: supertrend
+    direction: BUY
+    strength: 70
+    priority: high
+    cooldown: 10800
+    condition:
+      type: state_change
+      field: super_trend_direction
+      from_values:
+        - "down"
+        - "neutral"
+      to_values:
+        - "up"
+    message_template: "SuperTrend翻多"
+
+  - name: SuperTrend翻空
+    category: trend
+    subcategory: supertrend
+    direction: SELL
+    strength: 70
+    priority: high
+    cooldown: 10800
+    condition:
+      type: state_change
+      field: super_trend_direction
+      from_values:
+        - "up"
+        - "neutral"
+      to_values:
+        - "down"
+    message_template: "SuperTrend翻空"
+
+  - name: 放量上涨
+    category: volume
+    subcategory: volume_surge
+    direction: BUY
+    strength: 55
+    priority: medium
+    cooldown: 3600
+    condition:
+      type: threshold_cross_up
+      field: volume_ratio
+      threshold: 2.0
+    message_template: "放量上涨 量比:{vr:.2f}"
+    fields:
+      vr: volume_ratio
+
+thresholds:
+  min_strength: 50
+
+weights:
+  momentum: 1.0
+  trend: 1.2
+  volume: 0.9
