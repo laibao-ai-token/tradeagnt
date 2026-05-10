@@ -23,10 +23,20 @@ def fetch(symbol: str, provider: str, timeframe: str, limit: int) -> None:
     registry.auto_register()
 
     async def _run() -> None:
-        p = registry.resolve(symbol)
-        df = await p.fetch_klines(symbol, timeframe, limit)
-        click.echo(df.to_string(index=False))
-        if hasattr(p, "close"):
-            await p.close()
+        try:
+            p = registry.resolve_by_name(provider)
+            df = await p.fetch_klines(symbol, timeframe, limit)
+            click.echo(df.to_string(index=False))
+        except ValueError as e:
+            raise click.ClickException(str(e))
+        except (ConnectionError, RuntimeError) as e:
+            raise click.ClickException(str(e))
+        finally:
+            for prov in registry.list_providers():
+                if hasattr(prov, "close"):
+                    try:
+                        await prov.close()
+                    except Exception:
+                        pass
 
     asyncio.run(_run())

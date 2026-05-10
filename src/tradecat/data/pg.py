@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import asyncpg
@@ -30,7 +31,7 @@ async def close_pool() -> None:
 
 
 @asynccontextmanager
-async def get_conn():
+async def get_conn() -> AsyncGenerator[asyncpg.Connection, None]:
     """Yield an acquired connection."""
     pool = await init_pool()
     async with pool.acquire() as conn:
@@ -38,7 +39,7 @@ async def get_conn():
 
 
 @asynccontextmanager
-async def get_transaction():
+async def get_transaction() -> AsyncGenerator[asyncpg.Connection, None]:
     """Yield a transaction-wrapped connection."""
     pool = await init_pool()
     async with pool.acquire() as conn:

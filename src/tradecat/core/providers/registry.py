@@ -20,6 +20,13 @@ class ProviderRegistry:
                 return provider
         raise ValueError(f"No provider can resolve symbol: {symbol}")
 
+    def resolve_by_name(self, name: str) -> DataProvider:
+        """根据 provider 名称查找已注册的 Provider."""
+        for provider in self._providers:
+            if provider.name == name:
+                return provider
+        raise ValueError(f"No provider named: {name}")
+
     def list_providers(self) -> list[DataProvider]:
         """返回所有已注册的 provider 列表（副本）."""
         return self._providers.copy()
