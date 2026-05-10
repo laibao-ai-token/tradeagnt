@@ -28,3 +28,32 @@ class CooldownManager:
 
     def record(self, symbol: str, cooldown_seconds: int) -> None:
         self._memory[symbol] = datetime.now(timezone.utc) + timedelta(seconds=cooldown_seconds)
+
+    async def is_active_async(self, symbol: str) -> bool:
+        """Check memory + optional PG for persistent cooldown."""
+        if self.is_active(symbol):
+            return True
+        if self._pg is not None:
+            try:
+                from tradecat.data.repositories.cooldown import (  # noqa: PLC0415
+                    CooldownRepository,
+                )
+
+                repo = CooldownRepository(self._pg)
+                return await repo.is_active(symbol)
+            except Exception:
+                pass
+        return False
+
+    async def record_async(self, symbol: str, cooldown_seconds: int) -> None:
+        self.record(symbol, cooldown_seconds)
+        if self._pg is not None:
+            try:
+                from tradecat.data.repositories.cooldown import (  # noqa: PLC0415
+                    CooldownRepository,
+                )
+
+                repo = CooldownRepository(self._pg)
+                await repo.record(symbol, cooldown_seconds)
+            except Exception:
+                pass

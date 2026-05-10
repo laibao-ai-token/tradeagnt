@@ -146,10 +146,12 @@ class SignalEngine:
         provider_registry: ProviderRegistry,
         indicator_registry: IndicatorRegistry,
         cooldown_manager: CooldownManager | None = None,
+        signal_repo: Any | None = None,
     ) -> None:
         self.provider_registry = provider_registry
         self.indicator_registry = indicator_registry
         self.cooldown = cooldown_manager or CooldownManager()
+        self.signal_repo = signal_repo
 
     async def run(
         self,
@@ -215,5 +217,19 @@ class SignalEngine:
 
             if signals and max_cooldown > 0:
                 self.cooldown.record(symbol, max_cooldown)
+                # Async PG write for cooldown (optional)
+                if hasattr(self.cooldown, "record_async"):
+                    try:
+                        await self.cooldown.record_async(symbol, max_cooldown)
+                    except Exception:
+                        pass
+
+        # Persist signals to PG (optional, graceful degradation)
+        if self.signal_repo:
+            for sig in signals:
+                try:
+                    await self.signal_repo.save(sig)
+                except Exception:
+                    pass
 
         return signals

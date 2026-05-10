@@ -45,3 +45,8 @@ async def get_transaction() -> AsyncGenerator[asyncpg.Connection, None]:
     async with pool.acquire() as conn:
         async with conn.transaction():
             yield conn
+
+
+def get_pool() -> asyncpg.Pool | None:
+    """Return the current pool without initializing."""
+    return _pool

@@ -39,15 +39,32 @@ def signal_cmd(
     auto_register_indicators()
 
     indicator_registry = IndicatorRegistry()
-    cooldown_manager = CooldownManager()
-    engine = SignalEngine(provider_registry, indicator_registry, cooldown_manager)
 
     async def _run() -> None:
+        # Optional PG connection (graceful degradation)
+        pg_pool = None
+        signal_repo = None
+        try:
+            from tradecat.data import pg as pg_module  # noqa: PLC0415
+            from tradecat.data.repositories import create_repositories  # noqa: PLC0415
+
+            pg_pool = await pg_module.init_pool()
+            signal_repo, _ = await create_repositories(pg_pool)
+        except Exception:
+            pass
+
         try:
             if timeframe:
                 strategy.timeframe = timeframe
 
             p = provider_registry.resolve_by_name(provider)
+            cooldown_manager = CooldownManager(pg_pool=pg_pool)
+            engine = SignalEngine(
+                provider_registry,
+                indicator_registry,
+                cooldown_manager,
+                signal_repo,
+            )
             signals = await engine.run(strategy, symbol, provider)
 
             for prov in provider_registry.list_providers():
@@ -71,6 +88,10 @@ def signal_cmd(
                     click.echo("无信号触发")
                     return
                 click.echo(f"Symbol: {symbol} | Timeframe: {strategy.timeframe}")
+                if signal_repo is not None:
+                    click.echo(click.style("(PG 持久化已启用)", fg="green"))
+                else:
+                    click.echo(click.style("(PG 未连接，仅内存模式)", fg="yellow"))
                 click.echo("-" * 60)
                 for s in signals:
                     click.echo(
@@ -80,5 +101,13 @@ def signal_cmd(
             raise click.ClickException(str(e))
         except Exception as e:
             raise click.ClickException(f"Signal engine error: {e}")
+        finally:
+            if pg_pool is not None:
+                try:
+                    from tradecat.data import pg as pg_module  # noqa: PLC0415
+
+                    await pg_module.close_pool()
+                except Exception:
+                    pass
 
     asyncio.run(_run())
