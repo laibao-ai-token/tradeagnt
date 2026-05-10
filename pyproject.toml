@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tradecat"
+version = "0.8.0"
+description = "通用金融分析引擎 — 从微服务到模块化单体"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "click>=8.1",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "psycopg[pool]>=3.1",
+    "psycopg-binary>=3.1",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "blessed>=1.20",
+    "ccxt>=4.0",
+    "pydantic>=2.0",
+    "tabulate>=0.9",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+]
+
+[project.scripts]
+tradecat = "tradecat.cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tradecat"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/config",
+    "/Makefile",
+    "/docker-compose.yml",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
