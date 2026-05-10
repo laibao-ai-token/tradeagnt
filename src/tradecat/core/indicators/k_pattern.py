@@ -13,9 +13,9 @@ def k_pattern(df: pd.DataFrame) -> pd.DataFrame:
     upper_shadow = df["high"] - df[["open", "close"]].max(axis=1)
     lower_shadow = df[["open", "close"]].min(axis=1) - df["low"]
     total_range = df["high"] - df["low"]
-    total_range = total_range.replace(0, np.nan)
 
-    df["k_doji"] = body / total_range < 0.1
+    # Doji: body is tiny relative to range; treat high==low as doji
+    df["k_doji"] = (body / total_range.replace(0, np.nan) < 0.1).fillna(True)
     df["k_hammer"] = (lower_shadow > body * 2) & (upper_shadow < body * 0.5) & (df["close"] > df["open"])
     df["k_shooting_star"] = (upper_shadow > body * 2) & (lower_shadow < body * 0.5) & (df["close"] < df["open"])
     prev_open = df["open"].shift(1)

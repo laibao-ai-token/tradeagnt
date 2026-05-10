@@ -41,8 +41,12 @@ def indicator_cmd(
             click.echo(result.tail(tail).to_string(index=False))
         except ValueError as e:
             raise click.ClickException(str(e))
+        except KeyError as e:
+            raise click.ClickException(f"Missing required column: {e}")
         except (ConnectionError, RuntimeError) as e:
             raise click.ClickException(str(e))
+        except Exception as e:
+            raise click.ClickException(f"Indicator error: {e}")
         finally:
             for prov in registry.list_providers():
                 if hasattr(prov, "close"):
