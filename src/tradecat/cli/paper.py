@@ -18,13 +18,31 @@ def paper() -> None:
 
 # ─── Helpers ───
 
+_ENGINE_CACHE = None
+
 def _engine() -> PaperTradingEngine:
-    """初始化 PaperTradingEngine，仓库类型可通过 PAPER_REPO_TYPE 环境变量切换."""
-    repo_type = os.getenv("PAPER_REPO_TYPE", "memory")
-    if repo_type == "sqlite":
+    """初始化 PaperTradingEngine，默认 SQLite 持久化."""
+    global _ENGINE_CACHE
+    if _ENGINE_CACHE is not None:
+        return _ENGINE_CACHE
+    repo_type = os.getenv("PAPER_REPO_TYPE", "sqlite")
+    if repo_type == "memory":
+        repo = InMemoryRepository()
+    else:
         from tradecat.core.paper_trading.repository import SqliteRepository
-        return PaperTradingEngine(SqliteRepository())
-    return PaperTradingEngine(InMemoryRepository())
+        repo = SqliteRepository()
+    _ENGINE_CACHE = PaperTradingEngine(repo)
+    return _ENGINE_CACHE
+
+
+def _get_account(engine, account_id):
+    """获取账户：优先用传入的 ID，否则取第一个，都没有则自动创建 default."""
+    if account_id:
+        return engine.get_account(__import__("uuid").UUID(account_id))
+    accounts = list(engine._repo._accounts.keys())
+    if accounts:
+        return engine.get_account(accounts[0])
+    return engine.create_account("default")
 
 
 def _fmt_decimal(d: Decimal) -> str:
@@ -71,7 +89,7 @@ def account_list() -> None:
 def long_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
     """Open a LONG position."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         # Auto-create default account on first use
         acct = engine.create_account("default")
@@ -94,7 +112,7 @@ def long_cmd(symbol: str, account_id: str | None, notional: str, price: str, lev
 def short_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
     """Open a SHORT position."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         acct = engine.create_account("default")
     result = engine.short(acct.account_id, symbol.upper(), Decimal(notional), Decimal(price), Decimal(leverage))
@@ -114,7 +132,7 @@ def short_cmd(symbol: str, account_id: str | None, notional: str, price: str, le
 def close_cmd(symbol: str, account_id: str | None, price: str) -> None:
     """Close an existing position."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found. Create one with: tradecat paper account create")
     result = engine.close(acct.account_id, symbol.upper(), Decimal(price))
@@ -135,7 +153,7 @@ def close_cmd(symbol: str, account_id: str | None, price: str) -> None:
 def flip_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
     """Close existing position and flip to opposite side."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found.")
     result = engine.flip(acct.account_id, symbol.upper(), Decimal(notional), Decimal(price), Decimal(leverage))
@@ -152,7 +170,7 @@ def flip_cmd(symbol: str, account_id: str | None, notional: str, price: str, lev
 def status_cmd(account_id: str | None) -> None:
     """Show account status, positions, and recent orders."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found.")
     st = engine.status(acct.account_id)
@@ -175,7 +193,7 @@ def status_cmd(account_id: str | None) -> None:
 def history_cmd(account_id: str | None, limit: int) -> None:
     """Show recent order history."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found.")
     orders = engine.history(acct.account_id, limit)
@@ -204,7 +222,7 @@ def portfolio_cmd(account_id: str | None) -> None:
 def stats_cmd(account_id: str | None) -> None:
     """Show trading statistics."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found.")
     s = engine.stats(acct.account_id)
@@ -230,7 +248,7 @@ def from_signal_cmd(
 ) -> None:
     """Execute a signal-derived order."""
     engine = _engine()
-    acct = engine.get_account(list(engine._repo._accounts.keys())[0]) if not account_id else engine.get_account(UUID(account_id))
+    acct = _get_account(engine, account_id)
     if not acct:
         acct = engine.create_account("default")
     payload = {
