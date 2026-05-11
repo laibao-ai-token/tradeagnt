@@ -177,6 +177,32 @@ paper_trading:
   price_fetchers: [{ name: binance, priority: 1 }, { name: gate, priority: 2 }]
 ```
 
+## 补充说明（边界与接口）
+
+### 1. 失败回滚
+
+订单生命周期 `PENDING → STAGED → CONFIRMED → FILLED` 中，若 **STAGED → CONFIRMED** 阶段检测到价格异常（滑点超过 `default_slippage_bps`），自动回滚到 `PENDING` 状态并记录 `execution_attributions.guard_failed_rules`。
+
+### 2. 与 008-05 信号引擎的接口
+
+`tradecat paper from-signal BTCUSDT --timeframe 1h` 时，SignalEngine 传入的 payload 格式：
+
+```python
+{
+    "symbol": "BTCUSDT",
+    "side": "LONG" | "SHORT",      # 由 SignalEvent.direction 映射
+    "qty_notional": Decimal,       # 按 account.max_single_trade_pct * balance 计算
+    "strength": int,               # SignalEvent.strength
+    "rule_name": str,              # SignalEvent.rule_name
+    "idempotency_key": str,         # signal_id + symbol + side
+}
+```
+
+PaperTradingEngine 收到 payload 后：
+1. 校验 `idempotency_key` 是否已存在
+2. 通过 RiskGuard
+3. 调用 OrderManager.create_order()
+
 ## 验收标准
 
 - [ ] `tradecat paper long BTCUSDT --notional 1000` 成功开仓
@@ -186,3 +212,5 @@ paper_trading:
 - [ ] 价格获取 < 1.5s，批量写入 1000 fills < 2s
 - [ ] Decimal 精度零误差：`Decimal("0.1") + Decimal("0.2") == Decimal("0.3")`
 - [ ] 并发 100 订单写入后 balance + positions 一致
+- [ ] 滑点超限回滚：STAGED→PENDING 正确恢复
+- [ ] `from-signal` 接收 SignalEngine payload 正确映射为订单
