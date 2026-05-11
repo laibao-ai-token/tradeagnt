@@ -1,6 +1,7 @@
 """SignalEngine: load strategy, run indicators, evaluate rules, emit signals."""
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime, timezone
 from typing import Any
@@ -11,6 +12,8 @@ from tradecat.core.indicators.base import IndicatorRegistry
 from tradecat.core.providers.registry import ProviderRegistry
 from tradecat.core.signals.cooldown import CooldownManager
 from tradecat.core.signals.models import ConditionType, RuleConfig, SignalEvent, StrategyConfig
+
+logger = logging.getLogger(__name__)
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -159,11 +162,18 @@ class SignalEngine:
         symbol: str,
         provider_name: str = "binance",
     ) -> list[SignalEvent]:
-        provider = self.provider_registry.resolve_by_name(provider_name)
-        df = await provider.fetch_klines(symbol, config.timeframe)
+        try:
+            provider = self.provider_registry.resolve_by_name(provider_name)
+            df = await provider.fetch_klines(symbol, config.timeframe)
+        except Exception as exc:
+            logger.error("Failed to fetch data for %s: %s", symbol, exc)
+            return []
 
         for ind_ref in config.indicators:
             meta = self.indicator_registry.get(ind_ref.name)
+            if meta is None:
+                logger.warning("Indicator not registered: %s", ind_ref.name)
+                continue
             df = meta.func(df, **ind_ref.params)
 
         signals: list[SignalEvent] = []
@@ -193,7 +203,7 @@ class SignalEngine:
                         continue
 
                 triggered = _check_condition(rule, prev, curr)
-                if not triggered or rule.strength < min_strength:
+                if not triggered or _to_float(rule.strength, 0.0) < min_strength:
                     continue
 
                 message = _format_message(rule, prev, curr)
@@ -221,15 +231,15 @@ class SignalEngine:
                 if hasattr(self.cooldown, "record_async"):
                     try:
                         await self.cooldown.record_async(symbol, max_cooldown)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Cooldown async write failed: %s", exc)
 
         # Persist signals to PG (optional, graceful degradation)
         if self.signal_repo:
             for sig in signals:
                 try:
                     await self.signal_repo.save(sig)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Signal repo save failed: %s", exc)
 
         return signals

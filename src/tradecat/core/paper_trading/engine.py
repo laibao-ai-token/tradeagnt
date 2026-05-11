@@ -116,6 +116,9 @@ class PositionManager:
 
     def apply_fill(self, account_id: UUID, fill: PaperFill) -> PaperPosition:
         pos = self._repo.get_position(account_id, fill.symbol)
+        order = self._repo.get_order(fill.order_id)
+        leverage = order.leverage if order else Decimal("1.0")
+
         if not pos:
             pos = PaperPosition(
                 account_id=account_id,
@@ -123,8 +126,8 @@ class PositionManager:
                 side=fill.side,
                 qty=fill.qty,
                 entry_price=fill.price,
-                margin=fill.price * fill.qty / Decimal("1.0"),  # leverage=1 default
-                leverage=Decimal("1.0"),
+                margin=fill.price * fill.qty / leverage,
+                leverage=leverage,
             )
         else:
             if pos.side == fill.side:
@@ -156,7 +159,9 @@ class PositionManager:
                         realized *= Decimal("-1")
                     pos.realized_pnl += realized
                     pos.qty -= fill.qty
-            pos.margin = pos.qty * pos.entry_price / pos.leverage
+            pos.margin = pos.qty * pos.entry_price / leverage
+            if leverage != pos.leverage:
+                pos.leverage = leverage
         self._repo.upsert_position(pos)
         return pos
 
@@ -274,13 +279,18 @@ class PaperTradingEngine:
             fills.extend(self._repo.list_fills(account_id, pos.symbol, limit=100))
         if not fills:
             return {"trades": 0, "win_rate": "N/A", "avg_pnl": "N/A"}
-        # Simplified stats
-        pnls = [f.price * f.qty for f in fills]
-        wins = [p for p in pnls if p > 0]
+
+        # Use realized_pnl from positions for accurate P&L
+        positions = self._repo.list_positions(account_id)
+        closed_positions = [p for p in positions if p.qty == Decimal("0")]
+        total_pnl = sum(p.realized_pnl for p in closed_positions)
+        win_count = sum(1 for p in closed_positions if p.realized_pnl > 0)
+
         return {
             "trades": len(fills),
-            "win_rate": f"{len(wins)/len(fills)*100:.1f}%" if fills else "N/A",
-            "avg_pnl": f"{sum(pnls)/len(pnls):.4f}" if pnls else "N/A",
+            "win_rate": f"{win_count / len(closed_positions) * 100:.1f}%" if closed_positions else "N/A",
+            "avg_pnl": f"{total_pnl / len(closed_positions):.4f}" if closed_positions else "N/A",
+            "total_realized_pnl": f"{total_pnl:.4f}",
         }
 
     # ─── Signal bridge ───
