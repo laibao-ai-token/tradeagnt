@@ -4,7 +4,7 @@ from __future__ import annotations
 import click
 
 from tradecat import __version__
-from tradecat.cli import analyze, backtest, connector, daemon, execute, fetch, indicator, migrate, signal, tui
+from tradecat.cli import analyze, backtest, connector, daemon, execute, fetch, indicator, migrate, paper, signal, tui
 
 
 @click.group(invoke_without_command=True)
@@ -25,6 +25,7 @@ def main() -> None:
     cli.add_command(fetch.fetch)
     cli.add_command(indicator.indicator_cmd)
     cli.add_command(migrate.migrate_cmd)
+    cli.add_command(paper.paper)
     cli.add_command(signal.signal_cmd)
     cli.add_command(tui.tui)
     cli()
