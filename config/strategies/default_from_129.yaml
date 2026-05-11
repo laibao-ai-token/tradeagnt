@@ -1,0 +1,2168 @@
+name: default_from_129
+market: crypto
+symbols:
+- BTCUSDT
+- ETHUSDT
+timeframe: 1h
+indicators:
+- name: rsi
+  params: {}
+- name: 期货情绪聚合表
+  params: {}
+- name: 基础数据同步器
+  params: {}
+- name: 大资金操盘
+  params: {}
+- name: macd
+  params: {}
+- name: macd柱状
+  params: {}
+- name: 全量支撑阻力
+  params: {}
+- name: kdj
+  params: {}
+- name: kdj随机指标
+  params: {}
+- name: cci
+  params: {}
+- name: williamsr
+  params: {}
+- name: mfi资金流量
+  params: {}
+- name: adx
+  params: {}
+- name: 谐波信号
+  params: {}
+- name: supertrend
+  params: {}
+- name: 超级精准趋势
+  params: {}
+- name: ichimoku
+  params: {}
+- name: 零延迟趋势
+  params: {}
+- name: 趋势云反转
+  params: {}
+- name: 趋势线榜单
+  params: {}
+- name: 多空信号
+  params: {}
+- name: 量能信号
+  params: {}
+- name: g，c点
+  params: {}
+- name: 布林带
+  params: {}
+- name: atr
+  params: {}
+- name: atr波幅
+  params: {}
+- name: donchian
+  params: {}
+- name: keltner
+  params: {}
+- name: vwap离线信号扫描
+  params: {}
+- name: obv能量潮
+  params: {}
+- name: cvd信号排行榜
+  params: {}
+- name: 成交量比率
+  params: {}
+- name: 主动买卖比
+  params: {}
+- name: k线形态
+  params: {}
+- name: 量能斐波狙击
+  params: {}
+- name: vpvr排行生成器
+  params: {}
+- name: 流动性
+  params: {}
+- name: 剥头皮信号
+  params: {}
+rules:
+- name: 动量趋势共振做多
+  category: core
+  subcategory: confluence
+  direction: BUY
+  strength: 85
+  priority: high
+  cooldown: 7200
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.confluence.55201b3639 table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: ⚡ 动量趋势共振做多! RSI从超卖回升+金叉
+  enabled: true
+- name: 动量趋势共振做空
+  category: core
+  subcategory: confluence
+  direction: SELL
+  strength: 85
+  priority: high
+  cooldown: 7200
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.confluence.bb23850dfb table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: ⚡ 动量趋势共振做空! RSI从超买回落+死叉
+  enabled: true
+- name: 大户极度看多警告
+  category: core
+  subcategory: futures_extreme
+  direction: ALERT
+  strength: 80
+  priority: high
+  cooldown: 14400
+  min_volume: 1000000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.futures_extreme.f8d19db59e table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 大户多空比
+    risk: 风险分
+  message_template: ⚠️ 大户极度看多! 多空比:{ratio:.2f} 风险分:{risk:.0f}
+  enabled: true
+- name: 大户极度看空警告
+  category: core
+  subcategory: futures_extreme
+  direction: ALERT
+  strength: 80
+  priority: high
+  cooldown: 14400
+  min_volume: 1000000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.futures_extreme.02cf965951 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 大户多空比
+    risk: 风险分
+  message_template: ⚠️ 大户极度看空! 多空比:{ratio:.2f} 风险分:{risk:.0f}
+  enabled: true
+- name: 持仓量异常高
+  category: core
+  subcategory: futures_extreme
+  direction: ALERT
+  strength: 75
+  priority: high
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.futures_extreme.b9c885c351 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    z: 持仓Z分数
+  message_template: ⚠️ 持仓量异常高! Z分数:{z:.2f} (>2.5σ)
+  enabled: true
+- name: 情绪差值极端看多
+  category: core
+  subcategory: futures_extreme
+  direction: BUY
+  strength: 70
+  priority: medium
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.futures_extreme.3856e30622 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    diff: 情绪差值
+    oi: OI连续根数
+  message_template: 情绪差值转正+OI增仓! 差值:{diff:.2f} OI连续:{oi}根
+  enabled: true
+- name: 情绪差值极端看空
+  category: core
+  subcategory: futures_extreme
+  direction: SELL
+  strength: 70
+  priority: medium
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.futures_extreme.133c098218 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    diff: 情绪差值
+    oi: OI连续根数
+  message_template: 情绪差值转负+OI减仓! 差值:{diff:.2f} OI连续:{oi}根
+  enabled: true
+- name: 放量上涨
+  category: core
+  subcategory: volume_anomaly
+  direction: BUY
+  strength: 70
+  priority: medium
+  cooldown: 3600
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.volume_anomaly.ce52a604ca table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    chg: 变化率
+  message_template: 放量上涨! 成交额放大2倍以上 涨幅:{chg:.2f}%
+  enabled: true
+- name: 放量下跌
+  category: core
+  subcategory: volume_anomaly
+  direction: SELL
+  strength: 70
+  priority: medium
+  cooldown: 3600
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.volume_anomaly.9d858c0d85 table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    chg: 变化率
+  message_template: 放量下跌! 成交额放大 跌幅:{chg:.2f}%
+  enabled: true
+- name: 大额资金净流入
+  category: core
+  subcategory: volume_anomaly
+  direction: BUY
+  strength: 75
+  priority: high
+  cooldown: 7200
+  min_volume: 1000000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.volume_anomaly.2de8c13d85 table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    flow: 资金流向
+  message_template: 大额资金净流入! 流入:{flow:.0f}
+  enabled: true
+- name: 大额资金净流出
+  category: core
+  subcategory: volume_anomaly
+  direction: SELL
+  strength: 75
+  priority: high
+  cooldown: 7200
+  min_volume: 1000000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.volume_anomaly.a9b8744c8a table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    flow: 资金流向
+  message_template: 大额资金净流出! 流出:{flow:.0f}
+  enabled: true
+- name: BOS多头结构突破
+  category: core
+  subcategory: smc
+  direction: BUY
+  strength: 80
+  priority: high
+  cooldown: 7200
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.smc.1a3d722177 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 评分
+    event: 结构事件
+  message_template: ⚡ BOS多头突破! 评分:{score:.0f} 事件:{event}
+  enabled: true
+- name: BOS空头结构突破
+  category: core
+  subcategory: smc
+  direction: SELL
+  strength: 80
+  priority: high
+  cooldown: 7200
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.smc.bc7910f056 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 评分
+    event: 结构事件
+  message_template: ⚡ BOS空头突破! 评分:{score:.0f} 事件:{event}
+  enabled: true
+- name: CHoCH趋势变化看涨
+  category: core
+  subcategory: smc
+  direction: BUY
+  strength: 85
+  priority: high
+  cooldown: 14400
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.smc.76106de2a2 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    event: 结构事件
+  message_template: ⚡ CHoCH趋势变化看涨! 事件:{event}
+  enabled: true
+- name: CHoCH趋势变化看跌
+  category: core
+  subcategory: smc
+  direction: SELL
+  strength: 85
+  priority: high
+  cooldown: 14400
+  min_volume: 500000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.smc.4558e3c1d9 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    event: 结构事件
+  message_template: ⚡ CHoCH趋势变化看跌! 事件:{event}
+  enabled: true
+- name: MACD强势金叉
+  category: core
+  subcategory: macd
+  direction: BUY
+  strength: 75
+  priority: high
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.macd.14e5fbedc3 table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dif: DIF
+    dea: DEA
+  message_template: MACD强势金叉! 零轴上方 DIF:{dif:.4f} DEA:{dea:.4f}
+  enabled: true
+- name: MACD强势死叉
+  category: core
+  subcategory: macd
+  direction: SELL
+  strength: 75
+  priority: high
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.macd.5053312ade table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dif: DIF
+    dea: DEA
+  message_template: MACD强势死叉! 零轴下方 DIF:{dif:.4f} DEA:{dea:.4f}
+  enabled: true
+- name: MACD柱状放大转多
+  category: core
+  subcategory: macd
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.macd.b8b9392d5d table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    hist: MACD柱状图
+  message_template: MACD柱状放大转多! 柱状图:{hist:.4f}
+  enabled: true
+- name: 接近强支撑位
+  category: core
+  subcategory: sr
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.sr.d56ea6ce08 table=全量支撑阻力扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距支撑百分比
+    support: 支撑位
+  message_template: 接近强支撑位! 距离:{dist:.2f}% 支撑:{support}
+  enabled: true
+- name: 接近强阻力位
+  category: core
+  subcategory: sr
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=core.sr.874974bd92 table=全量支撑阻力扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距阻力百分比
+    resistance: 阻力位
+  message_template: 接近强阻力位! 距离:{dist:.2f}% 阻力:{resistance}
+  enabled: true
+- name: RSI进入超买区
+  category: momentum
+  subcategory: rsi
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.9704a44f3f table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi14: RSI14
+    rsi21: RSI21
+  message_template: 'RSI进入超买区: {rsi7:.1f}/{rsi14:.1f}/{rsi21:.1f}'
+  enabled: true
+- name: RSI进入超卖区
+  category: momentum
+  subcategory: rsi
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.dd3650e9fe table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi14: RSI14
+    rsi21: RSI21
+  message_template: 'RSI进入超卖区: {rsi7:.1f}/{rsi14:.1f}/{rsi21:.1f}'
+  enabled: true
+- name: RSI离开超买区
+  category: momentum
+  subcategory: rsi
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.37aa14c468 table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi14: RSI14
+    rsi21: RSI21
+  message_template: 'RSI离开超买区: {rsi7:.1f}/{rsi14:.1f}/{rsi21:.1f}'
+  enabled: true
+- name: RSI离开超卖区
+  category: momentum
+  subcategory: rsi
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.e68747dfdc table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi14: RSI14
+    rsi21: RSI21
+  message_template: 'RSI离开超卖区: {rsi7:.1f}/{rsi14:.1f}/{rsi21:.1f}'
+  enabled: true
+- name: RSI顶背离
+  category: momentum
+  subcategory: rsi
+  direction: SELL
+  strength: 80
+  priority: high
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.f573daa480 table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi_avg: RSI均值
+  message_template: '⚠️ RSI顶背离! 均值: {rsi_avg:.1f}'
+  enabled: true
+- name: RSI底背离
+  category: momentum
+  subcategory: rsi
+  direction: BUY
+  strength: 80
+  priority: high
+  cooldown: 7200
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.rsi.fcdfd3510c table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi_avg: RSI均值
+  message_template: '⚠️ RSI底背离! 均值: {rsi_avg:.1f}'
+  enabled: true
+- name: RSI7金叉RSI21
+  category: momentum
+  subcategory: rsi
+  direction: BUY
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CROSS_UP
+    note: Original rule_id=momentum.rsi.327f9a7762 table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi21: RSI21
+  message_template: RSI7({rsi7:.1f})上穿RSI21({rsi21:.1f})
+  enabled: true
+- name: RSI7死叉RSI21
+  category: momentum
+  subcategory: rsi
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CROSS_DOWN
+    note: Original rule_id=momentum.rsi.47f4692c39 table=智能RSI扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rsi7: RSI7
+    rsi21: RSI21
+  message_template: RSI7({rsi7:.1f})下穿RSI21({rsi21:.1f})
+  enabled: true
+- name: KDJ金叉
+  category: momentum
+  subcategory: kdj
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.kdj.15a3074318 table=KDJ随机指标扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    k: K值
+    d: D值
+    j: J值
+  message_template: 'KDJ金叉: K={k:.1f} D={d:.1f} J={j:.1f}'
+  enabled: true
+- name: KDJ死叉
+  category: momentum
+  subcategory: kdj
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.kdj.4fb00e19d9 table=KDJ随机指标扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    k: K值
+    d: D值
+    j: J值
+  message_template: 'KDJ死叉: K={k:.1f} D={d:.1f} J={j:.1f}'
+  enabled: true
+- name: J值超卖极值
+  category: momentum
+  subcategory: kdj
+  direction: BUY
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.kdj.7888af454f table=KDJ随机指标扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    j: J值
+  message_template: '⚠️ KDJ J值超卖极值: J={j:.1f} (< 0)'
+  enabled: true
+- name: J值超买极值
+  category: momentum
+  subcategory: kdj
+  direction: SELL
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=momentum.kdj.aa459db0ea table=KDJ随机指标扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    j: J值
+  message_template: '⚠️ KDJ J值超买极值: J={j:.1f} (> 100)'
+  enabled: true
+- name: CCI进入超买
+  category: momentum
+  subcategory: cci
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=momentum.cci.c10d6c33ba table=CCI.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cci: CCI
+  message_template: 'CCI进入超买区: {cci:.1f} (> 100)'
+  enabled: true
+- name: CCI进入超卖
+  category: momentum
+  subcategory: cci
+  direction: BUY
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_DOWN
+    note: Original rule_id=momentum.cci.c0c988aa2a table=CCI.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cci: CCI
+  message_template: 'CCI进入超卖区: {cci:.1f} (< -100)'
+  enabled: true
+- name: CCI离开超买
+  category: momentum
+  subcategory: cci
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.cci.6cbdda0ddb table=CCI.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cci: CCI
+  message_template: 'CCI离开超买区: {cci:.1f}'
+  enabled: true
+- name: CCI离开超卖
+  category: momentum
+  subcategory: cci
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.cci.67a2741b98 table=CCI.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cci: CCI
+  message_template: 'CCI离开超卖区: {cci:.1f}'
+  enabled: true
+- name: WR进入超买
+  category: momentum
+  subcategory: williams
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=momentum.williams.7eee7adb15 table=WilliamsR.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    wr: WilliamsR
+  message_template: 'WilliamsR进入超买区: {wr:.1f} (> -20)'
+  enabled: true
+- name: WR进入超卖
+  category: momentum
+  subcategory: williams
+  direction: BUY
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_DOWN
+    note: Original rule_id=momentum.williams.26ea91688c table=WilliamsR.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    wr: WilliamsR
+  message_template: 'WilliamsR进入超卖区: {wr:.1f} (< -80)'
+  enabled: true
+- name: WR离开超买
+  category: momentum
+  subcategory: williams
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.williams.71c1e2a36f table=WilliamsR.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    wr: WilliamsR
+  message_template: 'WilliamsR离开超买区: {wr:.1f}'
+  enabled: true
+- name: WR离开超卖
+  category: momentum
+  subcategory: williams
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.williams.86c57ef840 table=WilliamsR.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    wr: WilliamsR
+  message_template: 'WilliamsR离开超卖区: {wr:.1f}'
+  enabled: true
+- name: MFI超买
+  category: momentum
+  subcategory: mfi
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=momentum.mfi.6bf85a5e86 table=MFI资金流量扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    mfi: MFI值
+  message_template: 'MFI资金流量超买: {mfi:.1f} (> 80)'
+  enabled: true
+- name: MFI超卖
+  category: momentum
+  subcategory: mfi
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_DOWN
+    note: Original rule_id=momentum.mfi.16a935f82d table=MFI资金流量扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    mfi: MFI值
+  message_template: 'MFI资金流量超卖: {mfi:.1f} (< 20)'
+  enabled: true
+- name: MFI离开超买
+  category: momentum
+  subcategory: mfi
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.mfi.800f2b7ad5 table=MFI资金流量扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    mfi: MFI值
+  message_template: 'MFI离开超买区: {mfi:.1f}'
+  enabled: true
+- name: MFI离开超卖
+  category: momentum
+  subcategory: mfi
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.mfi.f311008fd2 table=MFI资金流量扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    mfi: MFI值
+  message_template: 'MFI离开超卖区: {mfi:.1f}'
+  enabled: true
+- name: ADX趋势增强
+  category: momentum
+  subcategory: adx
+  direction: ALERT
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=momentum.adx.bb2195ddda table=ADX.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    adx: ADX
+  message_template: 'ADX趋势增强: {adx:.1f} (> 25)'
+  enabled: true
+- name: ADX趋势减弱
+  category: momentum
+  subcategory: adx
+  direction: ALERT
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.adx.8209474520 table=ADX.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    adx: ADX
+  message_template: 'ADX趋势减弱: {adx:.1f} (< 25)'
+  enabled: true
+- name: 谐波信号出现
+  category: momentum
+  subcategory: harmonic
+  direction: ALERT
+  strength: 70
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=momentum.harmonic.6264e1c012 table=谐波信号扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    val: 谐波值
+  message_template: '谐波信号: {val:.2f}'
+  enabled: true
+- name: SuperTrend翻多
+  category: trend
+  subcategory: supertrend
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.supertrend.9b86b18af9 table=SuperTrend.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: SuperTrend翻多
+  enabled: true
+- name: SuperTrend翻空
+  category: trend
+  subcategory: supertrend
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.supertrend.486899ba86 table=SuperTrend.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: SuperTrend翻空
+  enabled: true
+- name: 精准趋势翻多
+  category: trend
+  subcategory: precise
+  direction: BUY
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.precise.3b90dd4869 table=超级精准趋势扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 趋势强度
+  message_template: 精准趋势翻多 强度:{strength}
+  enabled: true
+- name: 精准趋势翻空
+  category: trend
+  subcategory: precise
+  direction: SELL
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.precise.b5823984ed table=超级精准趋势扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 趋势强度
+  message_template: 精准趋势翻空 强度:{strength}
+  enabled: true
+- name: 精准趋势强度突破
+  category: trend
+  subcategory: precise
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=trend.precise.12dd57b54f table=超级精准趋势扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 趋势强度
+  message_template: '精准趋势强度突破80: {strength}'
+  enabled: true
+- name: Ichimoku买入信号
+  category: trend
+  subcategory: ichimoku
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.ichimoku.25e3250925 table=Ichimoku.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: Ichimoku买入 强度:{strength}
+  enabled: true
+- name: Ichimoku卖出信号
+  category: trend
+  subcategory: ichimoku
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.ichimoku.a73de7dd70 table=Ichimoku.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: Ichimoku卖出 强度:{strength}
+  enabled: true
+- name: 零延迟趋势翻多
+  category: trend
+  subcategory: zerolag
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.zerolag.2bdaff78c3 table=零延迟趋势扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 零延迟趋势翻多 强度:{strength}
+  enabled: true
+- name: 零延迟趋势翻空
+  category: trend
+  subcategory: zerolag
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.zerolag.d005e11d49 table=零延迟趋势扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 零延迟趋势翻空 强度:{strength}
+  enabled: true
+- name: 趋势云翻多
+  category: trend
+  subcategory: cloud
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.cloud.7372975c0f table=趋势云反转扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    shape: 形态
+  message_template: 趋势云翻多 形态:{shape}
+  enabled: true
+- name: 趋势云翻空
+  category: trend
+  subcategory: cloud
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.cloud.2c07cd9c88 table=趋势云反转扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    shape: 形态
+  message_template: 趋势云翻空 形态:{shape}
+  enabled: true
+- name: 趋势线翻多
+  category: trend
+  subcategory: trendline
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.trendline.ee245cdfe4 table=趋势线榜单.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距离趋势线%
+  message_template: 趋势线翻多 距离:{dist}%
+  enabled: true
+- name: 趋势线翻空
+  category: trend
+  subcategory: trendline
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.trendline.a358fa9884 table=趋势线榜单.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距离趋势线%
+  message_template: 趋势线翻空 距离:{dist}%
+  enabled: true
+- name: 多空信号翻多
+  category: trend
+  subcategory: ha
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.ha.52250c700c table=多空信号扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 多空信号翻多 强度:{strength}
+  enabled: true
+- name: 多空信号翻空
+  category: trend
+  subcategory: ha
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.ha.7bd231e6e4 table=多空信号扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 多空信号翻空 强度:{strength}
+  enabled: true
+- name: 量能偏向翻多
+  category: trend
+  subcategory: volume_trend
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.volume_trend.32a6c44c3d table=量能信号扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    bull: 多头比例
+  message_template: 量能偏向翻多 多头:{bull}%
+  enabled: true
+- name: 量能偏向翻空
+  category: trend
+  subcategory: volume_trend
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.volume_trend.0564478c10 table=量能信号扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    bear: 空头比例
+  message_template: 量能偏向翻空 空头:{bear}%
+  enabled: true
+- name: GC点趋势翻多
+  category: trend
+  subcategory: gc
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.gc.a1f0204f50 table=G，C点扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 带宽评分
+  message_template: GC点趋势翻多 带宽:{score}
+  enabled: true
+- name: GC点趋势翻空
+  category: trend
+  subcategory: gc
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=trend.gc.cff6493d45 table=G，C点扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 带宽评分
+  message_template: GC点趋势翻空 带宽:{score}
+  enabled: true
+- name: 突破布林上轨
+  category: volatility
+  subcategory: bollinger
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.bollinger.4c2c03f551 table=布林带扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    b: 百分比b
+  message_template: 价格突破布林上轨 %b:{b:.2f}
+  enabled: true
+- name: 跌破布林下轨
+  category: volatility
+  subcategory: bollinger
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.bollinger.5c21e0ab5b table=布林带扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    b: 百分比b
+  message_template: 价格跌破布林下轨 %b:{b:.2f}
+  enabled: true
+- name: 布林带收窄
+  category: volatility
+  subcategory: bollinger
+  direction: ALERT
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.bollinger.76156457a9 table=布林带扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    bw: 带宽
+  message_template: 布林带收窄 带宽:{bw:.2f}%
+  enabled: true
+- name: 布林带扩张
+  category: volatility
+  subcategory: bollinger
+  direction: ALERT
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.bollinger.e9a1068b61 table=布林带扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    bw: 带宽
+  message_template: 布林带扩张 带宽:{bw:.2f}%
+  enabled: true
+- name: 布林%b超买
+  category: volatility
+  subcategory: bollinger
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=volatility.bollinger.e276cd9ed7 table=布林带扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    b: 百分比b
+  message_template: '布林%b超买: {b:.2f} (> 1.0)'
+  enabled: true
+- name: 波动率突增
+  category: volatility
+  subcategory: atr
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=volatility.atr.969670ae40 table=ATR波幅扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cls: 波动分类
+    atr: ATR百分比
+  message_template: '波动率突增: {cls} ATR%:{atr:.2f}%'
+  enabled: true
+- name: 波动率骤降
+  category: volatility
+  subcategory: atr
+  direction: ALERT
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=volatility.atr.cc3fc6253a table=ATR波幅扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cls: 波动分类
+    atr: ATR百分比
+  message_template: '波动率骤降: {cls} ATR%:{atr:.2f}%'
+  enabled: true
+- name: 突破Donchian上轨
+  category: volatility
+  subcategory: donchian
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.donchian.b4aceba4d7 table=Donchian.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: 突破Donchian上轨
+  enabled: true
+- name: 跌破Donchian下轨
+  category: volatility
+  subcategory: donchian
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.donchian.172b023645 table=Donchian.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: 跌破Donchian下轨
+  enabled: true
+- name: 突破Keltner上轨
+  category: volatility
+  subcategory: keltner
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.keltner.4121d4b456 table=Keltner.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: 突破Keltner上轨
+  enabled: true
+- name: 跌破Keltner下轨
+  category: volatility
+  subcategory: keltner
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.keltner.54fafe6309 table=Keltner.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: 跌破Keltner下轨
+  enabled: true
+- name: 接近支撑位
+  category: volatility
+  subcategory: sr
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.sr.d621703282 table=全量支撑阻力扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距支撑百分比
+  message_template: 接近支撑位 距离:{dist:.2f}%
+  enabled: true
+- name: 接近阻力位
+  category: volatility
+  subcategory: sr
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.sr.ed93ee4a77 table=全量支撑阻力扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dist: 距阻力百分比
+  message_template: 接近阻力位 距离:{dist:.2f}%
+  enabled: true
+- name: 突破VWAP上方
+  category: volatility
+  subcategory: vwap
+  direction: BUY
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.vwap.31fa385780 table=VWAP离线信号扫描.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dev: 偏离百分比
+  message_template: 价格突破VWAP上方 偏离:{dev:.2f}%
+  enabled: true
+- name: 跌破VWAP下方
+  category: volatility
+  subcategory: vwap
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volatility.vwap.fd7f8fd164 table=VWAP离线信号扫描.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dev: 偏离百分比
+  message_template: 价格跌破VWAP下方 偏离:{dev:.2f}%
+  enabled: true
+- name: MACD金叉
+  category: volume
+  subcategory: macd
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CROSS_UP
+    note: Original rule_id=volume.macd.187e5ff0de table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dif: DIF
+    dea: DEA
+  message_template: 'MACD金叉: DIF({dif:.4f})上穿DEA({dea:.4f})'
+  enabled: true
+- name: MACD死叉
+  category: volume
+  subcategory: macd
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CROSS_DOWN
+    note: Original rule_id=volume.macd.2ee224de9b table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dif: DIF
+    dea: DEA
+  message_template: 'MACD死叉: DIF({dif:.4f})下穿DEA({dea:.4f})'
+  enabled: true
+- name: MACD柱状转正
+  category: volume
+  subcategory: macd
+  direction: BUY
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.macd.d080dd49cd table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: MACD柱状图由负转正
+  enabled: true
+- name: MACD柱状转负
+  category: volume
+  subcategory: macd
+  direction: SELL
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.macd.faa91505c0 table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: MACD柱状图由正转负
+  enabled: true
+- name: MACD零轴上穿
+  category: volume
+  subcategory: macd
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=volume.macd.062a978e23 table=MACD柱状扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: MACD DIF上穿零轴
+  enabled: true
+- name: OBV大幅上升
+  category: volume
+  subcategory: obv
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.obv.16284e3cb5 table=OBV能量潮扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rate: OBV变化率
+  message_template: OBV大幅上升 变化率:{rate:.1f}%
+  enabled: true
+- name: OBV大幅下降
+  category: volume
+  subcategory: obv
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.obv.a4ebe52248 table=OBV能量潮扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rate: OBV变化率
+  message_template: OBV大幅下降 变化率:{rate:.1f}%
+  enabled: true
+- name: CVD大幅上升
+  category: volume
+  subcategory: cvd
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.cvd.76d620bb00 table=CVD信号排行榜.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rate: 变化率
+  message_template: CVD大幅上升 变化率:{rate:.1f}%
+  enabled: true
+- name: CVD大幅下降
+  category: volume
+  subcategory: cvd
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.cvd.4d0420028c table=CVD信号排行榜.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    rate: 变化率
+  message_template: CVD大幅下降 变化率:{rate:.1f}%
+  enabled: true
+- name: 量比放大
+  category: volume
+  subcategory: ratio
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=volume.ratio.3872d82865 table=成交量比率扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 量比
+  message_template: '量比放大: {ratio:.2f} (> 2.0)'
+  enabled: true
+- name: 量比极度放大
+  category: volume
+  subcategory: ratio
+  direction: ALERT
+  strength: 80
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=volume.ratio.e1660550f7 table=成交量比率扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 量比
+  message_template: '⚠️ 量比极度放大: {ratio:.2f} (> 5.0)'
+  enabled: true
+- name: 主动买盘极端
+  category: volume
+  subcategory: taker
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=volume.taker.74f02de2e0 table=主动买卖比扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动买卖比
+  message_template: '主动买盘极端: {ratio:.2f} (> 1.5)'
+  enabled: true
+- name: 主动卖盘极端
+  category: volume
+  subcategory: taker
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=volume.taker.bd3b0f504e table=主动买卖比扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动买卖比
+  message_template: '主动卖盘极端: {ratio:.2f} (< 0.67)'
+  enabled: true
+- name: 大户极度看多
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=futures.sentiment.700daed90e table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 大户多空比
+  message_template: '⚠️ 大户极度看多: {ratio:.2f} (> 2.0)'
+  enabled: true
+- name: 大户极度看空
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=futures.sentiment.cb4870a903 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 大户多空比
+  message_template: '⚠️ 大户极度看空: {ratio:.2f} (< 0.5)'
+  enabled: true
+- name: 主动买盘极端
+  category: futures
+  subcategory: sentiment
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=futures.sentiment.6d2310eeba table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动成交多空比
+  message_template: '主动买盘极端: {ratio:.2f} (> 1.5)'
+  enabled: true
+- name: 主动卖盘极端
+  category: futures
+  subcategory: sentiment
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=futures.sentiment.27958851cb table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动成交多空比
+  message_template: '主动卖盘极端: {ratio:.2f} (< 0.67)'
+  enabled: true
+- name: 情绪翻转看多
+  category: futures
+  subcategory: sentiment
+  direction: BUY
+  strength: 80
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=futures.sentiment.dbd1213aa4 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: ⚠️ 情绪翻转看多!
+  enabled: true
+- name: 情绪翻转看空
+  category: futures
+  subcategory: sentiment
+  direction: SELL
+  strength: 80
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=futures.sentiment.813a6b8245 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: ⚠️ 情绪翻转看空!
+  enabled: true
+- name: 风险分高位
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=futures.sentiment.d41d52909e table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 风险分
+  message_template: '⚠️ 风险分高位: {score}'
+  enabled: true
+- name: OI连续增仓
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=futures.sentiment.b87395af54 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cnt: OI连续根数
+  message_template: 'OI连续增仓: {cnt}根'
+  enabled: true
+- name: OI连续减仓
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=futures.sentiment.4e917de723 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    cnt: OI连续根数
+  message_template: 'OI连续减仓: {cnt}根'
+  enabled: true
+- name: 持仓Z分数异常高
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=futures.sentiment.bc74f8accb table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    z: 持仓Z分数
+  message_template: '持仓Z分数异常高: {z:.2f}'
+  enabled: true
+- name: 持仓Z分数异常低
+  category: futures
+  subcategory: sentiment
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=futures.sentiment.17550fdf28 table=期货情绪聚合表.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    z: 持仓Z分数
+  message_template: '持仓Z分数异常低: {z:.2f}'
+  enabled: true
+- name: 头肩顶形态
+  category: pattern
+  subcategory: candlestick
+  direction: SELL
+  strength: 85
+  priority: high
+  cooldown: 43200
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.313b890ebf table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: ⚠️ 头肩顶形态 强度:{strength}
+  enabled: true
+- name: 头肩底形态
+  category: pattern
+  subcategory: candlestick
+  direction: BUY
+  strength: 85
+  priority: high
+  cooldown: 43200
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.c47d653c96 table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: ⚠️ 头肩底形态 强度:{strength}
+  enabled: true
+- name: 双顶形态
+  category: pattern
+  subcategory: candlestick
+  direction: SELL
+  strength: 80
+  priority: high
+  cooldown: 43200
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.8f83dbc38c table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: ⚠️ 双顶形态 强度:{strength}
+  enabled: true
+- name: 双底形态
+  category: pattern
+  subcategory: candlestick
+  direction: BUY
+  strength: 80
+  priority: high
+  cooldown: 43200
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.940e8bf9f6 table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: ⚠️ 双底形态 强度:{strength}
+  enabled: true
+- name: 三角形突破
+  category: pattern
+  subcategory: candlestick
+  direction: ALERT
+  strength: 70
+  priority: medium
+  cooldown: 86400
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.4eaff03ec4 table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 三角/楔形形态 强度:{strength}
+  enabled: true
+- name: 锤子线
+  category: pattern
+  subcategory: candlestick
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.638b21100e table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 锤子线形态 强度:{strength}
+  enabled: true
+- name: 吞没形态
+  category: pattern
+  subcategory: candlestick
+  direction: ALERT
+  strength: 70
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.58f53d2e65 table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 吞没形态 强度:{strength}
+  enabled: true
+- name: 十字星
+  category: pattern
+  subcategory: candlestick
+  direction: ALERT
+  strength: 60
+  priority: low
+  cooldown: 21600
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.candlestick.ffd16d79c3 table=K线形态扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    strength: 强度
+  message_template: 十字星形态 强度:{strength}
+  enabled: true
+- name: SMC看涨
+  category: pattern
+  subcategory: smc
+  direction: BUY
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.smc.8cb569e818 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 评分
+    event: 结构事件
+  message_template: SMC看涨 评分:{score} 结构:{event}
+  enabled: true
+- name: SMC看跌
+  category: pattern
+  subcategory: smc
+  direction: SELL
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.smc.f6f54c3a47 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    score: 评分
+    event: 结构事件
+  message_template: SMC看跌 评分:{score} 结构:{event}
+  enabled: true
+- name: BOS突破
+  category: pattern
+  subcategory: smc
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.smc.cb1b610cf0 table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dir: 方向
+  message_template: BOS结构突破 方向:{dir}
+  enabled: true
+- name: CHoCH变化
+  category: pattern
+  subcategory: smc
+  direction: ALERT
+  strength: 75
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CONTAINS
+    note: Original rule_id=pattern.smc.deecee5c2e table=大资金操盘扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    dir: 方向
+  message_template: CHoCH结构变化 方向:{dir}
+  enabled: true
+- name: 斐波那契多头信号
+  category: pattern
+  subcategory: fibonacci
+  direction: BUY
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.fibonacci.eeac50f29d table=量能斐波狙击扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    zone: 价格区域
+    strength: 强度
+  message_template: 斐波那契多头 区域:{zone} 强度:{strength}
+  enabled: true
+- name: 斐波那契空头信号
+  category: pattern
+  subcategory: fibonacci
+  direction: SELL
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.fibonacci.d6cd5c095e table=量能斐波狙击扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    zone: 价格区域
+    strength: 强度
+  message_template: 斐波那契空头 区域:{zone} 强度:{strength}
+  enabled: true
+- name: 进入VPVR价值区
+  category: pattern
+  subcategory: vpvr
+  direction: ALERT
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.vpvr.e4bd76f9dd table=VPVR排行生成器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    poc: 控制点价格
+  message_template: 进入VPVR价值区 POC:{poc}
+  enabled: true
+- name: 离开VPVR价值区
+  category: pattern
+  subcategory: vpvr
+  direction: ALERT
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=pattern.vpvr.205e385585 table=VPVR排行生成器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    pos: 价值区位置
+  message_template: 离开VPVR价值区 位置:{pos}
+  enabled: true
+- name: 流动性改善
+  category: misc
+  subcategory: liquidity
+  direction: ALERT
+  strength: 55
+  priority: low
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=misc.liquidity.e619d29fca table=流动性扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    level: 流动性等级
+    score: 流动性得分
+  message_template: '流动性改善: {level} 得分:{score}'
+  enabled: true
+- name: 流动性恶化
+  category: misc
+  subcategory: liquidity
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=misc.liquidity.cdd380cb78 table=流动性扫描器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    level: 流动性等级
+    score: 流动性得分
+  message_template: '⚠️ 流动性恶化: {level} 得分:{score}'
+  enabled: true
+- name: 剥头皮多头信号
+  category: misc
+  subcategory: scalping
+  direction: BUY
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=misc.scalping.5e1aaf9d77 table=剥头皮信号扫描器.py timeframes=['1h']
+  fields:
+    rsi: RSI
+  message_template: 剥头皮多头 RSI:{rsi:.1f}
+  enabled: true
+- name: 剥头皮空头信号
+  category: misc
+  subcategory: scalping
+  direction: SELL
+  strength: 60
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: STATE_CHANGE
+    note: Original rule_id=misc.scalping.af9f447149 table=剥头皮信号扫描器.py timeframes=['1h']
+  fields:
+    rsi: RSI
+  message_template: 剥头皮空头 RSI:{rsi:.1f}
+  enabled: true
+- name: 成交额暴增
+  category: misc
+  subcategory: basic
+  direction: ALERT
+  strength: 70
+  priority: high
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=misc.basic.365961176e table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields: {}
+  message_template: ⚠️ 成交额暴增 3倍以上
+  enabled: true
+- name: 振幅异常
+  category: misc
+  subcategory: basic
+  direction: ALERT
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=misc.basic.037e86d1d8 table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    amp: 振幅
+  message_template: '振幅异常: {amp:.2f}% (> 10%)'
+  enabled: true
+- name: 买卖比极端看多
+  category: misc
+  subcategory: basic
+  direction: BUY
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: THRESHOLD_CROSS_UP
+    note: Original rule_id=misc.basic.9ca7af6c0e table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动买卖比
+  message_template: '买卖比极端看多: {ratio:.2f}'
+  enabled: true
+- name: 买卖比极端看空
+  category: misc
+  subcategory: basic
+  direction: SELL
+  strength: 65
+  priority: medium
+  cooldown: 3600
+  min_volume: 100000
+  condition:
+    type: CUSTOM
+    note: Original rule_id=misc.basic.22dbbfe38e table=基础数据同步器.py timeframes=['1h',
+      '4h', '1d']
+  fields:
+    ratio: 主动买卖比
+  message_template: '买卖比极端看空: {ratio:.2f}'
+  enabled: true
+thresholds: {}
+weights: {}
