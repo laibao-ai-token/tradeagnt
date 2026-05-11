@@ -27,15 +27,17 @@ def fetch(symbol: str, provider: str, timeframe: str, limit: int) -> None:
             p = registry.resolve_by_name(provider)
             df = await p.fetch_klines(symbol, timeframe, limit)
             click.echo(df.to_string(index=False))
-        except ValueError as e:
-            raise click.ClickException(str(e))
-        except (ConnectionError, RuntimeError) as e:
-            raise click.ClickException(str(e))
+        except ValueError as exc:
+            click.echo(f"[Error] {exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            click.echo(f"[Error] Failed to fetch data: {exc}", err=True)
+            raise SystemExit(1)
         finally:
-            for prov in registry.list_providers():
-                if hasattr(prov, "close"):
+            for p in registry.list_providers():
+                if hasattr(p, "close"):
                     try:
-                        await prov.close()
+                        await p.close()
                     except Exception:
                         pass
 

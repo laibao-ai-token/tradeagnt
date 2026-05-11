@@ -11,6 +11,8 @@ class ProviderRegistry:
 
     def register(self, provider: DataProvider) -> None:
         """注册一个新的数据源提供者."""
+        if any(p.name == provider.name for p in self._providers):
+            raise ValueError(f"Provider '{provider.name}' is already registered.")
         self._providers.append(provider)
 
     def resolve(self, symbol: str) -> DataProvider:
@@ -21,11 +23,11 @@ class ProviderRegistry:
         raise ValueError(f"No provider can resolve symbol: {symbol}")
 
     def resolve_by_name(self, name: str) -> DataProvider:
-        """根据 provider 名称查找已注册的 Provider."""
+        """根据 provider 名称精确选择."""
         for provider in self._providers:
             if provider.name == name:
                 return provider
-        raise ValueError(f"No provider named: {name}")
+        raise ValueError(f"No provider named: {name}. Registered: {[p.name for p in self._providers]}")
 
     def list_providers(self) -> list[DataProvider]:
         """返回所有已注册的 provider 列表（副本）."""
