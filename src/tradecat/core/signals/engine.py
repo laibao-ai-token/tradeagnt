@@ -140,6 +140,35 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         curr_val = _to_float(curr.get(fld, 0), 0.0)
         return (min_v <= prev_val <= max_v) and not (min_v <= curr_val <= max_v)
 
+    elif ct == "CUSTOM":
+        return _check_legacy_condition(cfg, prev, curr)
+
+    return False
+
+
+def _check_legacy_condition(cfg: dict, prev: dict | None, curr: dict) -> bool:
+    """Bridge legacy SignalRule check_condition into the new engine."""
+    try:
+        import re, sys
+        sys.path.insert(0, "/public/home/laibao/pkg/dcu/codex/tradeagnt/services/signal-service/src")
+        from rules import RULES_BY_ID
+        rule_id = cfg.get("rule_id", "")
+        if not rule_id:
+            note = cfg.get("note", "")
+            m = re.search(r"rule_id=([\w.]+)", note)
+            if m:
+                rule_id = m.group(1)
+        old_rule = RULES_BY_ID.get(rule_id)
+        if old_rule and hasattr(old_rule, "check_condition"):
+            row: dict = {}
+            for yaml_k, db_k in (old_rule.fields or {}).items():
+                v = curr.get(db_k) if curr else None
+                if v is None and prev:
+                    v = prev.get(db_k)
+                row[yaml_k] = v if v is not None else curr.get(yaml_k, prev.get(yaml_k) if prev else None)
+            return old_rule.check_condition(row)
+    except Exception:
+        pass
     return False
 
 
