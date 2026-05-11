@@ -167,6 +167,123 @@ rules:
     fields:
       vr: volume_ratio
 
+  # KDJ 信号（新增）
+  - name: KDJ金叉买入
+    category: momentum
+    subcategory: kdj
+    direction: BUY
+    strength: 70
+    priority: high
+    cooldown: 7200
+    condition:
+      type: cross_up
+      field_a: kdj_k
+      field_b: kdj_d
+    message_template: "KDJ金叉 K:{k:.2f} D:{d:.2f}"
+    fields:
+      k: kdj_k
+      d: kdj_d
+
+  - name: KDJ死叉卖出
+    category: momentum
+    subcategory: kdj
+    direction: SELL
+    strength: 70
+    priority: high
+    cooldown: 7200
+    condition:
+      type: cross_down
+      field_a: kdj_k
+      field_b: kdj_d
+    message_template: "KDJ死叉 K:{k:.2f} D:{d:.2f}"
+    fields:
+      k: kdj_k
+      d: kdj_d
+
+  - name: KDJ J值超买
+    category: momentum
+    subcategory: kdj
+    direction: SELL
+    strength: 65
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_up
+      field: kdj_j
+      threshold: 100
+    message_template: "KDJ J值超买: {kdj_j:.1f}"
+    fields:
+      kdj_j: kdj_j
+
+  - name: KDJ J值超卖
+    category: momentum
+    subcategory: kdj
+    direction: BUY
+    strength: 65
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_down
+      field: kdj_j
+      threshold: 0
+    message_template: "KDJ J值超卖: {kdj_j:.1f}"
+    fields:
+      kdj_j: kdj_j
+
+  # Bollinger 信号（新增）
+  - name: 布林带向上突破
+    category: volatility
+    subcategory: bollinger
+    direction: BUY
+    strength: 60
+    priority: medium
+    cooldown: 7200
+    condition:
+      type: cross_up
+      field_a: close
+      field_b: bb_upper
+    message_template: "布林带突破上轨"
+
+  - name: 布林带向下突破
+    category: volatility
+    subcategory: bollinger
+    direction: SELL
+    strength: 60
+    priority: medium
+    cooldown: 7200
+    condition:
+      type: cross_down
+      field_a: close
+      field_b: bb_lower
+    message_template: "布林带跌破下轨"
+
+  # MACD 柱零轴穿越（新增）
+  - name: MACD柱转多
+    category: momentum
+    subcategory: macd_histogram
+    direction: BUY
+    strength: 70
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_up
+      field: macd_hist
+      threshold: 0
+    message_template: "MACD柱零轴上穿"
+
+  - name: MACD柱转空
+    category: momentum
+    subcategory: macd_histogram
+    direction: SELL
+    strength: 70
+    priority: high
+    cooldown: 7200
+    condition:
+      type: threshold_cross_down
+      field: macd_hist
+      threshold: 0
+    message_template: "MACD柱零轴下破"
+
 thresholds:
   min_strength: 50
 
