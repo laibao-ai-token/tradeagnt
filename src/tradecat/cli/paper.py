@@ -1,6 +1,7 @@
 """tradecat paper sub-command: virtual paper trading."""
 from __future__ import annotations
 
+import os
 from decimal import Decimal
 from uuid import UUID
 
@@ -18,7 +19,11 @@ def paper() -> None:
 # ─── Helpers ───
 
 def _engine() -> PaperTradingEngine:
-    # TODO: make repository configurable (env var / config)
+    """初始化 PaperTradingEngine，仓库类型可通过 PAPER_REPO_TYPE 环境变量切换."""
+    repo_type = os.getenv("PAPER_REPO_TYPE", "memory")
+    if repo_type == "sqlite":
+        from tradecat.core.paper_trading.repository import SqliteRepository
+        return PaperTradingEngine(SqliteRepository())
     return PaperTradingEngine(InMemoryRepository())
 
 
