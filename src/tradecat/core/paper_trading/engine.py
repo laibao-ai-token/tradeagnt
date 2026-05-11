@@ -313,4 +313,5 @@ class PaperTradingEngine:
             existing = self._repo.get_order_by_idempotency(idem)
             if existing:
                 return {"ok": False, "error": "idempotency key already exists", "order": existing}
-        return self._open_order(account_id, symbol, side, notional, price)
+        leverage = Decimal(payload.get("leverage", "1"))
+        return self._open_order(account_id, symbol, side, notional, price, leverage)

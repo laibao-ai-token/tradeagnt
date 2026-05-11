@@ -248,6 +248,7 @@ def stats_cmd(account_id: str | None) -> None:
 @click.option("--price", required=True, help="Current market price")
 @click.option("--side", required=True, type=click.Choice(["LONG", "SHORT"]), help="Signal side")
 @click.option("--notional", help="Override notional value")
+@click.option("--leverage", default="1", help="Leverage multiplier")
 @click.option("--idempotency-key", help="Deduplication key")
 @click.argument("symbol")
 def from_signal_cmd(
@@ -256,6 +257,7 @@ def from_signal_cmd(
     price: str,
     side: str,
     notional: str | None,
+    leverage: str,
     idempotency_key: str | None,
 ) -> None:
     """Execute a signal-derived order."""
@@ -267,6 +269,7 @@ def from_signal_cmd(
         "symbol": symbol.upper(),
         "side": side,
         "qty_notional": notional or "0",
+        "leverage": leverage,
         "idempotency_key": idempotency_key or f"{symbol}_{side}_{price}",
     }
     result = engine.from_signal(acct.account_id, payload, Decimal(price))

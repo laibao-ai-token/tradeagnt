@@ -16,6 +16,7 @@ from tradecat.core.signals import CooldownManager, SignalEngine, StrategyLoader
 @click.option("--config", required=True, help="策略YAML文件路径")
 @click.option("--symbol", required=True, help="交易对")
 @click.option("--provider", default="binance", help="数据源提供者")
+@click.option("--data", help="本地 CSV 文件路径（离线模式）")
 @click.option("--timeframe", default="1h", help="K线周期")
 @click.option(
     "--output",
@@ -28,6 +29,7 @@ def signal_cmd(
     config: str,
     symbol: str,
     provider: str,
+    data: str | None,
     timeframe: str,
     output_format: str,
 ) -> None:
@@ -57,7 +59,11 @@ def signal_cmd(
             if timeframe:
                 strategy.timeframe = timeframe
 
-            p = provider_registry.resolve_by_name(provider)
+            if data:
+                from tradecat.core.providers.csv_provider import CsvProvider  # noqa: PLC0415
+                p = CsvProvider(data)
+            else:
+                p = provider_registry.resolve_by_name(provider)
             cooldown_manager = CooldownManager(pg_pool=pg_pool)
             engine = SignalEngine(
                 provider_registry,
@@ -65,7 +71,7 @@ def signal_cmd(
                 cooldown_manager,
                 signal_repo,
             )
-            signals = await engine.run(strategy, symbol, provider)
+            signals = await engine.run(strategy, symbol, provider, provider_instance=p)
 
             for prov in provider_registry.list_providers():
                 if hasattr(prov, "close"):

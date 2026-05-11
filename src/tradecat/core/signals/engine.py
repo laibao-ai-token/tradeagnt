@@ -22,7 +22,10 @@ def _to_float(value: Any, default: float = 0.0) -> float:
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
-        return float(value)
+        res = float(value)
+        if res != res:  # NaN check
+            return default
+        return res
     if isinstance(value, str):
         try:
             text = value.strip().replace(",", "")
@@ -72,6 +75,7 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         to_vals = cfg.get("to_values", [])
         prev_val = str(prev.get(fld, ""))
         curr_val = str(curr.get(fld, ""))
+        print(f"[DEBUG STATE_CHANGE] {rule.name}: prev[{fld}]={prev_val} -> curr[{fld}]={curr_val}, from={from_vals}, to={to_vals}")
         return prev_val in from_vals and curr_val in to_vals
 
     elif ct == ConditionType.THRESHOLD_CROSS_UP:
@@ -81,6 +85,7 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         threshold = _to_float(cfg.get("threshold", 0), 0.0)
         prev_val = _to_float(prev.get(fld, 0), 0.0)
         curr_val = _to_float(curr.get(fld, 0), 0.0)
+        print(f"[DEBUG THRESHOLD_CROSS_UP] {rule.name}: prev[{fld}]={prev_val:.2f}, curr[{fld}]={curr_val:.2f}, threshold={threshold}")
         return prev_val <= threshold < curr_val
 
     elif ct == ConditionType.THRESHOLD_CROSS_DOWN:
@@ -190,9 +195,10 @@ class SignalEngine:
         config: StrategyConfig,
         symbol: str,
         provider_name: str = "binance",
+        provider_instance = None,
     ) -> list[SignalEvent]:
         try:
-            provider = self.provider_registry.resolve_by_name(provider_name)
+            provider = provider_instance or self.provider_registry.resolve_by_name(provider_name)
             df = await provider.fetch_klines(symbol, config.timeframe)
         except Exception as exc:
             logger.error("Failed to fetch data for %s: %s", symbol, exc)
@@ -207,6 +213,7 @@ class SignalEngine:
 
         signals: list[SignalEvent] = []
         min_strength = config.thresholds.get("min_strength", 0)
+
 
         if self.cooldown.is_active(symbol):
             return signals
