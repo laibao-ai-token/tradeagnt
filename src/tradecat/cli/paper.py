@@ -272,7 +272,12 @@ def from_signal_cmd(
         "leverage": leverage,
         "idempotency_key": idempotency_key or f"{symbol}_{side}_{price}",
     }
-    result = engine.from_signal(acct.account_id, payload, Decimal(price))
+    try:
+        price_dec = Decimal(price)
+    except Exception as exc:
+        click.echo(f"Error: invalid price '{price}': {exc}")
+        raise SystemExit(1)
+    result = engine.from_signal(acct.account_id, payload, price_dec)
     if result["ok"]:
         click.echo(click.style(f"✓ Signal order filled", fg="green"))
     else:

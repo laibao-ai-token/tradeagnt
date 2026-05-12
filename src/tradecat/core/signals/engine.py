@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 
+from tradecat.core.providers.base import DataProvider
 from tradecat.core.indicators.base import IndicatorRegistry
 from tradecat.core.providers.registry import ProviderRegistry
 from tradecat.core.signals.cooldown import CooldownManager
@@ -64,7 +65,7 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
     if not rule.enabled:
         return False
 
-    ct = rule.condition.get("type", "custom")
+    ct = (rule.condition.get("type", "custom") or "").lower()
     cfg = rule.condition
 
     if ct == ConditionType.STATE_CHANGE:
@@ -145,7 +146,7 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         curr_val = _to_float(curr.get(fld, 0), 0.0)
         return (min_v <= prev_val <= max_v) and not (min_v <= curr_val <= max_v)
 
-    elif ct == "CUSTOM":
+    elif ct == "custom":
         return _check_legacy_condition(cfg, prev, curr)
 
     return False
@@ -153,16 +154,27 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
 
 def _check_legacy_condition(cfg: dict, prev: dict | None, curr: dict) -> bool:
     """Bridge legacy SignalRule check_condition into the new engine."""
+    rule_id = cfg.get("rule_id", "")
     try:
-        import re, sys
-        sys.path.insert(0, "/public/home/laibao/pkg/dcu/codex/tradeagnt/services/signal-service/src")
-        from rules import RULES_BY_ID
-        rule_id = cfg.get("rule_id", "")
+        import os, re
+        from pathlib import Path
+
         if not rule_id:
             note = cfg.get("note", "")
             m = re.search(r"rule_id=([\w.]+)", note)
             if m:
                 rule_id = m.group(1)
+
+        engine_dir = Path(__file__).resolve().parent
+        project_root = engine_dir.parents[4]
+        legacy_path = str(project_root / "services" / "signal-service" / "src")
+        if not Path(legacy_path).exists():
+            project_root = Path(os.getcwd())
+            legacy_path = str(project_root / "services" / "signal-service" / "src")
+        import sys
+        sys.path.insert(0, legacy_path)
+        from rules import RULES_BY_ID
+
         old_rule = RULES_BY_ID.get(rule_id)
         if old_rule and hasattr(old_rule, "check_condition"):
             row: dict = {}
@@ -172,8 +184,8 @@ def _check_legacy_condition(cfg: dict, prev: dict | None, curr: dict) -> bool:
                     v = prev.get(db_k)
                 row[yaml_k] = v if v is not None else curr.get(yaml_k, prev.get(yaml_k) if prev else None)
             return old_rule.check_condition(row)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Legacy bridge failed for rule_id=%s: %s", rule_id, exc)
     return False
 
 
@@ -195,7 +207,7 @@ class SignalEngine:
         config: StrategyConfig,
         symbol: str,
         provider_name: str = "binance",
-        provider_instance = None,
+        provider_instance: DataProvider | None = None,
     ) -> list[SignalEvent]:
         try:
             provider = provider_instance or self.provider_registry.resolve_by_name(provider_name)

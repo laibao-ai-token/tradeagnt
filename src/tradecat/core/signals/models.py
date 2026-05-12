@@ -17,6 +17,7 @@ class ConditionType(str, Enum):
     CONTAINS = "contains"
     RANGE_ENTER = "range_enter"
     RANGE_EXIT = "range_exit"
+    CUSTOM = "custom"
 
 
 class IndicatorRef(BaseModel):
