@@ -199,6 +199,9 @@ class PaperTradingEngine:
     def get_account(self, account_id: UUID) -> PaperAccount | None:
         return self._repo.get_account(account_id)
 
+    def list_accounts(self) -> list[PaperAccount]:
+        return self._repo.list_accounts()
+
     # ─── Order entry ───
 
     def _open_order(self, account_id: UUID, symbol: str, side: Side, notional: Decimal, price: Decimal, leverage: Decimal) -> dict:

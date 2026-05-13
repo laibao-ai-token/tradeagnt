@@ -38,22 +38,10 @@ def _engine() -> PaperTradingEngine:
 def _get_account(engine, account_id):
     """获取账户：优先用传入的 ID，否则取第一个，都没有则自动创建 default."""
     if account_id:
-        return engine.get_account(__import__("uuid").UUID(account_id))
-
-    # InMemoryRepository
-    accounts = getattr(engine._repo, '_accounts', None)
+        return engine.get_account(UUID(account_id))
+    accounts = engine.list_accounts()
     if accounts:
-        return engine.get_account(list(accounts.keys())[0])
-
-    # SqliteRepository — query first account
-    if hasattr(engine._repo, 'db_path'):
-        import sqlite3
-        conn = sqlite3.connect(engine._repo.db_path)
-        row = conn.execute("SELECT account_id FROM paper_accounts LIMIT 1").fetchone()
-        conn.close()
-        if row:
-            return engine.get_account(__import__("uuid").UUID(row[0]))
-
+        return accounts[0]
     return engine.create_account("default")
 
 

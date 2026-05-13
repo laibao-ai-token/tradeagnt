@@ -28,6 +28,9 @@ class BaseRepository(ABC):
     def get_account(self, account_id: UUID) -> PaperAccount | None: ...
 
     @abstractmethod
+    def list_accounts(self) -> list[PaperAccount]: ...
+
+    @abstractmethod
     def create_order(self, order: PaperOrder) -> PaperOrder: ...
 
     @abstractmethod
@@ -81,6 +84,9 @@ class InMemoryRepository(BaseRepository):
 
     def get_account(self, account_id: UUID) -> PaperAccount | None:
         return self._accounts.get(account_id)
+
+    def list_accounts(self) -> list[PaperAccount]:
+        return list(self._accounts.values())
 
     def create_order(self, order: PaperOrder) -> PaperOrder:
         self._orders[order.order_id] = order
@@ -242,6 +248,11 @@ class SqliteRepository(BaseRepository):
         if not row:
             return None
         return PaperAccount(**{k: row[k] for k in row.keys()})
+
+    def list_accounts(self) -> list[PaperAccount]:
+        with self._conn() as conn:
+            rows = conn.execute("SELECT * FROM paper_accounts").fetchall()
+        return [PaperAccount(**{k: r[k] for k in r.keys()}) for r in rows]
 
     def create_order(self, order: PaperOrder) -> PaperOrder:
         with self._conn() as conn:

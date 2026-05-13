@@ -1,6 +1,7 @@
 """Volume Weighted Average Price."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from tradecat.core.indicators.base import indicator
