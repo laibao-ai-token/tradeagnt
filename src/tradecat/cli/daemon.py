@@ -1,25 +1,49 @@
-"""tradecat daemon sub-command: background signal monitoring."""
+"""tradecat daemon sub-command: background signal monitoring with optional auto-trade."""
 from __future__ import annotations
 
 import asyncio
+import os
 import signal as sys_signal
+from datetime import datetime, timezone
+from decimal import Decimal
 
 import click
 
 from tradecat.core.indicators import auto_register as auto_register_indicators
 from tradecat.core.indicators.base import IndicatorRegistry
+from tradecat.core.paper_trading import PaperTradingEngine
 from tradecat.core.providers.registry import ProviderRegistry
 from tradecat.core.signals import CooldownManager, SignalEngine, StrategyLoader
+
+
+def _create_paper_engine() -> PaperTradingEngine:
+    """Create PaperTradingEngine with SQLite or in-memory repo."""
+    repo_type = os.getenv("PAPER_REPO_TYPE", "sqlite")
+    if repo_type == "memory":
+        from tradecat.core.paper_trading import InMemoryRepository
+        repo = InMemoryRepository()
+    else:
+        from tradecat.core.paper_trading.repository import SqliteRepository
+        repo = SqliteRepository()
+    return PaperTradingEngine(repo)
+
+
+def _get_or_create_account(engine: PaperTradingEngine, account_name: str):
+    """Get existing account by name, or create a new one."""
+    for acct in engine.list_accounts():
+        if acct.name == account_name:
+            return acct
+    return engine.create_account(account_name)
 
 
 @click.command()
 @click.option(
     "--symbols",
-    default="BTCUSDT,ETHUSDT",
+    default="BTC_USDT,ETH_USDT",
     help="监控的symbol列表，逗号分隔",
 )
 @click.option("--strategy", default="default.yaml", help="策略YAML文件路径")
-@click.option("--provider", default="binance", help="数据源提供者")
+@click.option("--provider", default="gate", help="数据源提供者")
 @click.option("--timeframe", default="1h", help="K线周期")
 @click.option(
     "--interval",
@@ -33,6 +57,29 @@ from tradecat.core.signals import CooldownManager, SignalEngine, StrategyLoader
     type=int,
     help="最小信号强度阈值",
 )
+@click.option(
+    "--auto-trade",
+    is_flag=True,
+    default=False,
+    help="信号触发时自动执行模拟盘交易",
+)
+@click.option(
+    "--notional",
+    default=100.0,
+    type=float,
+    help="每笔交易金额(USDT)，默认100",
+)
+@click.option(
+    "--leverage",
+    default=1.0,
+    type=float,
+    help="杠杆倍数，默认1",
+)
+@click.option(
+    "--account",
+    default="default",
+    help="模拟盘账户名，默认default",
+)
 def daemon(
     symbols: str,
     strategy: str,
@@ -40,8 +87,12 @@ def daemon(
     timeframe: str,
     interval: int,
     min_strength: int,
+    auto_trade: bool,
+    notional: float,
+    leverage: float,
+    account: str,
 ) -> None:
-    """Run the TradeCat daemon: periodic signal monitoring in background."""
+    """Run the TradeCat daemon: periodic signal monitoring with optional auto-trade."""
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     strat = StrategyLoader.load(strategy)
     provider_registry = ProviderRegistry()
@@ -49,13 +100,19 @@ def daemon(
     auto_register_indicators()
     indicator_registry = IndicatorRegistry()
 
+    # Init paper trading engine if auto-trade is enabled
+    paper_engine = None
+    paper_account = None
+    if auto_trade:
+        paper_engine = _create_paper_engine()
+        paper_account = _get_or_create_account(paper_engine, account)
+
     shutdown_event = asyncio.Event()
 
     def _handle_signal() -> None:
         click.echo(click.style("\n收到终止信号，正在优雅退出...", fg="yellow"))
         shutdown_event.set()
 
-    # Register OS signals for graceful shutdown
     for sig in (sys_signal.SIGINT, sys_signal.SIGTERM):
         asyncio.get_event_loop().add_signal_handler(sig, _handle_signal)
 
@@ -64,15 +121,24 @@ def daemon(
         engine = SignalEngine(provider_registry, indicator_registry, cooldown)
         iteration = 0
 
-        click.echo(click.style("🔁 TradeCat Daemon Started", fg="green", bold=True))
+        click.echo(click.style("TradeCat Daemon Started", fg="green", bold=True))
         click.echo(f"Symbols: {', '.join(symbol_list)}")
-        click.echo(f"Interval: {interval}s | Strategy: {strategy}")
+        click.echo(f"Interval: {interval}s | Strategy: {strategy} | Provider: {provider}")
+        if auto_trade:
+            click.echo(
+                click.style(
+                    f"Auto-Trade: ON | Notional: {notional} USDT | "
+                    f"Leverage: {leverage}x | Account: {paper_account.name}",
+                    fg="yellow",
+                )
+            )
         click.echo("Press Ctrl+C to stop\n")
 
         try:
             while not shutdown_event.is_set():
                 iteration += 1
-                click.echo(f"[{iteration:04d}] {click.style('Scanning...', fg='cyan')}")
+                now = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                click.echo(f"[{iteration:04d}] {now} {click.style('Scanning...', fg='cyan')}")
 
                 for symbol in symbol_list:
                     if shutdown_event.is_set():
@@ -83,12 +149,45 @@ def daemon(
                         if strong:
                             click.echo(
                                 click.style(
-                                    f"  ✓ {symbol}: {len(strong)} strong signal(s)",
+                                    f"  ✓ {symbol}: {len(strong)} signal(s)",
                                     fg="green",
                                 )
                             )
                             for s in strong:
-                                click.echo(f"    [{s.direction}] {s.rule_name} | {s.message}")
+                                side_tag = f"[{s.direction}]"
+                                click.echo(f"    {side_tag} {s.rule_name} | str={s.strength} | {s.message}")
+
+                                # Auto-trade
+                                if auto_trade and paper_engine and paper_account:
+                                    if s.direction in ("BUY", "SELL"):
+                                        side = "LONG" if s.direction == "BUY" else "SHORT"
+                                        price = Decimal(str(s.price))
+                                        result = paper_engine.from_signal(
+                                            paper_account.account_id,
+                                            {
+                                                "symbol": s.symbol,
+                                                "side": side,
+                                                "qty_notional": str(notional),
+                                                "leverage": str(leverage),
+                                                "idempotency_key": f"{s.rule_id}_{s.timestamp.isoformat()}",
+                                            },
+                                            price,
+                                        )
+                                        if result.get("ok"):
+                                            click.echo(
+                                                click.style(
+                                                    f"    → TRADE: {side} {s.symbol} "
+                                                    f"@ {price} x{leverage} notional={notional}",
+                                                    fg="magenta",
+                                                )
+                                            )
+                                        else:
+                                            click.echo(
+                                                click.style(
+                                                    f"    → SKIP: {result.get('error', 'unknown')}",
+                                                    fg="yellow",
+                                                )
+                                            )
                         else:
                             click.echo(f"  · {symbol}: no signals")
                     except Exception as e:
