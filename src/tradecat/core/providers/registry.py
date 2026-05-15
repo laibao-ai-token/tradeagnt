@@ -37,8 +37,5 @@ class ProviderRegistry:
         """自动注册所有内置 Provider."""
         from tradecat.core.providers.binance import BinanceProvider
         from tradecat.core.providers.gate import GateProvider
-        from tradecat.core.providers.rss_news import RSSNewsProvider
-
         self.register(BinanceProvider())
         self.register(GateProvider())
-        self.register(RSSNewsProvider())

@@ -193,14 +193,6 @@ def daemon(
                     except Exception as e:
                         click.echo(f"  ✗ {symbol}: {e}")
 
-                # Close providers between iterations
-                for prov in provider_registry.list_providers():
-                    if hasattr(prov, "close"):
-                        try:
-                            await prov.close()
-                        except Exception:
-                            pass
-
                 if not shutdown_event.is_set():
                     try:
                         await asyncio.wait_for(shutdown_event.wait(), timeout=interval)
@@ -210,6 +202,12 @@ def daemon(
         except asyncio.CancelledError:
             pass
         finally:
+            for prov in provider_registry.list_providers():
+                if hasattr(prov, "close"):
+                    try:
+                        await prov.close()
+                    except Exception:
+                        pass
             click.echo(click.style("\nDaemon stopped.", fg="green"))
 
     try:

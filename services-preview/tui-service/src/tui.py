@@ -47,6 +47,13 @@ from .fund_symbols import (
     normalize_cn_fund_symbol as _normalize_cn_fund_symbol_shared,
 )
 from .micro import Candle, MicroConfig, MicroEngine, MicroSnapshot
+from .draw_market import (
+    MarketPanelConfig,
+    draw_market_panel,
+    quad_config as _quad_config,
+    fund_config as _fund_config,
+    micro_config as _micro_config,
+)
 from .news_db import (
     StoredNewsArticle,
     fetch_recent_news_articles,
@@ -5230,74 +5237,72 @@ def _draw_view_panel(
     if view == "quotes_us":
         _draw_quotes(win, "US", quote_cfgs.us, quote_state_us, w, h, qscroll)
     elif view == "market_us":
-        _draw_market_quad(
-            win,
-            label="US",
-            quote_cfg=quote_cfgs.us,
-            quote_state=quote_state_us,
-            rows=rows_all,
-            pane=master_pane or MasterPaneState(),
-            colors=colors,
-            curve_map=us_curve_map,
-            micro_snapshots=us_micro_snapshots,
-            w=w,
-            h=h,
-            refresh_s=refresh_s,
+        _cfg = _quad_config("US")
+        _syms = [s.strip().upper() for s in (quote_cfgs.us.symbols or []) if (s or "").strip()]
+        _pane = master_pane or MasterPaneState()
+        draw_market_panel(
+            win, _cfg, _syms, _pane.selected, quote_state_us, rows_all,
+            colors, us_curve_map, w, h, pane=_pane, refresh_s=refresh_s,
         )
     elif view == "market_hk":
-        _draw_market_quad(
-            win,
-            label="HK",
-            quote_cfg=quote_cfgs.hk,
-            quote_state=quote_state_hk,
-            rows=rows_all,
-            pane=master_pane or MasterPaneState(),
-            colors=colors,
-            curve_map=hk_curve_map,
-            micro_snapshots=hk_micro_snapshots,
-            w=w,
-            h=h,
-            refresh_s=refresh_s,
+        _cfg = _quad_config("HK")
+        _syms = [s.strip().upper() for s in (quote_cfgs.hk.symbols or []) if (s or "").strip()]
+        _pane = master_pane or MasterPaneState()
+        draw_market_panel(
+            win, _cfg, _syms, _pane.selected, quote_state_hk, rows_all,
+            colors, hk_curve_map, w, h, pane=_pane, refresh_s=refresh_s,
         )
     elif view == "quotes_hk":
         _draw_quotes(win, "HK", quote_cfgs.hk, quote_state_hk, w, h, qscroll)
     elif view == "quotes_cn":
         _draw_quotes(win, "CN", quote_cfgs.cn, quote_state_cn, w, h, qscroll)
     elif view == "market_cn":
-        _draw_market_quad(
-            win,
-            label="CN",
-            quote_cfg=quote_cfgs.cn,
-            quote_state=quote_state_cn,
-            rows=rows_all,
-            pane=master_pane or MasterPaneState(),
-            colors=colors,
-            curve_map=cn_curve_map,
-            micro_snapshots=cn_micro_snapshots,
-            w=w,
-            h=h,
-            refresh_s=refresh_s,
+        _cfg = _quad_config("CN")
+        _syms = [s.strip().upper() for s in (quote_cfgs.cn.symbols or []) if (s or "").strip()]
+        _pane = master_pane or MasterPaneState()
+        draw_market_panel(
+            win, _cfg, _syms, _pane.selected, quote_state_cn, rows_all,
+            colors, cn_curve_map, w, h, pane=_pane, refresh_s=refresh_s,
         )
     elif view == "market_fund_cn":
-        _draw_market_fund_two_panel(
-            win,
-            quote_cfg=quote_cfgs.fund_cn,
-            quote_state=quote_state_fund_cn,
-            rows=rows_all,
-            pane=master_pane or MasterPaneState(),
-            colors=colors,
-            curve_map=fund_cn_curve_map,
-            daily_curve_map=fund_cn_daily_curve_map,
-            micro_snapshots=fund_cn_micro_snapshots,
-            w=w,
-            h=h,
-            refresh_s=refresh_s,
-            runtime_state=runtime_state,
+        _cfg = _fund_config()
+        _syms = [s.strip().upper() for s in (quote_cfgs.fund_cn.symbols or []) if (s or "").strip()]
+        _pane = master_pane or MasterPaneState()
+        _rs = runtime_state
+        _fd = _rs.fund_domain
+        _dp = get_etf_domain_profile(_fd.selected_key)
+        _dl = _dp.label or _fd.selected_key
+        _top_n = max(1, int(_dp.top_n))
+        _ranking = replace(_dp, top_n=max(_top_n, len(_syms)))
+        _snap = select_etf_candidates(
+            profile=_ranking, symbols=_syms, quote_entries=quote_state_fund_cn.entries,
+            curve_map=fund_cn_curve_map, micro_snapshots=fund_cn_micro_snapshots,
+            now_ts=time.time(), stale_seconds=120,
         )
-    elif view in {"quotes_crypto", "market_crypto"}:
-        _draw_market_micro(win, micro_snapshot, micro_symbols, rows_all, quote_state_crypto, crypto_curve_map, colors, w, h)
-    elif view == "market_micro":
-        _draw_market_micro(win, micro_snapshot, micro_symbols, rows_all, quote_state_crypto, crypto_curve_map, colors, w, h)
+        _items = tuple(_snap.items)
+        _mr = {item.symbol: idx + 1 for idx, item in enumerate(_items)}
+        _mi = {item.symbol: item for item in _items}
+        _cr = {sym: idx + 1 for idx, sym in enumerate(_syms)}
+        draw_market_panel(
+            win, _cfg, _syms, _pane.selected, quote_state_fund_cn, rows_all,
+            colors, fund_cn_curve_map, w, h,
+            pane=_pane, domain_keys=_fd.keys, selected_domain_key=_fd.selected_key,
+            daily_curve_map=fund_cn_daily_curve_map,
+            ranking_snapshot=_snap, model_rank_map=_mr, model_item_map=_mi,
+            domain_top_symbols=tuple(_syms[:_top_n]), top_n_limit=_top_n,
+            domain_label=_dl, candidate_rank_map=_cr, refresh_s=refresh_s,
+        )
+    elif view in {"quotes_crypto", "market_crypto", "market_micro"}:
+        _cfg = _micro_config()
+        _syms = [s.strip().upper() for s in (micro_symbols or []) if (s or "").strip()]
+        _focus = (micro_snapshot.symbol or "").strip().upper()
+        if _focus and _focus not in _syms:
+            _syms.insert(0, _focus)
+        _sel = _syms.index(_focus) if _focus in _syms else 0
+        draw_market_panel(
+            win, _cfg, _syms, _sel, quote_state_crypto, rows_all,
+            colors, crypto_curve_map, w, h, micro_snapshot=micro_snapshot,
+        )
     elif view == "market_backtest":
         _draw_market_backtest(win, colors, w, h)
     elif view == "market_news":
