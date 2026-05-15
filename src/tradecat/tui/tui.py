@@ -3714,6 +3714,16 @@ def run(
         sv = "market_micro"
     micro = micro_cfg or MicroConfig()
     watcher = _build_hot_reload_watcher(bool(hot_reload), poll_s=hot_reload_poll_s)
+    # 从 start_view 推导初始 top_page / market_tab
+    _init_tp = 1
+    _init_mt = 0
+    if sv == _PAGE_NEWS_VIEW:
+        _init_tp = 3
+    elif sv in _MARKET_TABS:
+        _init_tp = 1
+        _init_mt = _MARKET_TABS.index(sv)
+    top_page = _init_tp
+    market_tab = _init_mt
 
     while True:
         try:
@@ -3822,6 +3832,30 @@ def _main(
     scroll = 0
     last_refresh = 0.0
     view = start_view  # "signals" or "quotes"
+    # --- 三页收敛：top_page 控制大页面，market_tab 控制 P1 内子标签 ---
+    # top_page: 1=行情, 2=模拟盘, 3=资讯
+    # market_tab: 0=加密, 1=美股, 2=A股, 3=港股, 4=基金
+    _MARKET_TABS = ["market_micro", "market_us", "market_cn", "market_hk", "market_fund_cn"]
+    _MARKET_TAB_LABELS = ["加密", "美股", "A股", "港股", "基金"]
+    _PAGE_NEWS_VIEW = "market_news"
+
+    def _resolve_top_page_from_view(v: str) -> int:
+        cv = _canonical_view(v) if '_canonical_view' in dir() else v
+        if cv in _MARKET_TABS or v in _MARKET_TABS:
+            return 1
+        if cv == _PAGE_NEWS_VIEW:
+            return 3
+        return 1  # default to market page
+
+    def _resolve_market_tab_from_view(v: str) -> int:
+        cv = _canonical_view(v) if '_canonical_view' in dir() else v
+        try:
+            return _MARKET_TABS.index(cv)
+        except ValueError:
+            return 0
+
+    top_page = 1
+    market_tab = 0
     qscroll: dict[str, int] = {
         "quotes_us": 0,
         "quotes_hk": 0,
@@ -4708,7 +4742,7 @@ def _main(
             if frame_due and (dirty.any() or idle_due):
                 if header_only_due and not idle_due:
                     _, w = stdscr.getmaxyx()
-                    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w)
+                    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
                     stdscr.noutrefresh()
                     curses.doupdate()
                 else:
@@ -4765,6 +4799,8 @@ def _main(
                         news_snapshot,
                         agent_state,
                         workspace_focus,
+                        top_page,
+                        market_tab,
                     )
                 render_state.last_draw_at = now
                 next_frame_at = now + _RENDER_FRAME_INTERVAL_S
@@ -4845,13 +4881,16 @@ def _main(
                 view = _next_view(view)
                 _remember_primary_view(view)
             elif key == ord("1"):
-                view = "market_us"
+                top_page = 1
+                market_tab = 0  # default to 加密
+                view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
             elif key == ord("2"):
-                view = "market_cn"
-                _remember_primary_view(view)
+                top_page = 2
+                view = "market_micro"  # placeholder, P2 渲染时走分支
             elif key == ord("3"):
-                view = "market_micro"
+                top_page = 3
+                view = _PAGE_NEWS_VIEW
                 _remember_primary_view(view)
             elif key == ord("4"):
                 if view == _BACKTEST_VIEW:
@@ -4876,12 +4915,20 @@ def _main(
                 view = "market_news"
                 _remember_primary_view(view)
             elif key == ord("["):
-                if view == "market_micro":
+                if top_page == 1:
+                    market_tab = (market_tab - 1) % len(_MARKET_TABS)
+                    view = _MARKET_TABS[market_tab]
+                    _remember_primary_view(view)
+                elif view == "market_micro":
                     _switch_micro_symbol(-1)
                 elif view in {"market_us", "market_cn", "market_hk", "market_fund_cn"}:
                     _cycle_master_symbol(view, -1)
             elif key == ord("]"):
-                if view == "market_micro":
+                if top_page == 1:
+                    market_tab = (market_tab + 1) % len(_MARKET_TABS)
+                    view = _MARKET_TABS[market_tab]
+                    _remember_primary_view(view)
+                elif view == "market_micro":
                     _switch_micro_symbol(1)
                 elif view in {"market_us", "market_cn", "market_hk", "market_fund_cn"}:
                     _cycle_master_symbol(view, 1)
@@ -5364,10 +5411,12 @@ def _draw_workspace_shell(
     news_snapshot: NewsFeedSnapshot | None,
     agent_state: AgentShellState,
     workspace_focus: str,
+    top_page: int = 1,
+    market_tab: int = 0,
 ) -> None:
     stdscr.erase()
     h, w = stdscr.getmaxyx()
-    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w)
+    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
 
     content_y = 1
     content_h = max(1, h - content_y)
@@ -5463,6 +5512,75 @@ def _draw_workspace_shell(
     _draw_agent_shell_panel(right_win, agent_state, colors, active=workspace_focus == "right")
 
 
+def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> None:
+    """P2 模拟盘页面：显示账户、持仓、订单。"""
+    try:
+        from tradecat.core.paper_trading.engine import PaperTradingEngine
+        from tradecat.core.paper_trading.repository import SqliteRepository
+        repo = SqliteRepository()
+        engine = PaperTradingEngine(repo)
+        accounts = engine.list_accounts()
+    except Exception:
+        accounts = []
+
+    y = 2
+    if not accounts:
+        _safe_addstr(stdscr, y, 2, "暂无模拟盘账户", curses.A_BOLD)
+        _safe_addstr(stdscr, y + 2, 2, "使用 tradecat paper create <名称> 创建账户")
+        return
+
+    for acct in accounts:
+        if y + 8 > h:
+            break
+        status = engine.status(acct.id)
+        balance = status.get("account", acct).balance if status.get("account") else acct.balance
+        equity = status.get("total_equity", balance)
+        positions = status.get("positions", [])
+        orders = status.get("recent_orders", [])
+        drawdown = status.get("drawdown_pct", 0)
+
+        header = f"账户: {acct.name}  余额: {balance}  权益: {equity}  杠杆: {acct.leverage}x  回撤: {drawdown}%"
+        _safe_addstr(stdscr, y, 2, _truncate(header, w - 4), curses.A_BOLD)
+        y += 1
+
+        # 持仓
+        if positions:
+            _safe_addstr(stdscr, y, 2, "持仓:", curses.A_UNDERLINE)
+            y += 1
+            pos_header = "  方向  标的        数量       开仓价     盈亏"
+            _safe_addstr(stdscr, y, 2, _truncate(pos_header, w - 4))
+            y += 1
+            for pos in positions[:10]:
+                side = pos.side.value if hasattr(pos.side, 'value') else str(pos.side)
+                sym = pos.symbol
+                qty = str(pos.qty)
+                entry = str(pos.entry_price)
+                pnl = pos.unrealized_pnl
+                pnl_str = f"+{pnl}" if pnl >= 0 else str(pnl)
+                line = f"  {side:5s} {sym:10s} {qty:>10s} {entry:>10s} {pnl_str:>10s}"
+                attr = curses.color_pair(colors.get("BUY", 0)) if pnl >= 0 else curses.color_pair(colors.get("SELL", 0))
+                _safe_addstr(stdscr, y, 2, _truncate(line, w - 4), attr)
+                y += 1
+        else:
+            _safe_addstr(stdscr, y, 2, "持仓: 无")
+            y += 1
+
+        # 最近订单
+        if orders:
+            _safe_addstr(stdscr, y, 2, "最近订单:", curses.A_UNDERLINE)
+            y += 1
+            for order in orders[:5]:
+                side = order.side.value if hasattr(order.side, 'value') else str(order.side)
+                sym = order.symbol
+                qty = str(order.qty)
+                price = str(order.entry_price)
+                st = order.status.value if hasattr(order.status, 'value') else str(order.status)
+                line = f"  {side:5s} {sym:10s} {qty:>10s} @ {price:>10s}  [{st}]"
+                _safe_addstr(stdscr, y, 2, _truncate(line, w - 4))
+                y += 1
+        y += 1
+
+
 def _draw(
     stdscr,
     db_path: str,
@@ -5502,7 +5620,18 @@ def _draw(
     news_snapshot: NewsFeedSnapshot | None = None,
     agent_state: AgentShellState | None = None,
     workspace_focus: str = "left",
+    top_page: int = 1,
+    market_tab: int = 0,
 ) -> None:
+    # --- P2 模拟盘页面 ---
+    if top_page == 2:
+        stdscr.erase()
+        h, w = stdscr.getmaxyx()
+        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
+        _draw_paper_trading_page(stdscr, h, w, colors)
+        stdscr.noutrefresh()
+        curses.doupdate()
+        return
     if _workspace_shell_enabled(view):
         _draw_workspace_shell(
             stdscr,
@@ -5543,13 +5672,14 @@ def _draw(
             news_snapshot,
             agent_state or AgentShellState(),
             workspace_focus,
+            top_page,
+            market_tab,
         )
     else:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
-        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w)
+        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
         _draw_view_panel(
-            stdscr,
             db_path,
             rows,
             rows_all,
@@ -5597,6 +5727,8 @@ def _draw_header(
     view: str,
     service_status: ServiceStatus,
     width: int,
+    top_page: int = 1,
+    market_tab: int = 0,
 ) -> None:
     now = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     status = "已暂停" if filt.paused else f"刷新={refresh_s:.1f}s"
@@ -5605,6 +5737,20 @@ def _draw_header(
     stdscr.move(0, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 0, 0, header, curses.color_pair(colors.get("ALERT", 0)) | curses.A_BOLD)
+    # --- 三页 tab 栏 ---
+    pages = [("1:行情", 1), ("2:模拟盘", 2), ("3:资讯", 3)]
+    tab_line = "  ".join(
+        f"[{label}]" if tp == top_page else f" {label} " for label, tp in pages
+    )
+    if top_page == 1:
+        sub_tabs = _MARKET_TAB_LABELS
+        sub_line = "  ".join(
+            f"<{lbl}>" if i == market_tab else f" {lbl} " for i, lbl in enumerate(sub_tabs)
+        )
+        tab_line += "  " + sub_line
+    stdscr.move(1, 0)
+    stdscr.clrtoeol()
+    _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
 
 
 def _draw_market_master(
