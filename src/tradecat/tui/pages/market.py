@@ -348,7 +348,7 @@ def _draw_view_panel(
 
 
 def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> None:
-    """P2 模拟盘页面：显示账户、持仓、订单。"""
+    """P2 模拟盘页面：三栏终端风 — 账户概览 | 持仓明细 | 最近订单"""
     try:
         from tradecat.core.paper_trading.engine import PaperTradingEngine
         from tradecat.core.paper_trading.repository import SqliteRepository
@@ -359,62 +359,103 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
     except Exception:
         accounts = []
 
-    y = 2
     if not accounts:
-        _safe_addstr(stdscr, y, 2, "暂无模拟盘账户", curses.A_BOLD)
-        _safe_addstr(stdscr, y + 2, 2, "使用 tradecat paper create <名称> 创建账户")
+        _safe_addstr(stdscr, 3, 2, "暂无模拟盘账户", curses.A_BOLD)
+        _safe_addstr(stdscr, 5, 2, "使用 tradecat paper create <名称> 创建账户")
         return
 
-    for acct in accounts:
-        if y + 8 > h:
-            break
+    acct = accounts[0]
+    try:
         status = engine.status(acct.account_id)
-        balance = status.get("account", acct).balance if status.get("account") else acct.balance
-        equity = status.get("total_equity", balance)
-        positions = status.get("positions", [])
-        orders = status.get("recent_orders", [])
-        drawdown = status.get("drawdown_pct", 0)
+    except Exception:
+        status = {}
 
-        header = f"账户: {acct.name}  余额: {balance}  权益: {equity}  杠杆: {acct.leverage}x  回撤: {drawdown}%"
-        _safe_addstr(stdscr, y, 2, _truncate(header, w - 4), curses.A_BOLD)
-        y += 1
+    balance = status.get("account", acct).balance if status.get("account") else acct.balance
+    equity = status.get("total_equity", balance)
+    positions = status.get("positions", [])
+    orders = status.get("recent_orders", [])
+    drawdown = status.get("drawdown_pct", 0)
 
-        # 持仓
-        if positions:
-            _safe_addstr(stdscr, y, 2, "持仓:", curses.A_UNDERLINE)
-            y += 1
-            pos_header = "  方向  标的        数量       开仓价     盈亏"
-            _safe_addstr(stdscr, y, 2, _truncate(pos_header, w - 4))
-            y += 1
-            for pos in positions[:10]:
-                side = pos.side.value if hasattr(pos.side, 'value') else str(pos.side)
-                sym = pos.symbol
-                qty = str(pos.qty)
-                entry = str(pos.entry_price)
-                pnl = pos.unrealized_pnl
-                pnl_str = f"+{pnl}" if pnl >= 0 else str(pnl)
-                line = f"  {side:5s} {sym:10s} {qty:>10s} {entry:>10s} {pnl_str:>10s}"
-                attr = curses.color_pair(colors.get("BUY", 0)) if pnl >= 0 else curses.color_pair(colors.get("SELL", 0))
-                _safe_addstr(stdscr, y, 2, _truncate(line, w - 4), attr)
-                y += 1
-        else:
-            _safe_addstr(stdscr, y, 2, "持仓: 无")
-            y += 1
+    # Header（顶部横跨，反色）
+    hdr = f" 账户: {acct.name}  |  余额: {balance}  |  权益: {equity}  |  杠杆: {acct.leverage}x  |  回撤: {drawdown}% "
+    _safe_addstr(stdscr, 2, 2, _truncate(hdr, w - 4), curses.A_BOLD | curses.A_REVERSE)
 
-        # 最近订单
-        if orders:
-            _safe_addstr(stdscr, y, 2, "最近订单:", curses.A_UNDERLINE)
-            y += 1
-            for order in orders[:5]:
-                side = order.side.value if hasattr(order.side, 'value') else str(order.side)
-                sym = order.symbol
-                qty = str(order.qty)
-                price = str(order.entry_price)
-                st = order.status.value if hasattr(order.status, 'value') else str(order.status)
-                line = f"  {side:5s} {sym:10s} {qty:>10s} @ {price:>10s}  [{st}]"
-                _safe_addstr(stdscr, y, 2, _truncate(line, w - 4))
-                y += 1
-        y += 1
+    # 三栏宽度
+    c1w = max(18, w // 3)
+    c2w = max(28, w * 2 // 5)
+    c3w = max(16, w - c1w - c2w)
+    top = 4
+    body_h = h - top - 1
+
+    # ── 左栏 · 账户概览 ──
+    _safe_addstr(stdscr, top, 1, _truncate(" 账户概览 ", c1w - 2), curses.A_REVERSE)
+    items = [
+        f"余额:   {balance}",
+        f"权益:   {equity}",
+        f"杠杆:   {acct.leverage}x",
+        f"回撤:   {drawdown:.2f}%",
+        f"持仓数: {len(positions)}",
+        f"订单数: {len(orders)}",
+    ]
+    row = top + 2
+    for item in items:
+        if row >= h - 1:
+            break
+        _safe_addstr(stdscr, row, 3, _truncate(item, c1w - 5))
+        row += 1
+
+    # ── 中栏 · 持仓明细 ──
+    cx = c1w + 1
+    _safe_addstr(stdscr, top, cx + 1, _truncate(" 持仓明细 ", c2w - 2), curses.A_REVERSE)
+    row = top + 2
+    if positions:
+        # 表头
+        hdr2 = f"{'方向':5s} {'标的':10s} {'数量':>8s} {'开仓价':>10s} {'盈亏':>10s}"
+        _safe_addstr(stdscr, row, cx + 1, _truncate(hdr2, c2w - 2))
+        row += 1
+        for pos in positions[:body_h - 3]:
+            if row >= h - 1:
+                break
+            side = pos.side.value if hasattr(pos.side, 'value') else str(pos.side)
+            sym = pos.symbol
+            qty = str(pos.qty)
+            entry = str(pos.entry_price)
+            pnl = pos.unrealized_pnl
+            pnl_str = f"+{pnl:.2f}" if pnl >= 0 else f"{pnl:.2f}"
+            line = f"{side:5s} {sym:10s} {qty:>8s} {entry:>10s} {pnl_str:>10s}"
+            attr = curses.color_pair(colors.get("BUY", 0)) if pnl >= 0 else curses.color_pair(colors.get("SELL", 0))
+            _safe_addstr(stdscr, row, cx + 1, _truncate(line, c2w - 2), attr)
+            row += 1
+    else:
+        _safe_addstr(stdscr, row, cx + 3, "无持仓")
+
+    # ── 右栏 · 最近订单 ──
+    rx = c1w + c2w + 2
+    _safe_addstr(stdscr, top, rx + 1, _truncate(" 最近订单 ", c3w - 2), curses.A_REVERSE)
+    row = top + 2
+    if orders:
+        for order in orders[:body_h - 2]:
+            if row >= h - 1:
+                break
+            side = order.side.value if hasattr(order.side, 'value') else str(order.side)
+            sym = order.symbol
+            qty = str(order.qty)
+            price = str(order.entry_price)
+            st = order.status.value if hasattr(order.status, 'value') else str(order.status)
+            line = f"{side} {sym} {qty} @ {price} [{st}]"
+            _safe_addstr(stdscr, row, rx + 1, _truncate(line, c3w - 2))
+            row += 1
+    else:
+        _safe_addstr(stdscr, row, rx + 3, "无订单")
+
+    # 分隔线（仅在足够宽时显示）
+    if w >= 80:
+        for vy in range(top, h - 1):
+            _safe_addstr(stdscr, vy, c1w, "|")
+            _safe_addstr(stdscr, vy, c1w + c2w + 1, "|")
+    elif w >= 55:
+        for vy in range(top, h - 1):
+            _safe_addstr(stdscr, vy, c1w, "|")
 
 
 def _draw(
