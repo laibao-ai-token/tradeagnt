@@ -110,7 +110,7 @@ from tradecat.tui._helpers import (
     _adaptive_left_min_width, _build_recent_signal_panel_title,
     _count_recent_signal_rows, _crypto_signal_symbol_to_pair,
     _display_name, _display_symbol, _draw_box, _safe_addstr, _safe_hline, _safe_vline,
-    _fmt_freshness, _fmt_duration_compact, _fmt_quote_ts, _fmt_signed, _fmt_time, _fmt_vol,
+    _fmt_freshness, _fmt_duration_compact, _fmt_quote_ts, _fmt_quote_ts_date8, _fmt_signed, _fmt_time, _fmt_vol,
     _format_service_status_bar, _is_finite_number, _market_display_name,
     _safe_int, _signals_for_symbol, _split_signal_rows_by_age, _view_display_name,
     _signal_row_age_seconds, _latest_signal_row, _window_signal_stats,

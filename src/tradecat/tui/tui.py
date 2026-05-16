@@ -97,6 +97,8 @@ from .pages.news import (
     _filter_news_items,
     _build_news_events,
     _news_source_filter_options,
+    _news_counts,
+    _news_source_options,
 
     _draw_market_news,
     _parse_rss_feeds_value,
@@ -2462,7 +2464,7 @@ def _main(
                 _remember_primary_view(view)
             elif key == curses.KEY_UP:
                 if view == "market_news":
-                    _, item_count = _news_counts(now)
+                    _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, news_state.news_selected - 1)
                     news_state.news_selected = min(news_state.news_selected, max(0, item_count - 1))
                 elif _is_master_view(view):
@@ -2484,7 +2486,7 @@ def _main(
                     scroll = max(0, scroll - 1)
             elif key == curses.KEY_DOWN:
                 if view == "market_news":
-                    _, item_count = _news_counts(now)
+                    _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = min(max(0, item_count - 1), news_state.news_selected + 1)
                 elif _is_master_view(view):
                     pane = master_panes[view]
@@ -2505,7 +2507,7 @@ def _main(
                     scroll = min(max(0, len(rows) - 1), scroll + 1)
             elif key == curses.KEY_PPAGE:  # PageUp
                 if view == "market_news":
-                    _, item_count = _news_counts(now)
+                    _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, news_state.news_selected - 10)
                     news_state.news_selected = min(news_state.news_selected, max(0, item_count - 1))
                 elif _is_master_view(view):
@@ -2524,7 +2526,7 @@ def _main(
                     scroll = max(0, scroll - 10)
             elif key == curses.KEY_NPAGE:  # PageDown
                 if view == "market_news":
-                    _, item_count = _news_counts(now)
+                    _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = min(max(0, item_count - 1), news_state.news_selected + 10)
                 elif _is_master_view(view):
                     pane = master_panes[view]
@@ -2561,7 +2563,7 @@ def _main(
                     scroll = 0
             elif key == ord("G"):
                 if view == "market_news":
-                    _, item_count = _news_counts(now)
+                    _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, item_count - 1)
                 elif _is_master_view(view):
                     pane = master_panes[view]
@@ -2607,7 +2609,7 @@ def _main(
                 last_refresh = 0.0
             elif key in (ord("s"), ord("S")):
                 if view == "market_news":
-                    source_options = _news_source_options()
+                    source_options = _news_source_options(news_poller=news_poller)
                     if source_options:
                         news_state.source_idx = (news_state.source_idx + 1) % len(source_options)
                         news_state.news_selected = 0

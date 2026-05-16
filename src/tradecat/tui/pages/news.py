@@ -1322,36 +1322,34 @@ def _build_news_events(items: list[NewsItem]) -> list[NewsEvent]:
 
 
 
-# === news_source_options ===
+def _news_source_options(news_poller=None):
+    """Return available news source filter options."""
+    all_items: list[NewsItem] = []
+    if news_poller is not None:
+        all_items = list(news_poller.snapshot().items)
+    return _news_source_filter_options(all_items)
 
-    def _news_source_options() -> tuple[str, ...]:
-        all_items: list[NewsItem] = []
-        if news_poller is not None:
-            all_items = list(news_poller.snapshot().items)
-        return _news_source_filter_options(all_items)
 
-
-# === news_counts ===
-
-    def _news_counts(now_ts: float | None = None) -> tuple[int, int]:
-        ts = float(time.time() if now_ts is None else now_ts)
-        category = _NEWS_CATEGORIES[min(max(0, news_state.category_idx), len(_NEWS_CATEGORIES) - 1)]
-        window_h = _NEWS_WINDOWS_H[min(max(0, news_state.window_idx), len(_NEWS_WINDOWS_H) - 1)]
-        source_options = _news_source_options()
-        source_filter = source_options[min(max(0, news_state.source_idx), len(source_options) - 1)] if source_options else _NEWS_SOURCE_FILTER_ALL
-        all_items: list[NewsItem] = []
-        if news_poller is not None:
-            all_items = list(news_poller.snapshot().items)
-        items = _filter_news_items(
-            all_items,
-            now_ts=ts,
-            category=category,
-            window_h=window_h,
-            search_query=news_state.search_query,
-            source_filter=source_filter,
-        )
-        events = _build_news_events(items)
-        return 0, len(events)
+def _news_counts(news_state=None, news_poller=None, now_ts=None):
+    """Return (index, item_count) for the current news view."""
+    ts = float(time.time() if now_ts is None else now_ts)
+    category = _NEWS_CATEGORIES[min(max(0, news_state.category_idx), len(_NEWS_CATEGORIES) - 1)]
+    window_h = _NEWS_WINDOWS_H[min(max(0, news_state.window_idx), len(_NEWS_WINDOWS_H) - 1)]
+    source_options = _news_source_options(news_poller)
+    source_filter = source_options[min(max(0, news_state.source_idx), len(source_options) - 1)] if source_options else _NEWS_SOURCE_FILTER_ALL
+    all_items: list[NewsItem] = []
+    if news_poller is not None:
+        all_items = list(news_poller.snapshot().items)
+    items = _filter_news_items(
+        all_items,
+        now_ts=ts,
+        category=category,
+        window_h=window_h,
+        search_query=news_state.search_query,
+        source_filter=source_filter,
+    )
+    events = _build_news_events(items)
+    return 0, len(events)
 
 
 # === draw_market_news ===
