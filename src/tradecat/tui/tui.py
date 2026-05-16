@@ -958,10 +958,6 @@ def _build_recent_signal_panel_title(rows: list[SignalRow], now_dt: datetime) ->
     )
 
 def _line_chars() -> tuple[str, str, str, str, str, str]:
-    # Avoid ncurses ACS fallback glyphs (q/x/l/m/...) on some terminals.
-    encoding = (locale.getpreferredencoding(False) or "").lower()
-    if "utf" in encoding:
-        return ("│", "─", "┌", "┐", "└", "┘")
     return ("|", "-", "+", "+", "+", "+")
 
 def _safe_vline(win, y: int, x: int, height: int, attr: int = 0) -> None:

@@ -110,7 +110,7 @@ def _fit_cell(text: str, width: int, *, align: str = "left") -> str:
 
 
 def _line_chars() -> tuple[str, str, str, str, str, str]:
-    return ("┌", "┐", "└", "┘", "─", "│")
+    return ("+", "+", "+", "+", "-", "|")
 
 
 # ── Value coercion ──

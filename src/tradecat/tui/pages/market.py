@@ -89,12 +89,17 @@ def _fit_cell(text: str, width: int, *, align: str = "left") -> str:
     return text + " " * pad
 
 def _safe_vline(win, y: int, x: int, height: int, attr: int = 0) -> None:
-    try: win.vline(y, x, attr, height)
-    except curses.error: pass
+    for i in range(height):
+        try:
+            _safe_addstr(win, y + i, x, "|", attr)
+        except curses.error:
+            pass
 
 def _safe_hline(win, y: int, x: int, width: int, attr: int = 0) -> None:
-    try: win.hline(y, x, attr, width)
-    except curses.error: pass
+    try:
+        _safe_addstr(win, y, x, "-" * max(0, width), attr)
+    except curses.error:
+        pass
 
 def _draw_box(win, x: int, y: int, width: int, height: int, attr: int = 0) -> None:
     _safe_hline(win, y, x, width, attr)

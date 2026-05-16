@@ -121,7 +121,7 @@ def _safe_vline(win, y: int, x: int, height: int, attr: int = 0) -> None:
         for i in range(height):
             cy = y + i
             if 0 <= cy < h:
-                win.addch(cy, x, curses.ACS_VLINE, attr)
+                win.addch(cy, x, ord("|"), attr)
     except curses.error:
         pass
 
@@ -134,7 +134,7 @@ def _safe_hline(win, y: int, x: int, width: int, attr: int = 0) -> None:
         for i in range(width):
             cx = x + i
             if 0 <= cx < w:
-                win.addch(y, cx, curses.ACS_HLINE, attr)
+                win.addch(y, cx, ord("-"), attr)
     except curses.error:
         pass
 
@@ -151,12 +151,15 @@ def _draw_box(win, x: int, y: int, width: int, height: int, attr: int = 0) -> No
             _safe_vline(win, y, x + width - 1, height, attr)
             return
         win.attron(attr)
-        win.border(
-            curses.ACS_VLINE, curses.ACS_VLINE,
-            curses.ACS_HLINE, curses.ACS_HLINE,
-            curses.ACS_ULCORNER, curses.ACS_URCORNER,
-            curses.ACS_LLCORNER, curses.ACS_LRCORNER,
-        )
+        # Draw ASCII box border instead of ACS-char win.border()
+        _safe_hline(win, y, x + 1, max(0, width - 2), attr)
+        _safe_hline(win, y + height - 1, x + 1, max(0, width - 2), attr)
+        _safe_vline(win, y + 1, x, max(0, height - 2), attr)
+        _safe_vline(win, y + 1, x + width - 1, max(0, height - 2), attr)
+        win.addch(y, x, ord("+"), attr)
+        win.addch(y, x + width - 1, ord("+"), attr)
+        win.addch(y + height - 1, x, ord("+"), attr)
+        win.addch(y + height - 1, x + width - 1, ord("+"), attr)
         win.attroff(attr)
     except curses.error:
         pass
