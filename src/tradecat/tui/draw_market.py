@@ -1059,11 +1059,10 @@ def draw_market_panel(
         )
 
     # ─── Visual separators ───
-    # Vertical separator between left and right panels
+    # Vertical separator between left and right panels (plain ASCII for compatibility)
     for vy in range(panel_top, h - 1):
-        _safe_vline(stdscr, vy, split_x, 1)
+        _safe_addstr(stdscr, vy, split_x, "|")
     # Horizontal separator between chart (top-right) and signals/details (bottom-right)
-    for hx in range(right_x, min(w, right_x + right_w)):
-        _safe_hline(stdscr, right_bottom_y, hx, 1)
+    _safe_addstr(stdscr, right_bottom_y, right_x, "-" * max(0, min(w - right_x, right_w)))
 
     return selected_idx

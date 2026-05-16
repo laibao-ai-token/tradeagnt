@@ -2380,8 +2380,19 @@ def _main(
                     view = _next_view(view)
                     _remember_primary_view(view)
             elif key == ord("t"):
-                view = _next_view(view)
-                _remember_primary_view(view)
+                # Only cycle top-level pages: 行情(1) → 模拟盘(2) → 资讯(3)
+                if top_page == 1:
+                    top_page = 2
+                    view = "market_micro"  # P2 placeholder
+                elif top_page == 2:
+                    top_page = 3
+                    view = _PAGE_NEWS_VIEW
+                    _remember_primary_view(view)
+                elif top_page == 3:
+                    top_page = 1
+                    market_tab = 0
+                    view = _MARKET_TABS[market_tab]
+                    _remember_primary_view(view)
             elif key == ord("1"):
                 top_page = 1
                 market_tab = 0  # default to 加密
