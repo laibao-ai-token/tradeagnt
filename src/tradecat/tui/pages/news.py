@@ -1,7 +1,9 @@
 """News page module — RSS polling, news display, and news TUI rendering."""
 
 from __future__ import annotations
+import concurrent.futures
 
+import concurrent.futures
 from pathlib import Path
 
 import curses

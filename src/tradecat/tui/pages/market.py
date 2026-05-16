@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import collections
+import locale
 import curses
 import math
 import os

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import locale
+import time
 import curses
 import json
 import math
