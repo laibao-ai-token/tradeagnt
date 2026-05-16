@@ -2391,17 +2391,21 @@ def _main(
                     _remember_primary_view(view)
             elif key == ord("1"):
                 top_page = 1
-                market_tab = 0  # default to 加密
+                market_tab = 1  # 美股
                 view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
             elif key == ord("2"):
-                top_page = 2
-                view = "market_micro"  # placeholder, P2 渲染时走分支
+                top_page = 1
+                market_tab = 2  # A股
+                view = _MARKET_TABS[market_tab]
+                _remember_primary_view(view)
             elif key == ord("3"):
-                top_page = 3
-                view = _PAGE_NEWS_VIEW
+                top_page = 1
+                market_tab = 0  # 加密
+                view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
             elif key == ord("4"):
+                top_page = 1
                 if view == _BACKTEST_VIEW:
                     view = backtest_parent_view if backtest_parent_view in _PRIMARY_MARKET_VIEWS else last_primary_view
                     if view not in _PRIMARY_MARKET_VIEWS:
@@ -2415,12 +2419,17 @@ def _main(
                         backtest_parent_view = last_primary_view
                     view = _BACKTEST_VIEW
             elif key == ord("5"):
-                view = "market_fund_cn"
+                top_page = 1
+                market_tab = 4  # 基金
+                view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
             elif key == ord("6"):
-                view = "market_hk"
+                top_page = 1
+                market_tab = 3  # 港股
+                view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
             elif key == ord("7"):
+                top_page = 1
                 view = "market_news"
                 _remember_primary_view(view)
             elif key == ord("["):
