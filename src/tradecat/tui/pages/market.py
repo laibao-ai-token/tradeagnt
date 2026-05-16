@@ -609,6 +609,11 @@ def _draw_header(
     stdscr.move(1, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
+    # 清除 content area，防止切页时旧内容残留到下一页
+    sh, _ = stdscr.getmaxyx()
+    for row in range(2, sh - 1):
+        stdscr.move(row, 0)
+        stdscr.clrtoeol()
 
 
 def _draw_market_master(
