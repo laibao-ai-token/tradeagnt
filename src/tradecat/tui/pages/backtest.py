@@ -78,6 +78,7 @@ def _resample_series(values: list[float], max_points: int) -> list[float]:
 
 # === BacktestSymbolContribution ===
 
+@dataclass
 class BacktestSymbolContribution:
     symbol: str
     pnl_net: float | None = None
@@ -89,6 +90,7 @@ class BacktestSymbolContribution:
 
 # === BacktestCompareDelta ===
 
+@dataclass
 class BacktestCompareDelta:
     key: str
     history_count: int
@@ -99,6 +101,7 @@ class BacktestCompareDelta:
 
 # === BacktestCompareSnapshot ===
 
+@dataclass
 class BacktestCompareSnapshot:
     available: bool = False
     run_id: str = "--"
@@ -129,6 +132,7 @@ class BacktestCompareSnapshot:
 
 # === BacktestSnapshot ===
 
+@dataclass
 class BacktestSnapshot:
     available: bool = False
     status: str = "no backtest artifacts"
@@ -165,6 +169,7 @@ class BacktestSnapshot:
 
 # === BacktestRunStateSnapshot ===
 
+@dataclass
 class BacktestRunStateSnapshot:
     status: str = "idle"
     stage: str = "idle"
