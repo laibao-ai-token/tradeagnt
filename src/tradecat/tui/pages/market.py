@@ -362,7 +362,7 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
     for acct in accounts:
         if y + 8 > h:
             break
-        status = engine.status(acct.id)
+        status = engine.status(acct.account_id)
         balance = status.get("account", acct).balance if status.get("account") else acct.balance
         equity = status.get("total_equity", balance)
         positions = status.get("positions", [])

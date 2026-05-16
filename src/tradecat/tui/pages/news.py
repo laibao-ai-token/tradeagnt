@@ -154,6 +154,7 @@ class NewsPageState:
 
 # === NewsFeedSnapshot ===
 
+@dataclass
 class NewsFeedSnapshot:
     mode: str  # DB / RSS / LIVE / MIX
     items: tuple[NewsItem, ...] = ()
