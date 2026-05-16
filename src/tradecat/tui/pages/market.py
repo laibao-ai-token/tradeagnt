@@ -552,7 +552,7 @@ def _draw_market_master(
     key_hint = (
         "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ↑↓滚动"
         if show_signals
-        else "按键: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 5基金 | 6港股 | 7资讯 | +/-加减自选 | ↑↓滚动"
+        else "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | ↑↓滚动"
     )
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
@@ -848,7 +848,7 @@ def _draw_signals(
     # Footer
     footer = (
         "筛选: p PG | s SQLITE | b BUY | e SELL | a ALERT | r刷新 | "
-        "t主页面切换 | 1美股 | 2A股 | 3加密 | 5基金 | 6港股 | 7资讯"
+        "1行情 2模拟盘 3资讯 | ←→切标签"
     )
     _safe_addstr(stdscr, h - 1, 0, _truncate(footer, w))
 
@@ -1795,7 +1795,7 @@ def _draw_market_fund_two_panel(
     refresh_s: float,
     runtime_state: RuntimeState,
 ) -> None:
-    key_hint = "按键: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 5基金 | 6港股 | 7资讯 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新"
+    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ←→切标签 | +/-加减自选 | r刷新"
     fund_domain = runtime_state.fund_domain
 
     # 获取当前选中领域
