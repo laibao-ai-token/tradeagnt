@@ -116,8 +116,10 @@ from .pages.backtest import (
 )
 from .pages.market import (
     _build_header_line,
+    _draw,
     _draw_view_panel,
     _draw_header,
+    _draw_paper_trading_page,
     _draw_market_master,
     _draw_quotes,
     _draw_signals,
