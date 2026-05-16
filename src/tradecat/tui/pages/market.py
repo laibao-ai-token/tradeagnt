@@ -249,6 +249,7 @@ def _draw_view_panel(
     news_state: NewsPageState | None = None,
     news_snapshot: NewsFeedSnapshot | None = None,
 ) -> None:
+    _lazy_imports()
     h, w = win.getmaxyx()
     if view == "quotes_us":
         _draw_quotes(win, "US", quote_cfgs.us, quote_state_us, w, h, qscroll)
