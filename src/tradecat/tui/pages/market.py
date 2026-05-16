@@ -102,6 +102,39 @@ def _draw_box(win, x: int, y: int, width: int, height: int, attr: int = 0) -> No
 
 # === _fmt_vol ===
 
+
+# Import constants and helpers from tui.py
+from tradecat.tui._helpers import (
+    _adaptive_left_min_width, _build_recent_signal_panel_title,
+    _count_recent_signal_rows, _crypto_signal_symbol_to_pair,
+    _display_name, _display_symbol, _draw_box, _safe_addstr, _safe_hline, _safe_vline,
+    _fmt_freshness, _fmt_duration_compact, _fmt_quote_ts, _fmt_signed, _fmt_time, _fmt_vol,
+    _format_service_status_bar, _is_finite_number, _market_display_name,
+    _safe_int, _signals_for_symbol, _split_signal_rows_by_age, _view_display_name,
+    _signal_row_age_seconds, _latest_signal_row, _window_signal_stats,
+    _char_display_width, _text_display_width, _truncate, _fit_cell, _line_chars,
+    _coerce_float, _coerce_int, _coerce_pct, _extract_metric, _resample_series,
+)
+# Market-specific constants (defined in tui.py, needed here)
+from tradecat.tui._helpers import (
+    _CLOSED_CURVE_HISTORY_LIMIT, _CLOSED_CURVE_RETRY_SECONDS,
+    _CLOSED_CURVE_STALE_SECONDS, _CLOSED_CURVE_TARGET_SPAN_SECONDS,
+    _FUND_CN_CURVE_DAYS, _FUND_CN_CURVE_REFRESH_SECONDS,
+    _MARKET_MICRO_LEFT_BASE_MIN_WIDTH, _MARKET_MICRO_LEFT_FLOOR_MIN_WIDTH,
+    _MARKET_MICRO_LEFT_MIN_RATIO, _MARKET_MICRO_LEFT_RATIO,
+    _MARKET_MICRO_RIGHT_MIN_WIDTH,
+)
+# Lazy imports to avoid circular dependency
+_draw_market_backtest = None
+_draw_market_news = None
+def _lazy_imports():
+    global _draw_market_backtest, _draw_market_news
+    if _draw_market_backtest is None:
+        from tradecat.tui.pages.backtest import _draw_market_backtest as bt
+        from tradecat.tui.pages.news import _draw_market_news as nw
+        _draw_market_backtest = bt
+        _draw_market_news = nw
+
 def _fmt_vol(v: float) -> str:
     if v <= 0:
         return "--"

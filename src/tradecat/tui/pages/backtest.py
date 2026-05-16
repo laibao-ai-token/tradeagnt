@@ -22,6 +22,9 @@ _BACKTEST_SHOW_COMPARE = str(os.environ.get("TUI_BACKTEST_SHOW_COMPARE", "")).st
     "1", "true", "yes", "y", "on"
 }
 
+# Import shared helpers from tui.py
+from tradecat.tui._helpers import _draw_box, _safe_hline, _safe_vline, _fmt_quote_ts, _safe_addstr, _truncate, _char_display_width, _text_display_width, _coerce_float, _coerce_int, _coerce_pct, _extract_metric, _resample_series
+
 # Utility helpers
 def _safe_addstr(win, y: int, x: int, s: str, attr: int = 0) -> None:
     try:

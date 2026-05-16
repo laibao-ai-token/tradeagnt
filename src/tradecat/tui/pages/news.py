@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import curses
 import hashlib
 import html
@@ -99,6 +101,18 @@ def _text_display_width(text: str) -> int:
 # News source filter constants
 _NEWS_SOURCE_FILTER_ALL = "全部"
 _DIRECT_NEWS_PREFIX = "direct:"
+
+# Missing constants from tui.py
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_NEWS_CATEGORIES = ("全部", "宏观", "公司", "加密", "政策")
+_NEWS_SOURCE_FILTER_PRIMARY = "主链"
+_NEWS_SOURCE_FILTER_SUPPLEMENTAL = "补充"
+_NEWS_WINDOWS_H = (1, 6, 24)
+_RSS_TAG_RE = re.compile(r"<[^>]+>")
+
+# Import shared helpers from tui.py
+from tradecat.tui._helpers import _display_name, _draw_box, _safe_hline, _safe_vline, _char_display_width, _text_display_width, _truncate
+
 
 # === NewsItem ===
 
