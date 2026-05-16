@@ -407,6 +407,11 @@ _MARKET_MICRO_LEFT_MIN_RATIO = 0.24
 _MARKET_MICRO_LEFT_RATIO = _read_env_ratio("TUI_MARKET_MICRO_LEFT_RATIO", 0.36)
 _MARKET_MICRO_RIGHT_MIN_WIDTH = 28
 
+# ── Page / tab constants ──
+_MARKET_TABS = ["market_micro", "market_us", "market_cn", "market_hk", "market_fund_cn"]
+_MARKET_TAB_LABELS = ["加密", "美股", "A股", "港股", "基金"]
+_PAGE_NEWS_VIEW = "market_news"
+
 def _read_env_ratio(name: str, default: float, min_value: float = 0.25, max_value: float = 0.60) -> float:
     raw = str(os.environ.get(name, "")).strip()
     if not raw:

@@ -125,6 +125,7 @@ from tradecat.tui._helpers import (
     _MARKET_MICRO_LEFT_BASE_MIN_WIDTH, _MARKET_MICRO_LEFT_FLOOR_MIN_WIDTH,
     _MARKET_MICRO_LEFT_MIN_RATIO, _MARKET_MICRO_LEFT_RATIO,
     _MARKET_MICRO_RIGHT_MIN_WIDTH,
+    _MARKET_TABS, _MARKET_TAB_LABELS, _PAGE_NEWS_VIEW,
 )
 # Lazy imports to avoid circular dependency
 _draw_market_backtest = None
