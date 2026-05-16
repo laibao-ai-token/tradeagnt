@@ -897,7 +897,7 @@ def draw_market_panel(
 
     # Domain column (fund mode)
     if config.has_domain_column and domain_keys:
-        _safe_addstr(stdscr, panel_top, 1, _truncate("领域", domain_col_w - 2), curses.A_UNDERLINE)
+        _safe_addstr(stdscr, panel_top, 1, _truncate("领域", domain_col_w - 2), curses.A_REVERSE | curses.A_BOLD)
         for i, dkey in enumerate(domain_keys):
             y = panel_top + 1 + i
             if y >= panel_top + panel_h - 1:
@@ -913,13 +913,13 @@ def draw_market_panel(
     # Left panel table
     left_inner_w = max(0, left_w - 2)
     left_x_offset = domain_col_w + 1 if config.has_domain_column else 1
-    _safe_addstr(stdscr, panel_top, left_x_offset + 1, _truncate(f"候选池({len(symbols)})", max(0, left_w - 4)), curses.A_UNDERLINE)
+    _safe_addstr(stdscr, panel_top, left_x_offset + 1, _truncate(f"候选池({len(symbols)})", max(0, left_w - 4)), curses.A_REVERSE | curses.A_BOLD)
 
     resolved_cols = _resolve_columns(config.column_tiers, left_inner_w)
     render_left_row = _make_render_row(resolved_cols, left_inner_w)
 
     header_values = {key: header for key, header, _, _ in resolved_cols}
-    _safe_addstr(stdscr, panel_top + 1, left_x_offset, render_left_row(" ", header_values), curses.A_UNDERLINE)
+    _safe_addstr(stdscr, panel_top + 1, left_x_offset, render_left_row(" ", header_values), curses.A_REVERSE)
 
     # Scroll
     left_body_top = panel_top + 2
