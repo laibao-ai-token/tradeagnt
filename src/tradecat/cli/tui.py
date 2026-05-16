@@ -13,5 +13,8 @@ import click
 @click.option("--no-quote", is_flag=True, help="禁用报价行")
 def tui(refresh: float, limit: int, no_quote: bool) -> None:
     """Launch the TradeCat TUI signal dashboard."""
+    from pathlib import Path
     from tradecat.tui.tui import run
-    run()
+    repo_root = Path(__file__).resolve().parents[2]
+    db_path = str(repo_root / "libs" / "database" / "services" / "signal-service" / "signal_history.db")
+    run(db_path, refresh_s=refresh, limit=limit)
