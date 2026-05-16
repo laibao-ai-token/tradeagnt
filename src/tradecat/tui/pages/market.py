@@ -454,9 +454,7 @@ def _draw(
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
         _draw_paper_trading_page(stdscr, h, w, colors)
-        stdscr.noutrefresh()
-        curses.doupdate()
-        return
+    else:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
