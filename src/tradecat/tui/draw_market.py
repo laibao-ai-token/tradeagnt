@@ -571,20 +571,21 @@ def _render_stats_fund(selected_quote, selected_state, selected_curve) -> str:
 
 def _render_stats_micro(selected_quote, selected_state, snapshot: MicroSnapshot | None) -> str:
     if selected_quote is None:
-        return "价格=--  涨跌=--  幅度=--  成交量=--  延迟=--  源=--  模式=--"
+        return "价格=--  涨跌=--  成交量=--  延迟=--  源=--  模式=--"
     chg = selected_quote.price - selected_quote.prev_close
     pct = (chg / selected_quote.prev_close * 100.0) if selected_quote.prev_close else 0.0
     age_s = int(max(0.0, time.time() - (selected_state.last_fetch_at or 0.0))) if selected_state else 0
-    src = (selected_quote.source or "--").upper()[:8]
-    mode = "LIVE" if age_s <= 15 else ("LIVE-SLOW" if age_s <= 120 else "STALE")
+    src = (selected_quote.source or "--").upper()[:6]
+    mode = "LIVE" if age_s <= 15 else ("SLOW" if age_s <= 120 else "STALE")
+    # Compact format: single spaces, shorter labels to avoid truncation
     stats_line = (
-        f"价格={selected_quote.price:.2f}  涨跌={chg:+.2f} ({pct:+.2f}%)  "
-        f"成交量={_fmt_vol(selected_quote.volume)}  延迟={age_s}s  源={src}  模式={mode}"
+        f"价格={selected_quote.price:.2f} 涨跌={chg:+.2f}({pct:+.2f}%) "
+        f"量={_fmt_vol(selected_quote.volume)} 延={age_s}s 源={src} {mode}"
     )
     if snapshot and snapshot.symbol:
-        bias = (snapshot.signals.bias or "NEUTRAL").upper()
+        bias = (snapshot.signals.bias or "NEUTRAL").upper()[:4]
         score = float(snapshot.signals.score)
-        stats_line += f"  偏向={bias}  评分={score:+.2f}"
+        stats_line += f" 偏={bias} 评={score:+.1f}"
     return stats_line
 
 
@@ -870,8 +871,15 @@ def draw_market_panel(
     right_x = min(w - 1, split_x + domain_col_w + 1)
     right_w = max(18, w - right_x)
 
-    right_top_h = int(round(panel_h * config.right_top_ratio))
-    right_top_h = max(8, min(right_top_h, panel_h - 6))
+    # Dynamic split: when signals are empty, give more space to the chart
+    has_signals = bool(selected_rows)
+    if has_signals:
+        effective_top_ratio = config.right_top_ratio
+    else:
+        # No signals: chart gets ~85% of right panel, minimal bottom
+        effective_top_ratio = min(0.85, config.right_top_ratio + 0.20)
+    right_top_h = int(round(panel_h * effective_top_ratio))
+    right_top_h = max(8, min(right_top_h, panel_h - 5))
     right_bottom_y = panel_top + right_top_h
     right_bottom_h = panel_h - right_top_h
     if right_bottom_h < 5:
@@ -1049,5 +1057,13 @@ def draw_market_panel(
             right_bottom_h,
             config.market,
         )
+
+    # ─── Visual separators ───
+    # Vertical separator between left and right panels
+    for vy in range(panel_top, h - 1):
+        _safe_vline(stdscr, vy, split_x, 1)
+    # Horizontal separator between chart (top-right) and signals/details (bottom-right)
+    for hx in range(right_x, min(w, right_x + right_w)):
+        _safe_hline(stdscr, right_bottom_y, hx, 1)
 
     return selected_idx

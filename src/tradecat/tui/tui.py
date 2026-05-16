@@ -2194,6 +2194,12 @@ def _main(
                         micro_engine.ingest_quote(quote, fetched_at=ts_now)
                         crypto_last_ingested_fetch[sym] = ts_now
                         micro_errors[sym] = ""
+                        # Sync back to quote_state so left panel & stats line show data
+                        if sym not in quote_state_crypto.entries:
+                            quote_state_crypto.entries[sym] = QuoteEntryState()
+                        quote_state_crypto.entries[sym].quote = quote
+                        quote_state_crypto.entries[sym].last_fetch_at = ts_now
+                        quote_state_crypto.entries[sym].last_error = ""
                     micro_last_refresh[sym] = now
 
             cur_micro_symbol = micro_symbol_current
