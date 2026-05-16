@@ -550,7 +550,7 @@ def _draw_market_master(
     show_signals: bool = True,
 ) -> None:
     key_hint = (
-        "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ↑↓滚动"
+        "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | ↑↓滚动"
         if show_signals
         else "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | ↑↓滚动"
     )
@@ -676,7 +676,7 @@ def _draw_quotes(
     qscroll: int,
     sig_map: dict[str, SignalRow] | None = None,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ↑↓滚动"
+    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | r刷新"
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
@@ -1501,7 +1501,7 @@ def _draw_market_quad(
     h: int,
     refresh_s: float,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ↑↓滚动"
+    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | [/]切换 | +/-加减自选 | r刷新"
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
@@ -1795,7 +1795,7 @@ def _draw_market_fund_two_panel(
     refresh_s: float,
     runtime_state: RuntimeState,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | ←→切标签 | +/-加减自选 | r刷新"
+    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新"
     fund_domain = runtime_state.fund_domain
 
     # 获取当前选中领域
@@ -1998,3 +1998,414 @@ def _draw_market_fund_two_panel(
         right_x + 2,
         _truncate(f"票详情: {selected_label} ({selected_disp_symbol})", max(0, right_w - 4)),
         curses.A_UNDERLINE,
+    )
+    if selected_quote is None:
+        stats_line = "价格=--  涨跌=--  幅度=--  成交量=--  延迟=--  模式=--"
+    else:
+        selected_chg = selected_quote.price - selected_quote.prev_close
+        selected_pct = (selected_chg / selected_quote.prev_close * 100.0) if selected_quote.prev_close else 0.0
+        selected_age_s = int(max(0.0, time.time() - (selected_state.last_fetch_at or 0.0))) if selected_state else 0
+
+        curve_mode = "LIVE"
+        quote_ts_dt = parse_ts(selected_quote.ts)
+        if quote_ts_dt != datetime.min:
+            quote_age_s = max(0, int(time.time() - quote_ts_dt.timestamp()))
+            if quote_age_s >= _CLOSED_CURVE_STALE_SECONDS:
+                curve_span_s = 0.0
+                if len(selected_curve) >= 2:
+                    curve_span_s = max(0.0, float(selected_curve[-1].ts_open - selected_curve[0].ts_open))
+                target_days_span_s = max(24 * 3600, (_FUND_CN_CURVE_DAYS - 1) * 24 * 3600)
+                if curve_span_s >= target_days_span_s:
+                    curve_mode = f"CLOSE-{_FUND_CN_CURVE_DAYS}D"
+                elif curve_span_s >= _CLOSED_CURVE_TARGET_SPAN_SECONDS:
+                    curve_mode = "CLOSE-1H"
+                else:
+                    curve_mode = "CLOSE"
+
+        stats_line = (
+            f"价格={selected_quote.price:.2f}  涨跌={selected_chg:+.2f} ({selected_pct:+.2f}%)  "
+            f"成交量={_fmt_vol(selected_quote.volume)}  延迟={selected_age_s}s  模式={curve_mode}  周期={_FUND_CN_CURVE_DAYS}D"
+        )
+    _safe_addstr(stdscr, panel_top + 1, right_x + 1, _truncate(stats_line, max(0, right_w - 2)))
+
+    chart_y = panel_top + 2
+    chart_h = max(1, right_top_h - 3)
+    _draw_price_curve(
+        stdscr,
+        selected_curve,
+        colors,
+        right_x + 1,
+        chart_y,
+        right_w - 2,
+        chart_h,
+        marker_rows=selected_rows,
+    )
+
+    _safe_addstr(stdscr, right_bottom_y, right_x + 2, _truncate("选票信息 / TopN(领域优先+模型)", max(0, right_w - 4)), curses.A_UNDERLINE)
+    details: list[str] = []
+    details.append("口径说明: cnd=领域相关序 | MRank=模型排名 | sRank=模型总分")
+    details.append("结论清单(编号+代码+名称+角色):")
+    role_names = ("主选", "备选", "观察")
+    conclusion_role_map: dict[str, str] = {}
+    for idx, sym in enumerate(domain_top_symbols[: len(role_names)], start=1):
+        role_name = role_names[idx - 1]
+        conclusion_role_map[sym] = role_name
+        rank_state = quote_state.entries.get(sym)
+        code = _display_symbol(sym, quote_cfg.market)
+        name = _display_name(sym, rank_state.quote if rank_state else None, quote_cfg.market)
+        details.append(f"{idx}. {code} {name} | 角色={role_name}")
+    if not conclusion_role_map:
+        details.append("当前领域暂无可用结论清单")
+    role = conclusion_role_map.get(selected_symbol)
+    if role is not None:
+        details.append(f"当前票定位: {role}（{domain_label}结论清单）")
+    else:
+        details.append(f"当前票定位: 非结论清单（{domain_label}候选池）")
+
+    if selected_item is None:
+        details.append("当前状态: 暂无模型评分（数据缺失/过期）")
+        details.append("提示: 可按 r 刷新，或等待行情更新")
+    else:
+        risk_txt = risk_map.get(selected_item.risk_level, selected_item.risk_level)
+        cand_rank_txt = candidate_rank_map.get(selected_symbol)
+        cand_rank_disp = str(cand_rank_txt) if cand_rank_txt is not None else "--"
+        model_rank_disp = f"#{selected_rank}/{ranking_snapshot.valid_candidates}" if selected_rank is not None else "--"
+        details.append(
+            f"当前票: cnd={cand_rank_disp}  MRank={model_rank_disp}  sRank={selected_item.total_score:.1f}  风险={risk_txt}"
+        )
+        if cand_rank_txt is not None and selected_rank is not None and cand_rank_txt != selected_rank:
+            details.append("提示: cnd 与 MRank 不必一致（相关度 vs 交易评分）")
+        if selected_rank is not None and selected_rank > top_n_limit:
+            details.append(f"前{top_n_limit}: 未入选（当前模型排名偏后）")
+        details.append(
+            f"因子: 趋势{selected_item.trend_score:.1f} 动量{selected_item.momentum_score:.1f} "
+            f"流动{selected_item.liquidity_score:.1f} 风险{selected_item.risk_adjusted_score:.1f}"
+        )
+        details.append(f"标签: {' / '.join(selected_item.reason_tags[:3])}")
+
+    if selected_rows:
+        latest = selected_rows[0]
+        latest_dir = (latest.direction or "--").upper()[:4]
+        details.append(f"近期信号: {len(selected_rows)} | 最新={_fmt_time(latest.timestamp)} {latest_dir}")
+    else:
+        details.append("近期信号: 0（基金页以选票为主，信号仅作参考）")
+
+    details.append(f"Top{top_n_limit}({domain_label}相关序):")
+    for idx, sym in enumerate(domain_top_symbols, start=1):
+        rank_state = quote_state.entries.get(sym)
+        rank_name = _display_name(sym, rank_state.quote if rank_state else None, quote_cfg.market)
+        rank_symbol = _display_symbol(sym, quote_cfg.market)
+        item = model_item_map.get(sym)
+        rank = model_rank_map.get(sym)
+        rank_txt = f"#{rank}" if rank is not None else "--"
+        score_txt = f"{item.total_score:.1f}" if item is not None else "--"
+        details.append(f"{idx}. {rank_symbol:<10} {rank_name:<12} MRank={rank_txt} sRank={score_txt}")
+
+    details.append(f"Top{top_n_limit}(模型评分,全池):")
+    for idx, item in enumerate(top_items, start=1):
+        rank_symbol = _display_symbol(item.symbol, quote_cfg.market)
+        rank_state = quote_state.entries.get(item.symbol)
+        rank_name = _display_name(item.symbol, rank_state.quote if rank_state else None, quote_cfg.market)
+        risk_txt = risk_map.get(item.risk_level, item.risk_level)
+        details.append(f"{idx}. {rank_symbol:<10} {rank_name:<12} sRank={item.total_score:>5.1f} 风险={risk_txt}")
+
+    right_body_h = max(0, right_bottom_h - 2)
+    for i, line in enumerate(details[: max(1, right_body_h)]):
+        _safe_addstr(stdscr, right_bottom_y + 1 + i, right_x + 1, _truncate(line, max(0, right_w - 2)))
+
+    # Keep footer row for key hints.
+
+
+def _draw_market_micro(
+    stdscr,
+    snapshot: MicroSnapshot,
+    micro_symbols: list[str],
+    rows: list[SignalRow],
+    quote_state: QuoteBookState,
+    curve_map: dict[str, list[Candle]],
+    colors: dict[str, int],
+    w: int,
+    h: int,
+) -> None:
+    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | r刷新"
+    _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
+
+    symbols = [s.strip().upper() for s in (micro_symbols or []) if (s or "").strip()]
+    focus_symbol = (snapshot.symbol or "").strip().upper()
+    if focus_symbol and focus_symbol not in symbols:
+        symbols.insert(0, focus_symbol)
+
+    if not symbols:
+        _safe_addstr(stdscr, 1, 0, _truncate("加密行情：无可用标的（可用 + 添加）", w))
+        return
+
+    selected_symbol = focus_symbol if focus_symbol in symbols else symbols[0]
+    selected_idx = symbols.index(selected_symbol)
+    selected_rows = _signals_for_symbol(rows, selected_symbol, "crypto_spot")
+    selected_state = quote_state.entries.get(selected_symbol)
+    selected_quote = selected_state.quote if selected_state else None
+    selected_curve = curve_map.get(selected_symbol, [])
+
+    panel_top = 1
+    panel_h = max(0, h - panel_top - 1)
+    if panel_h < 10:
+        return
+
+    left_min_w = _adaptive_left_min_width(
+        w,
+        base_min=_MARKET_MICRO_LEFT_BASE_MIN_WIDTH,
+        floor_min=_MARKET_MICRO_LEFT_FLOOR_MIN_WIDTH,
+        min_ratio=_MARKET_MICRO_LEFT_MIN_RATIO,
+    )
+    split_x = max(left_min_w, int(w * _MARKET_MICRO_LEFT_RATIO))
+    if split_x >= w - _MARKET_MICRO_RIGHT_MIN_WIDTH:
+        split_x = max(left_min_w, w - _MARKET_MICRO_RIGHT_MIN_WIDTH)
+    left_w = max(left_min_w, split_x)
+    right_x = min(w - 1, split_x + 1)
+    right_w = max(18, w - right_x)
+
+    right_top_h = int(round(panel_h * 0.62))
+    right_top_h = max(8, min(right_top_h, panel_h - 6))
+    right_bottom_y = panel_top + right_top_h
+    right_bottom_h = panel_h - right_top_h
+    if right_bottom_h < 5:
+        return
+
+    box_attr = curses.color_pair(colors.get("SRC", 0))
+    _draw_box(stdscr, 0, panel_top, left_w, panel_h, box_attr)
+    _draw_box(stdscr, right_x, panel_top, right_w, right_top_h, box_attr)
+    _draw_box(stdscr, right_x, right_bottom_y, right_w, right_bottom_h, box_attr)
+
+    left_inner_w = max(0, left_w - 2)
+    _safe_addstr(stdscr, panel_top, 2, _truncate(f"候选池({len(symbols)})", max(0, left_w - 4)), curses.A_UNDERLINE)
+
+    if left_inner_w >= 56:
+        table_cols: list[tuple[str, str, int, str]] = [
+            ("idx", "序", 3, "right"),
+            ("code", "代码", 11, "left"),
+            ("name", "名称", 1, "left"),
+            ("last", "最新", 7, "right"),
+            ("pct", "涨跌", 7, "right"),
+            ("sig", "12h", 4, "right"),
+        ]
+    elif left_inner_w >= 46:
+        table_cols = [
+            ("idx", "序", 3, "right"),
+            ("code", "代码", 11, "left"),
+            ("name", "名称", 1, "left"),
+            ("last", "最新", 7, "right"),
+            ("pct", "涨跌", 7, "right"),
+        ]
+    elif left_inner_w >= 36:
+        table_cols = [
+            ("idx", "序", 3, "right"),
+            ("code", "代码", 9, "left"),
+            ("name", "名称", 1, "left"),
+            ("last", "最新", 7, "right"),
+            ("pct", "涨跌", 7, "right"),
+        ]
+    else:
+        table_cols = [
+            ("idx", "序", 3, "right"),
+            ("code", "代码", 9, "left"),
+            ("last", "最新", 7, "right"),
+        ]
+        if left_inner_w >= 30:
+            table_cols.append(("pct", "涨跌", 7, "right"))
+    
+    fixed_w = sum(width for key, _, width, _ in table_cols if key != "name")
+    field_count = len(table_cols)
+    overhead_w = 2 + max(0, field_count - 1)
+    resolved_name_w = max(1, left_inner_w - fixed_w - overhead_w)
+    resolved_cols: list[tuple[str, str, int, str]] = []
+    for key, header, width, align in table_cols:
+        if key == "name":
+            resolved_cols.append((key, header, resolved_name_w, align))
+        else:
+            resolved_cols.append((key, header, width, align))
+
+    def _render_left_row(prefix: str, values: dict[str, str]) -> str:
+        cells = [_fit_cell(values.get(key, ""), width, align=align) for key, _, width, align in resolved_cols]
+        body = " ".join(cells)
+        return _fit_cell(f"{prefix} {body}", left_inner_w)
+
+    header_values = {key: header for key, header, _, _ in resolved_cols}
+    _safe_addstr(stdscr, panel_top + 1, 1, _render_left_row(" ", header_values), curses.A_UNDERLINE)
+
+    left_body_top = panel_top + 2
+    left_body_h = max(0, panel_h - 3)
+    left_scroll = 0
+    now_dt = datetime.now()
+    if selected_idx >= max(1, left_body_h):
+        left_scroll = selected_idx - max(1, left_body_h) + 1
+    left_visible = symbols[left_scroll : left_scroll + max(1, left_body_h)]
+
+    for i, sym in enumerate(left_visible):
+        y = left_body_top + i
+        global_idx = left_scroll + i
+        st = quote_state.entries.get(sym) or QuoteEntryState(quote=None, last_error="pending", last_fetch_at=0.0)
+        q = st.quote
+        name = _display_name(sym, q, "crypto_spot")
+        code = _display_symbol(sym, "crypto_spot")
+        prefix = ">" if global_idx == selected_idx else " "
+
+        last_txt = "--"
+        pct_txt = "--"
+        if q is not None:
+            chg = q.price - q.prev_close
+            pct = (chg / q.prev_close * 100.0) if q.prev_close else 0.0
+            last_txt = f"{q.price:.2f}"
+            pct_txt = f"{pct:+.2f}%"
+
+        symbol_rows = _signals_for_symbol(rows, sym, "crypto_spot")
+        row_values = {
+            "idx": str(global_idx + 1),
+            "code": code,
+            "name": name,
+            "last": last_txt,
+            "pct": pct_txt,
+            "sig": str(_count_recent_signal_rows(symbol_rows, now_dt, max_age_s=12 * 60 * 60)),
+        }
+        _safe_addstr(stdscr, y, 1, _render_left_row(prefix, row_values))
+
+    selected_label = _display_name(selected_symbol, selected_quote, "crypto_spot")
+    selected_disp_symbol = _display_symbol(selected_symbol, "crypto_spot")
+    _safe_addstr(
+        stdscr,
+        panel_top,
+        right_x + 2,
+        _truncate(f"标的详情: {selected_label} ({selected_disp_symbol})", max(0, right_w - 4)),
+        curses.A_UNDERLINE,
+    )
+
+    if selected_quote is None:
+        stats_line = "价格=--  涨跌=--  幅度=--  成交量=--  延迟=--  源=--  模式=--"
+    else:
+        selected_chg = selected_quote.price - selected_quote.prev_close
+        selected_pct = (selected_chg / selected_quote.prev_close * 100.0) if selected_quote.prev_close else 0.0
+        selected_age_s = int(max(0.0, time.time() - (selected_state.last_fetch_at or 0.0))) if selected_state else 0
+        src = (selected_quote.source or "--").upper()[:8]
+        mode = "LIVE" if selected_age_s <= 15 else ("LIVE-SLOW" if selected_age_s <= 120 else "STALE")
+        stats_line = (
+            f"价格={selected_quote.price:.2f}  涨跌={selected_chg:+.2f} ({selected_pct:+.2f}%)  "
+            f"成交量={_fmt_vol(selected_quote.volume)}  延迟={selected_age_s}s  源={src}  模式={mode}"
+        )
+        if selected_symbol == focus_symbol:
+            bias = (snapshot.signals.bias or "NEUTRAL").upper()
+            score = float(snapshot.signals.score)
+            stats_line += f"  偏向={bias}  评分={score:+.2f}"
+    _safe_addstr(stdscr, panel_top + 1, right_x + 1, _truncate(stats_line, max(0, right_w - 2)))
+
+    chart_y = panel_top + 2
+    chart_h = max(1, right_top_h - 3)
+    _draw_price_curve(
+        stdscr,
+        selected_curve,
+        colors,
+        right_x + 1,
+        chart_y,
+        right_w - 2,
+        chart_h,
+        marker_rows=selected_rows,
+    )
+
+    signal_panel_title = _build_recent_signal_panel_title(selected_rows, now_dt)
+    _safe_addstr(stdscr, right_bottom_y, right_x + 2, _truncate(signal_panel_title, max(0, right_w - 4)), curses.A_UNDERLINE)
+
+    right_inner_x = right_x + 1
+    right_inner_y = right_bottom_y + 1
+    right_inner_w = max(0, right_w - 2)
+    right_inner_h = max(0, right_bottom_h - 2)
+
+    # Fallback to legacy single-column rendering on very narrow terminals.
+    if right_inner_w < 30 or right_inner_h < 3:
+        _safe_addstr(
+            stdscr,
+            right_inner_y,
+            right_inner_x,
+            _truncate("信号区过窄：请放大终端查看三列（5min/1h/12h）", right_inner_w),
+            curses.color_pair(colors.get("SRC", 0)),
+        )
+        right_body_h = max(0, right_inner_h - 1)
+        if selected_rows and right_body_h > 0:
+            right_visible = selected_rows[: max(1, right_body_h)]
+            for i, row in enumerate(right_visible):
+                y = right_inner_y + 1 + i
+                ts_dt = parse_ts(row.timestamp)
+                age_s = max(0, int((now_dt - ts_dt).total_seconds())) if ts_dt != datetime.min else 0
+                direction = (row.direction or "--").upper()[:4]
+                tf = (row.timeframe or "--")[:3]
+                strength = _safe_int(row.strength, 0)
+                line = f"{_fmt_time(row.timestamp):<8} {age_s:>3}s {direction:<4}{strength:>3} {tf:<3}"
+                _safe_addstr(stdscr, y, right_inner_x, _truncate(line, right_inner_w))
+    else:
+        col_count = 3
+        sep_count = col_count - 1
+        usable_w = max(3, right_inner_w - sep_count)
+        col_ws = [usable_w // col_count] * col_count
+        for i in range(usable_w % col_count):
+            col_ws[i] += 1
+        col_xs = [right_inner_x]
+        for i in range(1, col_count):
+            col_xs.append(col_xs[-1] + col_ws[i - 1] + 1)
+        sep_xs = [col_xs[1] - 1, col_xs[2] - 1]
+
+        for sep_x in sep_xs:
+            _safe_vline(stdscr, right_inner_y, sep_x, right_inner_h, curses.color_pair(colors.get("SRC", 0)))
+
+        realtime_rows, h1_rows, h12_rows = _split_signal_rows_by_age(selected_rows, now_dt)
+
+        buckets: list[tuple[str, list[tuple[SignalRow, int]]]] = [
+            ("实时", realtime_rows),
+            ("1h", h1_rows),
+            ("12h", h12_rows),
+        ]
+
+        for i, (title, bucket_rows) in enumerate(buckets):
+            header = f"{title}({len(bucket_rows)})"
+            _safe_addstr(
+                stdscr,
+                right_inner_y,
+                col_xs[i],
+                _fit_cell(header, col_ws[i], align="left"),
+                curses.A_UNDERLINE,
+            )
+
+        body_h = max(0, right_inner_h - 1)
+        for i, (_title, bucket_rows) in enumerate(buckets):
+            col_x = col_xs[i]
+            col_w = col_ws[i]
+            if body_h <= 0:
+                continue
+            if not bucket_rows:
+                _safe_addstr(
+                    stdscr,
+                    right_inner_y + 1,
+                    col_x,
+                    _fit_cell("暂无", col_w, align="left"),
+                    curses.color_pair(colors.get("SRC", 0)),
+                )
+                continue
+
+            for row_idx, (row, _age_s) in enumerate(bucket_rows[:body_h]):
+                y = right_inner_y + 1 + row_idx
+                direction = (row.direction or "--").upper()
+                tf = (row.timeframe or "--")[:3]
+                strength = _safe_int(row.strength, 0)
+                if col_w >= 20:
+                    line = f"{_fmt_time(row.timestamp):<8} {direction[:4]:<4}{strength:>3} {tf:<3}"
+                elif col_w >= 14:
+                    line = f"{_fmt_time(row.timestamp)[3:]:<5} {direction[:1]}{strength:>2} {tf:<3}"
+                else:
+                    line = f"{direction[:1]}{strength:>2} {_fmt_time(row.timestamp)[3:]}"
+
+                attr = 0
+                if direction.startswith("BUY"):
+                    attr = curses.color_pair(colors.get("BUY", 0))
+                elif direction.startswith("SELL"):
+                    attr = curses.color_pair(colors.get("SELL", 0))
+                elif direction.startswith("ALER"):
+                    attr = curses.color_pair(colors.get("ALERT", 0))
+                _safe_addstr(stdscr, y, col_x, _fit_cell(line, col_w, align="left"), attr)
+
+
