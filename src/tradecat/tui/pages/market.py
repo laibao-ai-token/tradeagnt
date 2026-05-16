@@ -190,8 +190,9 @@ def _display_name(sym: str, q: Quote | None, market: str) -> str:
 
 # === _build_header_line ===
 
-def _build_header_line(now: str, view: str, status: str, svc: str, width: int) -> str:
-    view_txt = _view_display_name(view)
+def _build_header_line(now: str, view: str, status: str, svc: str, width: int, top_page: int = 1) -> str:
+    page_map = {1: "行情", 2: "模拟盘", 3: "资讯"}
+    view_txt = page_map.get(top_page, _view_display_name(view))
     left = f"TradeCat TUI  |  {now}  |  页面={view_txt}  |  {status}"
     left_compact = f"TUI {now} 页={view_txt} {status}"
     svc_txt = (svc or "").strip()
@@ -591,7 +592,7 @@ def _draw_header(
     now = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     status = "已暂停" if filt.paused else f"刷新={refresh_s:.1f}s"
     svc = _format_service_status_bar(service_status)
-    header = _build_header_line(now, view, status, svc, width)
+    header = _build_header_line(now, view, status, svc, width, top_page)
     stdscr.move(0, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 0, 0, header, curses.color_pair(colors.get("ALERT", 0)) | curses.A_BOLD)
