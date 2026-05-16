@@ -118,6 +118,7 @@ from tradecat.tui._helpers import _display_name, _draw_box, _safe_hline, _safe_v
 
 # === NewsItem ===
 
+@dataclass
 class NewsItem:
     id: str
     published_at: float
@@ -139,6 +140,7 @@ class NewsItem:
 
 # === NewsPageState ===
 
+@dataclass
 class NewsPageState:
     focus: str = "middle"  # middle / right
     watch_selected: int = 0
