@@ -319,6 +319,9 @@ _SERVICE_STATUS_REFRESH_S = max(1.0, float(os.environ.get("TUI_SERVICE_STATUS_RE
 _SWITCH_DEBOUNCE_S = 0.15
 _PRIMARY_MARKET_VIEWS = ("market_us", "market_cn", "market_hk", "market_fund_cn", "market_micro", "market_news")
 _BACKTEST_VIEW = "market_backtest"
+_MARKET_TABS = ["market_micro", "market_us", "market_cn", "market_hk", "market_fund_cn"]
+_MARKET_TAB_LABELS = ["加密", "美股", "A股", "港股", "基金"]
+_PAGE_NEWS_VIEW = "market_news"
 _WORKSPACE_LEFT_RATIO = 0.42
 _WORKSPACE_LEFT_MIN_WIDTH = 48
 _WORKSPACE_LEFT_COMPACT_MIN_WIDTH = 32
@@ -1407,9 +1410,6 @@ def _main(
     # --- 三页收敛：top_page 控制大页面，market_tab 控制 P1 内子标签 ---
     # top_page: 1=行情, 2=模拟盘, 3=资讯
     # market_tab: 0=加密, 1=美股, 2=A股, 3=港股, 4=基金
-    _MARKET_TABS = ["market_micro", "market_us", "market_cn", "market_hk", "market_fund_cn"]
-    _MARKET_TAB_LABELS = ["加密", "美股", "A股", "港股", "基金"]
-    _PAGE_NEWS_VIEW = "market_news"
 
     def _resolve_top_page_from_view(v: str) -> int:
         cv = _canonical_view(v) if '_canonical_view' in dir() else v
