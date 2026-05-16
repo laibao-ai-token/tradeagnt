@@ -50,24 +50,35 @@ def _safe_addstr(win, y: int, x: int, s: str, attr: int = 0) -> None:
 
 
 def _safe_vline(win, y: int, x: int, height: int, attr: int = 0) -> None:
-    try:
-        win.vline(y, x, attr, height)
-    except curses.error:
-        pass
+    if height <= 0:
+        return
+    vline = _line_chars()[5]
+    for i in range(height):
+        _safe_addstr(win, y + i, x, vline, attr)
 
 
 def _safe_hline(win, y: int, x: int, width: int, attr: int = 0) -> None:
-    try:
-        win.hline(y, x, attr, width)
-    except curses.error:
-        pass
+    if width <= 0:
+        return
+    hline = _line_chars()[4]
+    _safe_addstr(win, y, x, hline * width, attr)
 
 
 def _draw_box(win, x: int, y: int, width: int, height: int, attr: int = 0) -> None:
-    _safe_hline(win, y, x, width, attr)
-    _safe_hline(win, y + height - 1, x, width, attr)
-    _safe_vline(win, y, x, height, attr)
-    _safe_vline(win, y, x + width - 1, height, attr)
+    if width < 2 or height < 2:
+        return
+    left, top = x, y
+    right = x + width - 1
+    bottom = y + height - 1
+    tl, tr, bl, br, h, v = _line_chars()
+    _safe_addstr(win, top, left, tl, attr)
+    _safe_addstr(win, top, right, tr, attr)
+    _safe_addstr(win, bottom, left, bl, attr)
+    _safe_addstr(win, bottom, right, br, attr)
+    _safe_hline(win, top, left + 1, max(0, width - 2), attr)
+    _safe_hline(win, bottom, left + 1, max(0, width - 2), attr)
+    _safe_vline(win, top + 1, left, max(0, height - 2), attr)
+    _safe_vline(win, top + 1, right, max(0, height - 2), attr)
 
 
 # ── Text formatting ──
