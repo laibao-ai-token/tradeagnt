@@ -360,6 +360,26 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
         accounts = []
 
     if not accounts:
+        try:
+            from decimal import Decimal
+            default_acct = engine.create_account(name="默认账户", balance=Decimal("10000"), leverage=Decimal("1"))
+            accounts = [default_acct]
+            try:
+                status = engine.status(default_acct.account_id)
+            except Exception:
+                status = {}
+            balance = status.get("account", default_acct).balance if status.get("account") else default_acct.balance
+            equity = status.get("total_equity", balance)
+            positions = status.get("positions", [])
+            orders = status.get("recent_orders", [])
+            drawdown = status.get("drawdown_pct", 0)
+        except Exception:
+            pass
+
+    if not accounts:
+        # 清除残留字符
+        for row in range(2, min(h - 1, 12)):
+            _safe_addstr(stdscr, row, 0, " " * max(0, w))
         _safe_addstr(stdscr, 3, 2, "暂无模拟盘账户", curses.A_BOLD)
         _safe_addstr(stdscr, 5, 2, "使用 tradecat paper create <名称> 创建账户")
         return
