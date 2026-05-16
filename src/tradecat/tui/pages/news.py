@@ -1083,7 +1083,9 @@ class RssNewsPoller:
                     else:
                         errors.append(db_stale_reason)
             except Exception as exc:
-                errors.append(f"DB: {type(exc).__name__}")
+                # If we have RSS feeds as fallback, silently skip DB error
+                if not self._feeds:
+                    errors.append(f"DB: {type(exc).__name__}")
 
         should_try_live = bool(self._feeds) and ((not new_items) or bool(db_stale_reason))
         if should_try_live:
