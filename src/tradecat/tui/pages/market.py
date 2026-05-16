@@ -462,6 +462,7 @@ def _draw(
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
         _draw_view_panel(
+            stdscr,
             db_path,
             rows,
             rows_all,
