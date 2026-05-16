@@ -636,7 +636,7 @@ def _draw_market_master(
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
-        _safe_addstr(stdscr, 1, 0, _truncate("行情页：未启用或无标的", w))
+        _safe_addstr(stdscr, 2, 0, _truncate("行情页：未启用或无标的", w))
         _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
         return
 
@@ -646,7 +646,7 @@ def _draw_market_master(
 
     market_name = _market_display_name(quote_cfg.market, label)
     line1 = f"行情[{market_name}]"
-    _safe_addstr(stdscr, 1, 0, _truncate(line1, w))
+    _safe_addstr(stdscr, 2, 0, _truncate(line1, w))
     _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
 
     if not show_signals:
@@ -759,14 +759,14 @@ def _draw_quotes(
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
-        _safe_addstr(stdscr, 1, 0, _truncate("报价页：未启用或无标的", w))
+        _safe_addstr(stdscr, 2, 0, _truncate("报价页：未启用或无标的", w))
         _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
         return
 
     # Summary lines
     market_name = _market_display_name(quote_cfg.market, label)
     line1 = f"报价[{market_name}]"
-    _safe_addstr(stdscr, 1, 0, _truncate(line1, w))
+    _safe_addstr(stdscr, 2, 0, _truncate(line1, w))
     _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
 
     # Table header
@@ -863,7 +863,7 @@ def _draw_signals(
     # Quote hint (this view focuses on signals)
     status = "已暂停" if filt.paused else f"刷新={refresh_s:.1f}s"
     header2 = f"信号页: 行数={len(rows)} last_id={last_id}  |  {status}  |  按键: q退出, t切页"
-    _safe_addstr(stdscr, 1, 0, _truncate(header2, w))
+    _safe_addstr(stdscr, 2, 0, _truncate(header2, w))
 
     src = ",".join(sorted(filt.sources)) or "无"
     dirs = ",".join(sorted(filt.directions)) or "无"
@@ -1584,7 +1584,7 @@ def _draw_market_quad(
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
-        _safe_addstr(stdscr, 1, 0, _truncate("行情页：未启用或无标的", w))
+        _safe_addstr(stdscr, 2, 0, _truncate("行情页：未启用或无标的", w))
         _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
         return
 
@@ -1883,7 +1883,7 @@ def _draw_market_fund_two_panel(
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
-        _safe_addstr(stdscr, 1, 0, _truncate("行情页：未启用或无标的", w))
+        _safe_addstr(stdscr, 2, 0, _truncate("行情页：未启用或无标的", w))
         _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
         return
 
@@ -1921,7 +1921,7 @@ def _draw_market_fund_two_panel(
         f"{ranking_snapshot.total_candidates} 过期={ranking_snapshot.skipped_stale} | "
         f"口径: cnd=领域相关序 MRank=模型排名 sRank=模型总分 | 更新时间={ranking_snapshot.as_of}"
     )
-    _safe_addstr(stdscr, 1, 0, _truncate(line2, w), curses.color_pair(colors.get("SRC", 0)))
+    _safe_addstr(stdscr, 2, 0, _truncate(line2, w), curses.color_pair(colors.get("SRC", 0)))
     _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
 
     panel_top = 2
@@ -2215,7 +2215,7 @@ def _draw_market_micro(
         symbols.insert(0, focus_symbol)
 
     if not symbols:
-        _safe_addstr(stdscr, 1, 0, _truncate("加密行情：无可用标的（可用 + 添加）", w))
+        _safe_addstr(stdscr, 2, 0, _truncate("加密行情：无可用标的（可用 + 添加）", w))
         return
 
     selected_symbol = focus_symbol if focus_symbol in symbols else symbols[0]
