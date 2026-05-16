@@ -375,6 +375,10 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
     positions = status.get("positions", [])
     orders = status.get("recent_orders", [])
     drawdown = status.get("drawdown_pct", 0)
+    try:
+        drawdown = float(drawdown or 0)
+    except (TypeError, ValueError):
+        drawdown = 0
 
     # Header（顶部横跨，反色）
     hdr = f" 账户: {acct.name}  |  余额: {balance}  |  权益: {equity}  |  杠杆: {acct.leverage}x  |  回撤: {drawdown}% "
@@ -420,7 +424,11 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
             sym = pos.symbol
             qty = str(pos.qty)
             entry = str(pos.entry_price)
-            pnl = pos.unrealized_pnl
+            pnl_raw = getattr(pos, 'unrealized_pnl', 0)
+            try:
+                pnl = float(pnl_raw or 0)
+            except (TypeError, ValueError):
+                pnl = 0
             pnl_str = f"+{pnl:.2f}" if pnl >= 0 else f"{pnl:.2f}"
             line = f"{side:5s} {sym:10s} {qty:>8s} {entry:>10s} {pnl_str:>10s}"
             attr = curses.color_pair(colors.get("BUY", 0)) if pnl >= 0 else curses.color_pair(colors.get("SELL", 0))
