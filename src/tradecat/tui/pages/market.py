@@ -596,24 +596,26 @@ def _draw_header(
     stdscr.move(0, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 0, 0, header, curses.color_pair(colors.get("ALERT", 0)) | curses.A_BOLD)
-    # --- 三页 tab 栏 ---
-    pages = [("行情", 1), ("模拟盘", 2), ("资讯", 3)]
-    tab_parts = []
-    for label, tp in pages:
-        if tp == top_page:
-            tab_parts.append(f"= {label} =")
-        else:
-            tab_parts.append(f"  {label}  ")
-    tab_line = " ".join(tab_parts)
+    # --- 三页 tab 栏（只在 P1 行情页显示）---
     if top_page == 1:
+        pages = [("行情", 1), ("模拟盘", 2), ("资讯", 3)]
+        tab_parts = []
+        for label, tp in pages:
+            if tp == top_page:
+                tab_parts.append(f"= {label} =")
+            else:
+                tab_parts.append(f"  {label}  ")
         sub_tabs = _MARKET_TAB_LABELS
         sub_line = " ".join(
             f">{lbl}<" if i == market_tab else f" {lbl} " for i, lbl in enumerate(sub_tabs)
         )
-        tab_line += "  |  " + sub_line
-    stdscr.move(1, 0)
-    stdscr.clrtoeol()
-    _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
+        tab_line = " ".join(tab_parts) + "  |  " + sub_line
+        stdscr.move(1, 0)
+        stdscr.clrtoeol()
+        _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
+    else:
+        stdscr.move(1, 0)
+        stdscr.clrtoeol()
     # 清除 content area，防止切页时旧内容残留到下一页
     sh, _ = stdscr.getmaxyx()
     for row in range(2, sh - 1):
