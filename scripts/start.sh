@@ -471,6 +471,15 @@ run_tui_single() {
 }
 
 run_tui() {
+    echo "[TUI] 正在启动依赖服务..."
+    # 启动 collector-service（行情数据采集）
+    collector_service_start 2>&1 | sed 's/^/  [collector] /'
+    # 启动 signal-service（信号检测）
+    if [ -d "$ROOT/services/signal-service" ]; then
+        cd "$ROOT/services/signal-service"
+        ./scripts/start.sh start 2>&1 | sed 's/^/  [signal] /'
+    fi
+    echo "[TUI] 依赖服务已就绪，正在启动看板..."
     run_tui_single "$@"
 }
 
