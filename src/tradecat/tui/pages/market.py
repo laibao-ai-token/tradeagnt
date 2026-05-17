@@ -530,6 +530,7 @@ def _draw(
         stdscr.erase()
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
+        _lazy_imports()
         _draw_market_backtest(stdscr, colors, w, h)
     else:
         stdscr.erase()
