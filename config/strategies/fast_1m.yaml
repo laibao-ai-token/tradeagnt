@@ -1,0 +1,42 @@
+name: "Fast 1m RSI"
+market: crypto
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+timeframe: 1m
+
+indicators:
+  - name: rsi
+    params:
+      period: 7
+
+rules:
+  - name: RSI上穿50买入
+    category: momentum
+    subcategory: rsi
+    direction: BUY
+    strength: 55
+    priority: high
+    cooldown: 60
+    condition:
+      type: threshold_cross_up
+      field: rsi
+      threshold: 50
+    message_template: "RSI上穿50: {rsi:.1f}"
+    fields:
+      rsi: rsi
+
+  - name: RSI下穿50卖出
+    category: momentum
+    subcategory: rsi
+    direction: SELL
+    strength: 55
+    priority: high
+    cooldown: 60
+    condition:
+      type: threshold_cross_down
+      field: rsi
+      threshold: 50
+    message_template: "RSI下穿50: {rsi:.1f}"
+    fields:
+      rsi: rsi

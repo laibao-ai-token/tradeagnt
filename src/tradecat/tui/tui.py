@@ -727,7 +727,7 @@ def _build_latest_signal_map(rows: list[SignalRow]) -> dict[str, SignalRow]:
     out: dict[str, SignalRow] = {}
     for r in rows:
         pair = _crypto_signal_symbol_to_pair(r.symbol)
-        if not pair or "_" not in pair:
+        if not pair or "/" not in pair:
             continue
         if pair not in out:
             out[pair] = r
@@ -1937,8 +1937,6 @@ def _main(
                         db_path,
                         limit=max(200, int(limit)),
                         min_id=None,
-                        sources=["pg", "sqlite"],
-                        directions=["BUY", "SELL", "ALERT"],
                     )
                     # fetch_recent returns DESC order (newest first)
                     rows = new_rows
@@ -2406,18 +2404,9 @@ def _main(
                 _remember_primary_view(view)
             elif key == ord("4"):
                 top_page = 1
-                if view == _BACKTEST_VIEW:
-                    view = backtest_parent_view if backtest_parent_view in _PRIMARY_MARKET_VIEWS else last_primary_view
-                    if view not in _PRIMARY_MARKET_VIEWS:
-                        view = "market_micro"
-                    _remember_primary_view(view)
-                elif view == "market_micro":
-                    canonical = _canonical_view(view)
-                    if canonical in _PRIMARY_MARKET_VIEWS:
-                        backtest_parent_view = canonical
-                    else:
-                        backtest_parent_view = last_primary_view
-                    view = _BACKTEST_VIEW
+                market_tab = 3  # 港股
+                view = _MARKET_TABS[market_tab]
+                _remember_primary_view(view)
             elif key == ord("5"):
                 top_page = 1
                 market_tab = 4  # 基金

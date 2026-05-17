@@ -1,0 +1,47 @@
+name: "EMA Cross Aggressive"
+market: crypto
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+timeframe: 15m
+
+indicators:
+  - name: ema
+    params:
+      period: 7
+  - name: ema
+    params:
+      period: 25
+
+rules:
+  - name: EMA金叉买入
+    category: trend
+    subcategory: ema
+    direction: BUY
+    strength: 60
+    priority: high
+    cooldown: 1800
+    condition:
+      type: cross_up
+      field: ema_7
+      reference: ema_25
+    message_template: "EMA7上穿EMA25: 快线{ema_7:.2f} > 慢线{ema_25:.2f}"
+    fields:
+      ema_7: ema_7
+      ema_25: ema_25
+
+  - name: EMA死叉卖出
+    category: trend
+    subcategory: ema
+    direction: SELL
+    strength: 60
+    priority: high
+    cooldown: 1800
+    condition:
+      type: cross_down
+      field: ema_7
+      reference: ema_25
+    message_template: "EMA7下穿EMA25: 快线{ema_7:.2f} < 慢线{ema_25:.2f}"
+    fields:
+      ema_7: ema_7
+      ema_25: ema_25

@@ -157,6 +157,32 @@ def daemon(
                                 side_tag = f"[{s.direction}]"
                                 click.echo(f"    {side_tag} {s.rule_name} | str={s.strength} | {s.message}")
 
+                                # Persist signal to DB for TUI monitoring
+                                try:
+                                    import sqlite3
+                                    from pathlib import Path
+                                    signal_db = Path.home() / "pkg/dcu/codex/tradeagnt/libs/database/services/signal-service/signal_history.db"
+                                    with sqlite3.connect(str(signal_db)) as conn:
+                                        conn.execute(
+                                            """INSERT INTO signal_history
+                                            (timestamp, symbol, signal_type, direction, strength, price, message, timeframe, source)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                            (
+                                                s.timestamp.isoformat() if hasattr(s, "timestamp") and s.timestamp else datetime.now(timezone.utc).isoformat(),
+                                                s.symbol,
+                                                getattr(s, "rule_id", s.rule_name)[:50],
+                                                s.direction,
+                                                s.strength,
+                                                float(s.price) if hasattr(s, "price") and s.price is not None else 0.0,
+                                                (s.message or "")[:200],
+                                                strat.timeframe,
+                                                "daemon_auto",
+                                            ),
+                                        )
+                                        conn.commit()
+                                except Exception:
+                                    pass
+
                                 # Auto-trade
                                 if auto_trade and paper_engine and paper_account:
                                     if s.direction in ("BUY", "SELL"):

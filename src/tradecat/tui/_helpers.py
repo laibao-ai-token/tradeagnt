@@ -135,7 +135,7 @@ def _is_finite_number(value: object) -> bool:
 # ── Signal helpers ──
 
 def _crypto_signal_symbol_to_pair(symbol: str) -> str:
-    s = (symbol or "").strip().upper()
+    s = (symbol or "").strip().upper().replace("_", "")
     if "/" in s:
         return s
     for quote in ("USDT", "BUSD", "USD", "BTC", "ETH", "EUR"):

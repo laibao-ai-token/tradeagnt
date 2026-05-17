@@ -326,8 +326,6 @@ def _draw_view_panel(
             win, _cfg, _syms, _sel, quote_state_crypto, rows_all,
             colors, crypto_curve_map, w, h, micro_snapshot=micro_snapshot,
         )
-    elif view == "market_backtest":
-        _draw_market_backtest(win, colors, w, h)
     elif view == "market_news":
         _draw_market_news(
             win,
@@ -532,7 +530,7 @@ def _draw(
         stdscr.erase()
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
-        _draw_paper_trading_page(stdscr, h, w, colors)
+        _draw_market_backtest(stdscr, colors, w, h)
     else:
         stdscr.erase()
         h, w = stdscr.getmaxyx()

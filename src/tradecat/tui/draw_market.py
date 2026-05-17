@@ -197,7 +197,8 @@ def _display_name(sym: str, q: object, market: str) -> str:
 
 
 def _signals_for_symbol(rows: list, symbol: str, market: str) -> list:
-    return [r for r in rows if r.symbol == symbol]
+    from tradecat.tui._helpers import _match_signal_to_symbol
+    return [r for r in rows if _match_signal_to_symbol(r.symbol, symbol, market)]
 
 
 def _count_recent_signal_rows(rows: list, now_dt: datetime, *, max_age_s: int) -> int:
@@ -403,7 +404,7 @@ def fund_config() -> MarketPanelConfig:
         domain_column_width=10,
         right_bottom_mode="details",
         stats_mode="fund",
-        key_hint="按键: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 4回测切换 | 5基金 | 6港股 | 7资讯 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新",
+        key_hint="按键: q退出 | t主页面切换 | 1加密 | 2美股 | 3A股 | 4港股 | 5基金 | 7资讯 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新",
         left_ratio=0.38,
         right_top_ratio=0.58,
         column_tiers=[
@@ -446,7 +447,7 @@ def micro_config() -> MarketPanelConfig:
         mode="micro",
         market="crypto_spot",
         stats_mode="micro",
-        key_hint="按键: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 4回测切换 | 5基金 | 6港股 | 7资讯 | [/]切换标的 | r刷新",
+        key_hint="按键: q退出 | t主页面切换 | 1加密 | 2美股 | 3A股 | 4港股 | 5基金 | 7资讯 | [/]切换标的 | r刷新",
         left_ratio=_MARKET_MICRO_LEFT_RATIO,
         left_min_width=_MARKET_MICRO_LEFT_BASE_MIN_WIDTH,
         right_min_width=_MARKET_MICRO_RIGHT_MIN_WIDTH,

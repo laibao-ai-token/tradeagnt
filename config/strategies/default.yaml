@@ -38,7 +38,7 @@ rules:
     condition:
       type: threshold_cross_up
       field: rsi
-      threshold: 70
+      threshold: 55
     message_template: "RSI超买区: {rsi:.1f}"
     fields:
       rsi: rsi
@@ -53,7 +53,7 @@ rules:
     condition:
       type: threshold_cross_down
       field: rsi
-      threshold: 30
+      threshold: 45
     message_template: "RSI超卖区: {rsi:.1f}"
     fields:
       rsi: rsi
