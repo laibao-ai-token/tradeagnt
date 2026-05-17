@@ -597,16 +597,20 @@ def _draw_header(
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 0, 0, header, curses.color_pair(colors.get("ALERT", 0)) | curses.A_BOLD)
     # --- 三页 tab 栏 ---
-    pages = [("1:行情", 1), ("2:模拟盘", 2), ("3:资讯", 3)]
-    tab_line = "  ".join(
-        f"[{label}]" if tp == top_page else f" {label} " for label, tp in pages
-    )
+    pages = [("行情", 1), ("模拟盘", 2), ("资讯", 3)]
+    tab_parts = []
+    for label, tp in pages:
+        if tp == top_page:
+            tab_parts.append(f"= {label} =")
+        else:
+            tab_parts.append(f"  {label}  ")
+    tab_line = " ".join(tab_parts)
     if top_page == 1:
         sub_tabs = _MARKET_TAB_LABELS
-        sub_line = "  ".join(
-            f"<{lbl}>" if i == market_tab else f" {lbl} " for i, lbl in enumerate(sub_tabs)
+        sub_line = " ".join(
+            f">{lbl}<" if i == market_tab else f" {lbl} " for i, lbl in enumerate(sub_tabs)
         )
-        tab_line += "  " + sub_line
+        tab_line += "  |  " + sub_line
     stdscr.move(1, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
