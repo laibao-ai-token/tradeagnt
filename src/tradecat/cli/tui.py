@@ -48,7 +48,7 @@ def tui(refresh: float, limit: int, no_quote: bool) -> None:
     """Launch the TradeCat TUI signal dashboard."""
     from pathlib import Path
     from tradecat.tui.tui import run
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
 
     # 自动启动依赖服务
     _ensure_services(repo_root)
