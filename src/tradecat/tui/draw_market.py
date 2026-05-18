@@ -843,6 +843,8 @@ def draw_market_panel(
     selected_state = quote_state.entries.get(selected_symbol)
     selected_quote = selected_state.quote if selected_state else None
     selected_rows = _signals_for_symbol(rows, selected_symbol, config.market)
+    if not selected_rows and rows:
+        selected_rows = rows[:50]  # fallback: show all when symbol match fails
     selected_curve = curve_map.get(selected_symbol, [])
     if config.curve_source == "daily" and daily_curve_map:
         selected_curve = daily_curve_map.get(selected_symbol) or selected_curve
