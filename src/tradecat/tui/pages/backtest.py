@@ -1534,7 +1534,7 @@ def _draw_market_backtest(stdscr, colors: dict[str, int], w: int, h: int) -> Non
             hint = "提示: 读图顺序=折均指标 -> 折来源 -> 最近折结果"
         _line(hint, curses.color_pair(colors.get("SRC", 0)))
 
-    footer = "回测页: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 4返回主页面 | 5基金 | 6港股 | 7资讯 | r刷新"
+    footer = "按键: q退出 | t切换页面 | b模拟盘 | r刷新"
     _safe_addstr(stdscr, h - 1, 0, _truncate(footer, w))
 
 

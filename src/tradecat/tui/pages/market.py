@@ -530,8 +530,12 @@ def _draw(
         stdscr.erase()
         h, w = stdscr.getmaxyx()
         _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
-        _lazy_imports()
-        _draw_market_backtest(stdscr, colors, w, h)
+        if view == "market_backtest":
+            _lazy_imports()
+            _draw_market_backtest(stdscr, colors, w, h)
+        else:
+            _draw_paper_trading_page(stdscr, h, w, colors)
+            _safe_addstr(stdscr, h - 1, 0, _truncate("按键: q退出 | t切换页面 | b回测 | r刷新", w))
     else:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
@@ -635,9 +639,9 @@ def _draw_market_master(
     show_signals: bool = True,
 ) -> None:
     key_hint = (
-        "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | ↑↓滚动"
+        "q退出 t切页 | [ ]市场 +/-自选 ↑↓滚动 Tab切焦点 r刷新"
         if show_signals
-        else "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | ↑↓滚动"
+        else "q退出 t切页 | [ ]市场 +/-自选 ↑↓滚动 r刷新"
     )
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
@@ -761,7 +765,7 @@ def _draw_quotes(
     qscroll: int,
     sig_map: dict[str, SignalRow] | None = None,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | +/-加减自选 | r刷新"
+    key_hint = "q退出 t切页 | [ ]市场 +/-自选 ↑↓滚动 r刷新"
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
@@ -931,10 +935,7 @@ def _draw_signals(
         _safe_addstr(stdscr, y, x, _truncate(msg, max(0, w - x)))
 
     # Footer
-    footer = (
-        "筛选: p PG | s SQLITE | b BUY | e SELL | a ALERT | r刷新 | "
-        "1行情 2模拟盘 3资讯 | ←→切标签"
-    )
+    footer = "q退出 t切页 | p/s/b/e/a筛选 r刷新 ↑↓滚动"
     _safe_addstr(stdscr, h - 1, 0, _truncate(footer, w))
 
 

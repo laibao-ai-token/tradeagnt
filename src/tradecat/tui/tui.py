@@ -446,6 +446,7 @@ def _view_display_name(view: str) -> str:
         "market_micro": "行情-加密",
         "market_news": "资讯",
         "market_backtest": "回测",
+        "paper_trading": "模拟",
         "quotes_us": "报价-美股",
         "quotes_cn": "报价-A股",
         "quotes_hk": "报价-港股",
@@ -2377,7 +2378,7 @@ def _main(
                 # Only cycle top-level pages: 行情(1) → 模拟盘(2) → 资讯(3)
                 if top_page == 1:
                     top_page = 2
-                    view = "market_micro"  # P2 placeholder
+                    view = "paper_trading"
                 elif top_page == 2:
                     top_page = 3
                     view = _PAGE_NEWS_VIEW
@@ -2407,6 +2408,12 @@ def _main(
                 market_tab = 3  # 港股
                 view = _MARKET_TABS[market_tab]
                 _remember_primary_view(view)
+            elif key == ord("b"):
+                if top_page == 2:
+                    if view == "market_backtest":
+                        view = "paper_trading"
+                    else:
+                        view = "market_backtest"
             elif key == ord("5"):
                 top_page = 1
                 market_tab = 4  # 基金
