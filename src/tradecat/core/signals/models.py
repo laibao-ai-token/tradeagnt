@@ -36,8 +36,8 @@ class RuleConfig(BaseModel):
     direction: str  # BUY | SELL | ALERT
     strength: int = 50
     priority: str = "medium"
-    cooldown: int = 3600
-    min_volume: float = 100000
+    cooldown: int = 300
+    min_volume: float = 0
     condition: dict[str, Any] = Field(default_factory=dict)
     message_template: str = ""
     fields: dict[str, str] = Field(default_factory=dict)

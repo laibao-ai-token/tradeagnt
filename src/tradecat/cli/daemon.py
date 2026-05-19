@@ -6,6 +6,7 @@ import os
 import signal as sys_signal
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 
 import click
 
@@ -23,8 +24,10 @@ def _create_paper_engine() -> PaperTradingEngine:
         from tradecat.core.paper_trading import InMemoryRepository
         repo = InMemoryRepository()
     else:
+        from tradecat.core.paper_trading.paths import default_paper_db_path
         from tradecat.core.paper_trading.repository import SqliteRepository
-        repo = SqliteRepository()
+
+        repo = SqliteRepository(db_path=default_paper_db_path())
     return PaperTradingEngine(repo)
 
 
@@ -42,18 +45,18 @@ def _get_or_create_account(engine: PaperTradingEngine, account_name: str):
     default="BTC_USDT,ETH_USDT",
     help="监控的symbol列表，逗号分隔",
 )
-@click.option("--strategy", default="default.yaml", help="策略YAML文件路径")
+@click.option("--strategy", default="fast_1m.yaml", help="策略YAML文件路径")
 @click.option("--provider", default="gate", help="数据源提供者")
-@click.option("--timeframe", default="1h", help="K线周期")
+@click.option("--timeframe", default="", help="K线周期（留空则用策略文件内配置）")
 @click.option(
     "--interval",
-    default=300,
+    default=60,
     type=int,
-    help="检查间隔秒数（默认300=5分钟）",
+    help="检查间隔秒数（默认60秒）",
 )
 @click.option(
     "--min-strength",
-    default=50,
+    default=40,
     type=int,
     help="最小信号强度阈值",
 )
@@ -95,6 +98,17 @@ def daemon(
     """Run the TradeCat daemon: periodic signal monitoring with optional auto-trade."""
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     strat = StrategyLoader.load(strategy)
+    if timeframe:
+        strat.timeframe = timeframe
+
+    signal_db = (
+        Path(__file__).resolve().parents[3]
+        / "libs"
+        / "database"
+        / "services"
+        / "signal-service"
+        / "signal_history.db"
+    )
     provider_registry = ProviderRegistry()
     provider_registry.auto_register()
     auto_register_indicators()
@@ -160,8 +174,8 @@ def daemon(
                                 # Persist signal to DB for TUI monitoring
                                 try:
                                     import sqlite3
-                                    from pathlib import Path
-                                    signal_db = Path.home() / "pkg/dcu/codex/tradeagnt/libs/database/services/signal-service/signal_history.db"
+
+                                    signal_db.parent.mkdir(parents=True, exist_ok=True)
                                     with sqlite3.connect(str(signal_db)) as conn:
                                         conn.execute(
                                             """INSERT INTO signal_history

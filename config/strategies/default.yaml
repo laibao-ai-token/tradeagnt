@@ -285,7 +285,8 @@ rules:
     message_template: "MACD柱零轴下破"
 
 thresholds:
-  min_strength: 50
+  min_strength: 30
+  max_cooldown: 300
 
 weights:
   momentum: 1.0

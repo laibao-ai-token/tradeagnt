@@ -76,7 +76,6 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         to_vals = cfg.get("to_values", [])
         prev_val = str(prev.get(fld, ""))
         curr_val = str(curr.get(fld, ""))
-        print(f"[DEBUG STATE_CHANGE] {rule.name}: prev[{fld}]={prev_val} -> curr[{fld}]={curr_val}, from={from_vals}, to={to_vals}")
         return prev_val in from_vals and curr_val in to_vals
 
     elif ct == ConditionType.THRESHOLD_CROSS_UP:
@@ -86,7 +85,6 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
         threshold = _to_float(cfg.get("threshold", 0), 0.0)
         prev_val = _to_float(prev.get(fld, 0), 0.0)
         curr_val = _to_float(curr.get(fld, 0), 0.0)
-        print(f"[DEBUG THRESHOLD_CROSS_UP] {rule.name}: prev[{fld}]={prev_val:.2f}, curr[{fld}]={curr_val:.2f}, threshold={threshold}")
         return prev_val <= threshold < curr_val
 
     elif ct == ConditionType.THRESHOLD_CROSS_DOWN:
@@ -225,7 +223,7 @@ class SignalEngine:
 
         signals: list[SignalEvent] = []
         min_strength = config.thresholds.get("min_strength", 0)
-
+        max_cooldown_cap = int(config.thresholds.get("max_cooldown", 0) or 0)
 
         if self.cooldown.is_active(symbol):
             return signals
@@ -271,7 +269,10 @@ class SignalEngine:
                         metadata={"condition": rule.condition, "priority": rule.priority},
                     )
                 )
-                max_cooldown = max(max_cooldown, rule.cooldown)
+                rule_cd = int(rule.cooldown)
+                if max_cooldown_cap > 0:
+                    rule_cd = min(rule_cd, max_cooldown_cap)
+                max_cooldown = max(max_cooldown, rule_cd)
 
             if signals and max_cooldown > 0:
                 self.cooldown.record(symbol, max_cooldown)

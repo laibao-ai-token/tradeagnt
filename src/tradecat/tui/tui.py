@@ -1400,14 +1400,17 @@ def _main(
         )
         news_poller.start()
 
-    # 启动自动消费者：信号→模拟盘
-    from pathlib import Path
+    # 后台规则扫描 → signal_history.db；自动消费者：信号→模拟盘
+    from tradecat.core.paper_trading.paths import resolve_paper_db_path
     from tradecat.tui.auto_consumer import start_auto_consumer
-    start_auto_consumer(
-        db_path,
-        str(Path(db_path).parent / ".paper_trading.db"),
-        refresh_s,
-    )
+    from tradecat.tui.signal_poller import start_signal_poller
+
+    paper_db_path = resolve_paper_db_path(db_path)
+    poll_symbols = list(normalize_crypto_symbols(micro_cfg.symbol or ""))
+    if not poll_symbols:
+        poll_symbols = ["BTC_USDT", "ETH_USDT"]
+    start_signal_poller(db_path, poll_symbols)
+    start_auto_consumer(db_path, paper_db_path, refresh_s)
 
     last_id = 0
     rows: list[SignalRow] = []
@@ -2353,6 +2356,7 @@ def _main(
                         news_snapshot,
                         top_page,
                         market_tab,
+                        paper_db_path,
                     )
                 render_state.last_draw_at = now
                 next_frame_at = now + _RENDER_FRAME_INTERVAL_S

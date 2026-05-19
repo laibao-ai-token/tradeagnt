@@ -346,13 +346,20 @@ def _draw_view_panel(
         _draw_signals(win, db_path, rows, filt, scroll, colors, refresh_s, last_id, w, h, quote_state_crypto)
 
 
-def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> None:
+def _draw_paper_trading_page(
+    stdscr,
+    h: int,
+    w: int,
+    colors: dict[str, int],
+    *,
+    paper_db_path: str,
+) -> None:
     """P2 模拟盘页面：三栏终端风 — 账户概览 | 持仓明细 | 最近订单"""
     try:
         from tradecat.core.paper_trading.engine import PaperTradingEngine
         from tradecat.core.paper_trading.repository import SqliteRepository
 
-        repo = SqliteRepository()
+        repo = SqliteRepository(db_path=paper_db_path)
         engine = PaperTradingEngine(repo)
         accounts = engine.list_accounts()
     except Exception:
@@ -361,7 +368,7 @@ def _draw_paper_trading_page(stdscr, h: int, w: int, colors: dict[str, int]) -> 
     if not accounts:
         try:
             from decimal import Decimal
-            default_acct = engine.create_account(name="默认账户", balance=Decimal("10000"), leverage=Decimal("1"))
+            default_acct = engine.create_account(name="default", balance=Decimal("10000"), leverage=Decimal("1"))
             accounts = [default_acct]
             try:
                 status = engine.status(default_acct.account_id)
@@ -524,6 +531,7 @@ def _draw(
     news_snapshot: NewsFeedSnapshot | None = None,
     top_page: int = 1,
     market_tab: int = 0,
+    paper_db_path: str = "",
 ) -> None:
     # --- P2 模拟盘页面 ---
     if top_page == 2:
@@ -534,7 +542,15 @@ def _draw(
             _lazy_imports()
             _draw_market_backtest(stdscr, colors, w, h)
         else:
-            _draw_paper_trading_page(stdscr, h, w, colors)
+            from tradecat.core.paper_trading.paths import resolve_paper_db_path
+
+            _draw_paper_trading_page(
+                stdscr,
+                h,
+                w,
+                colors,
+                paper_db_path=paper_db_path or resolve_paper_db_path(db_path),
+            )
             _safe_addstr(stdscr, h - 1, 0, _truncate("按键: q退出 | t切换页面 | b回测 | r刷新", w))
     else:
         stdscr.erase()

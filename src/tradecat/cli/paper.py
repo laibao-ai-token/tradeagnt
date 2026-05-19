@@ -29,8 +29,10 @@ def _engine() -> PaperTradingEngine:
     if repo_type == "memory":
         repo = InMemoryRepository()
     else:
+        from tradecat.core.paper_trading.paths import default_paper_db_path
         from tradecat.core.paper_trading.repository import SqliteRepository
-        repo = SqliteRepository()
+
+        repo = SqliteRepository(db_path=default_paper_db_path())
     _ENGINE_CACHE = PaperTradingEngine(repo)
     return _ENGINE_CACHE
 

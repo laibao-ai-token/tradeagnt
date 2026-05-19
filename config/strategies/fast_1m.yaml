@@ -11,32 +11,38 @@ indicators:
       period: 7
 
 rules:
-  - name: RSI上穿50买入
+  - name: RSI上穿48买入
     category: momentum
     subcategory: rsi
     direction: BUY
     strength: 55
     priority: high
-    cooldown: 60
+    cooldown: 30
+    min_volume: 0
     condition:
       type: threshold_cross_up
       field: rsi
-      threshold: 50
-    message_template: "RSI上穿50: {rsi:.1f}"
+      threshold: 48
+    message_template: "RSI上穿48: {rsi:.1f}"
     fields:
       rsi: rsi
 
-  - name: RSI下穿50卖出
+  - name: RSI下穿52卖出
     category: momentum
     subcategory: rsi
     direction: SELL
     strength: 55
     priority: high
-    cooldown: 60
+    cooldown: 30
+    min_volume: 0
     condition:
       type: threshold_cross_down
       field: rsi
-      threshold: 50
-    message_template: "RSI下穿50: {rsi:.1f}"
+      threshold: 52
+    message_template: "RSI下穿52: {rsi:.1f}"
     fields:
       rsi: rsi
+
+thresholds:
+  min_strength: 40
+  max_cooldown: 60
