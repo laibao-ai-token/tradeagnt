@@ -229,9 +229,9 @@ def _split_signal_rows_by_age(
         ts_dt = parse_ts(row.timestamp)
         age_s = max(0, int((now_dt - ts_dt).total_seconds())) if ts_dt != datetime.min else 0
         pair = (row, age_s)
-        if age_s <= 600:
+        if age_s <= 3600:        # 放宽：1小时内
             realtime.append(pair)
-        elif age_s <= 3600:
+        elif age_s <= 3600 * 6:  # 放宽：6小时内
             h1.append(pair)
         else:
             h12.append(pair)
