@@ -1400,6 +1400,15 @@ def _main(
         )
         news_poller.start()
 
+    # 启动自动消费者：信号→模拟盘
+    from pathlib import Path
+    from tradecat.tui.auto_consumer import start_auto_consumer
+    start_auto_consumer(
+        db_path,
+        str(Path(db_path).parent / ".paper_trading.db"),
+        refresh_s,
+    )
+
     last_id = 0
     rows: list[SignalRow] = []
     rows_all: list[SignalRow] = []
