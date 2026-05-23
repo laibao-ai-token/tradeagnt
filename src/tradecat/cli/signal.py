@@ -10,12 +10,18 @@ from tradecat.core.indicators import auto_register as auto_register_indicators
 from tradecat.core.indicators.base import IndicatorRegistry
 from tradecat.core.providers.registry import ProviderRegistry
 from tradecat.core.signals import CooldownManager, SignalEngine, StrategyLoader
+from tradecat.core.symbols import (
+    default_provider_for_market,
+    normalize_market,
+    normalize_symbol,
+    signal_symbol_for_engine,
+)
 
 
 @click.command(name="signal")
 @click.option("--config", required=True, help="策略YAML文件路径")
 @click.option("--symbol", required=True, help="交易对")
-@click.option("--provider", default="binance", help="数据源提供者")
+@click.option("--provider", default="", help="数据源（留空则按策略 market 自动选择）")
 @click.option("--data", help="本地 CSV 文件路径（离线模式）")
 @click.option("--timeframe", default="1h", help="K线周期")
 @click.option(
@@ -35,6 +41,12 @@ def signal_cmd(
 ) -> None:
     """对指定 symbol 运行策略并输出信号."""
     strategy = StrategyLoader.load(config)
+    market = normalize_market(strategy.market)
+    norm_symbol = normalize_symbol(symbol, market)
+    if not norm_symbol:
+        raise click.ClickException(f"Invalid symbol for market {market}: {symbol}")
+    run_symbol = signal_symbol_for_engine(norm_symbol, market)
+    provider_name = (provider or "").strip() or default_provider_for_market(market)
 
     provider_registry = ProviderRegistry()
     provider_registry.auto_register()
@@ -63,7 +75,7 @@ def signal_cmd(
                 from tradecat.core.providers.csv_provider import CsvProvider  # noqa: PLC0415
                 p = CsvProvider(data)
             else:
-                p = provider_registry.resolve_by_name(provider)
+                p = provider_registry.resolve_by_name(provider_name)
             cooldown_manager = CooldownManager(pg_pool=pg_pool)
             engine = SignalEngine(
                 provider_registry,
@@ -71,7 +83,7 @@ def signal_cmd(
                 cooldown_manager,
                 signal_repo,
             )
-            signals = await engine.run(strategy, symbol, provider, provider_instance=p)
+            signals = await engine.run(strategy, run_symbol, provider_name, provider_instance=p)
 
             for prov in provider_registry.list_providers():
                 if hasattr(prov, "close"):
@@ -93,7 +105,7 @@ def signal_cmd(
                 if not signals:
                     click.echo("无信号触发")
                     return
-                click.echo(f"Symbol: {symbol} | Timeframe: {strategy.timeframe}")
+                click.echo(f"Symbol: {norm_symbol} | Market: {market} | Timeframe: {strategy.timeframe}")
                 if signal_repo is not None:
                     click.echo(click.style("(PG 持久化已启用)", fg="green"))
                 else:

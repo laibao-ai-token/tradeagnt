@@ -17,8 +17,8 @@ from typing import Any, Callable, Optional, Sequence
 TOOL_NAME = "tradecat_get_quotes"
 SCRIPT_PATH = Path(__file__).resolve()
 REPO_ROOT = SCRIPT_PATH.parents[1]
-QUOTE_MODULE_PATH = REPO_ROOT / "services-preview" / "tui-service" / "src" / "quote.py"
-WATCHLISTS_MODULE_PATH = REPO_ROOT / "services-preview" / "tui-service" / "src" / "watchlists.py"
+QUOTE_MODULE_PATH = REPO_ROOT / "src" / "tradecat" / "tui" / "quote.py"
+WATCHLISTS_MODULE_PATH = REPO_ROOT / "src" / "tradecat" / "tui" / "watchlists.py"
 REPO_ENV_LOADER_PATH = REPO_ROOT / "scripts" / "lib" / "repo_env_loader.py"
 
 MARKET_ALIASES = {
@@ -47,7 +47,7 @@ DEFAULT_PROVIDER_BY_MARKET = {
 }
 
 PROVIDERS_BY_MARKET = {
-    "us_stock": {"tencent"},
+    "us_stock": {"tencent", "yahoo"},
     "hk_stock": {"tencent"},
     "cn_stock": {"tencent"},
     "cn_fund": {"tencent"},
@@ -132,7 +132,7 @@ def _make_base_response() -> dict[str, Any]:
         "source": {
             "mode": "direct_module",
             "script": "scripts/tradecat_get_quotes.py",
-            "reader": "services-preview/tui-service/src/quote.py",
+            "reader": "src/tradecat/tui/quote.py",
             "writes": False,
         },
         "request": {},

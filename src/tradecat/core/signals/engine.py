@@ -292,3 +292,75 @@ class SignalEngine:
                     logger.warning("Signal repo save failed: %s", exc)
 
         return signals
+
+    async def scan_history(
+        self,
+        config: StrategyConfig,
+        symbol: str,
+        provider_name: str = "binance",
+        provider_instance: DataProvider | None = None,
+        *,
+        min_strength: float | None = None,
+    ) -> list[SignalEvent]:
+        """Walk all bars and collect signals (for backtest; no global cooldown gate)."""
+        try:
+            provider = provider_instance or self.provider_registry.resolve_by_name(provider_name)
+            df = await provider.fetch_klines(symbol, config.timeframe)
+        except Exception as exc:
+            logger.error("Failed to fetch history for %s: %s", symbol, exc)
+            return []
+
+        for ind_ref in config.indicators:
+            meta = self.indicator_registry.get(ind_ref.name)
+            if meta is None:
+                logger.warning("Indicator not registered: %s", ind_ref.name)
+                continue
+            df = meta.func(df, **ind_ref.params)
+
+        if len(df) < 2:
+            return []
+
+        floor = min_strength if min_strength is not None else config.thresholds.get("min_strength", 0)
+        signals: list[SignalEvent] = []
+
+        for i in range(1, len(df)):
+            prev = df.iloc[i - 1].to_dict()
+            curr = df.iloc[i].to_dict()
+            last_idx = df.index[i]
+            if isinstance(last_idx, datetime):
+                timestamp = last_idx
+            elif hasattr(last_idx, "to_pydatetime"):
+                timestamp = last_idx.to_pydatetime()
+            else:
+                timestamp = datetime.now(timezone.utc)
+
+            for rule in config.rules:
+                if not rule.enabled:
+                    continue
+                if rule.min_volume > 0:
+                    current_volume = _to_float(curr.get("volume"), 0.0)
+                    if current_volume < rule.min_volume:
+                        continue
+                if not _check_condition(rule, prev, curr):
+                    continue
+                if _to_float(rule.strength, 0.0) < floor:
+                    continue
+
+                message = _format_message(rule, prev, curr)
+                rule_id = _make_rule_id(rule)
+                signals.append(
+                    SignalEvent(
+                        timestamp=timestamp,
+                        symbol=symbol,
+                        timeframe=config.timeframe,
+                        direction=rule.direction,
+                        strength=rule.strength,
+                        rule_id=rule_id,
+                        rule_name=rule.name,
+                        price=_to_float(curr.get("close"), 0.0),
+                        message=message,
+                        metadata={"condition": rule.condition, "priority": rule.priority, "bar_index": i},
+                    )
+                )
+
+        return signals

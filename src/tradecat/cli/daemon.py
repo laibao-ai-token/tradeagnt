@@ -15,6 +15,15 @@ from tradecat.core.indicators.base import IndicatorRegistry
 from tradecat.core.paper_trading import PaperTradingEngine
 from tradecat.core.providers.registry import ProviderRegistry
 from tradecat.core.signals import CooldownManager, SignalEngine, StrategyLoader
+from tradecat.core.symbols import (
+    default_provider_for_market,
+    default_symbols_for_market,
+    is_close_only_sell,
+    normalize_market,
+    normalize_symbols_for_strategy,
+    signal_symbol_for_engine,
+)
+from tradecat.tui._helpers import _signal_timestamp_now
 
 
 def _create_paper_engine() -> PaperTradingEngine:
@@ -42,11 +51,11 @@ def _get_or_create_account(engine: PaperTradingEngine, account_name: str):
 @click.command()
 @click.option(
     "--symbols",
-    default="BTC_USDT,ETH_USDT",
-    help="监控的symbol列表，逗号分隔",
+    default="",
+    help="监控标的，逗号分隔（留空则用策略文件 symbols）",
 )
-@click.option("--strategy", default="fast_1m.yaml", help="策略YAML文件路径")
-@click.option("--provider", default="gate", help="数据源提供者")
+@click.option("--strategy", default="current/fast_1m.yaml", help="策略YAML文件路径")
+@click.option("--provider", default="", help="数据源（留空则按策略 market 自动选择）")
 @click.option("--timeframe", default="", help="K线周期（留空则用策略文件内配置）")
 @click.option(
     "--interval",
@@ -63,14 +72,13 @@ def _get_or_create_account(engine: PaperTradingEngine, account_name: str):
 @click.option(
     "--auto-trade",
     is_flag=True,
-    default=False,
     help="信号触发时自动执行模拟盘交易",
 )
 @click.option(
     "--notional",
     default=100.0,
     type=float,
-    help="每笔交易金额(USDT)，默认100",
+    help="每笔交易名义金额（crypto=USDT, 美股=USD），默认100",
 )
 @click.option(
     "--leverage",
@@ -96,10 +104,16 @@ def daemon(
     account: str,
 ) -> None:
     """Run the TradeCat daemon: periodic signal monitoring with optional auto-trade."""
-    symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     strat = StrategyLoader.load(strategy)
+    market = normalize_market(strat.market)
+    raw_symbols = [s.strip() for s in symbols.split(",") if s.strip()] if symbols else list(strat.symbols)
+    symbol_list = normalize_symbols_for_strategy(raw_symbols, market)
+    if not symbol_list:
+        symbol_list = normalize_symbols_for_strategy(default_symbols_for_market(market), market)
+    provider_name = (provider or "").strip() or default_provider_for_market(market)
     if timeframe:
         strat.timeframe = timeframe
+    currency = "USD" if market == "us_stock" else "USDT"
 
     signal_db = (
         Path(__file__).resolve().parents[3]
@@ -137,11 +151,11 @@ def daemon(
 
         click.echo(click.style("TradeCat Daemon Started", fg="green", bold=True))
         click.echo(f"Symbols: {', '.join(symbol_list)}")
-        click.echo(f"Interval: {interval}s | Strategy: {strategy} | Provider: {provider}")
+        click.echo(f"Market: {market} | Interval: {interval}s | Strategy: {strategy} | Provider: {provider_name}")
         if auto_trade:
             click.echo(
                 click.style(
-                    f"Auto-Trade: ON | Notional: {notional} USDT | "
+                    f"Auto-Trade: ON | Notional: {notional} {currency} | "
                     f"Leverage: {leverage}x | Account: {paper_account.name}",
                     fg="yellow",
                 )
@@ -158,7 +172,8 @@ def daemon(
                     if shutdown_event.is_set():
                         break
                     try:
-                        signals = await engine.run(strat, symbol, provider)
+                        run_symbol = signal_symbol_for_engine(symbol, market)
+                        signals = await engine.run(strat, run_symbol, provider_name)
                         strong = [s for s in signals if s.strength >= min_strength]
                         if strong:
                             click.echo(
@@ -170,6 +185,9 @@ def daemon(
                             for s in strong:
                                 side_tag = f"[{s.direction}]"
                                 click.echo(f"    {side_tag} {s.rule_name} | str={s.strength} | {s.message}")
+                                persist_sym = (
+                                    normalize_symbols_for_strategy([s.symbol], market) or [s.symbol]
+                                )[0]
 
                                 # Persist signal to DB for TUI monitoring
                                 try:
@@ -182,8 +200,8 @@ def daemon(
                                             (timestamp, symbol, signal_type, direction, strength, price, message, timeframe, source)
                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                                             (
-                                                s.timestamp.isoformat() if hasattr(s, "timestamp") and s.timestamp else datetime.now(timezone.utc).isoformat(),
-                                                s.symbol,
+                                                _signal_timestamp_now(),
+                                                persist_sym,
                                                 getattr(s, "rule_id", s.rule_name)[:50],
                                                 s.direction,
                                                 s.strength,
@@ -200,23 +218,37 @@ def daemon(
                                 # Auto-trade
                                 if auto_trade and paper_engine and paper_account:
                                     if s.direction in ("BUY", "SELL"):
-                                        side = "LONG" if s.direction == "BUY" else "SHORT"
                                         price = Decimal(str(s.price))
-                                        result = paper_engine.from_signal(
-                                            paper_account.account_id,
-                                            {
-                                                "symbol": s.symbol,
-                                                "side": side,
-                                                "qty_notional": str(notional),
-                                                "leverage": str(leverage),
-                                                "idempotency_key": f"{s.rule_id}_{s.timestamp.isoformat()}",
-                                            },
-                                            price,
-                                        )
+                                        idem = f"{s.rule_id}_{s.timestamp.isoformat()}"
+                                        if (
+                                            is_close_only_sell(market)
+                                            and s.direction == "SELL"
+                                        ):
+                                            result = paper_engine.close(
+                                                paper_account.account_id,
+                                                persist_sym,
+                                                price,
+                                            )
+                                            action = "CLOSE"
+                                        else:
+                                            side = "LONG" if s.direction == "BUY" else "SHORT"
+                                            result = paper_engine.from_signal(
+                                                paper_account.account_id,
+                                                {
+                                                    "symbol": persist_sym,
+                                                    "market": market,
+                                                    "side": side,
+                                                    "qty_notional": str(notional),
+                                                    "leverage": str(leverage),
+                                                    "idempotency_key": idem,
+                                                },
+                                                price,
+                                            )
+                                            action = side
                                         if result.get("ok"):
                                             click.echo(
                                                 click.style(
-                                                    f"    → TRADE: {side} {s.symbol} "
+                                                    f"    → TRADE: {action} {persist_sym} "
                                                     f"@ {price} x{leverage} notional={notional}",
                                                     fg="magenta",
                                                 )
