@@ -1,9 +1,9 @@
-# TUI 模拟盘默认策略（偏稳健，减少 1m 来回扫单）
-name: "Paper RSI 5m"
-market: crypto
+# 新市场策略骨架 — 复制到 config/strategies/<market>_fast_5m.yaml
+name: "TODO Market RSI 5m"
+market: TODO_market          # 例: hk_stock / cn_stock
 symbols:
-  - BTC_USDT
-  - ETH_USDT
+  - TODO_SYMBOL_1
+  - TODO_SYMBOL_2
 timeframe: 5m
 
 indicators:
@@ -12,7 +12,6 @@ indicators:
       period: 14
 
 rules:
-  # 超卖区反弹做多（避免 RSI≈50 附近反复穿越）
   - name: RSI超卖反弹买入
     category: momentum
     subcategory: rsi
@@ -29,7 +28,6 @@ rules:
     fields:
       rsi: rsi
 
-  # 超买区回落做空
   - name: RSI超买回落卖出
     category: momentum
     subcategory: rsi
