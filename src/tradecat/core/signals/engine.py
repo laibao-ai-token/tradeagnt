@@ -152,6 +152,11 @@ def _check_condition(rule: RuleConfig, prev: dict | None, curr: dict) -> bool:
 
 def _check_legacy_condition(cfg: dict, prev: dict | None, curr: dict) -> bool:
     """Bridge legacy SignalRule check_condition into the new engine."""
+    import os
+
+    if os.getenv("TRADEAGNT_LEGACY_RULES", "").strip() not in ("1", "true", "yes"):
+        return False
+
     rule_id = cfg.get("rule_id", "")
     try:
         import os, re

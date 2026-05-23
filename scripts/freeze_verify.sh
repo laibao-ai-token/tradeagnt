@@ -26,6 +26,7 @@ FREEZE_TESTS=(
   tests/test_collector_on_demand.py
   tests/test_start_script.py
   tests/test_script_alignment.py
+  tests/test_data_paths.py
 )
 
 echo "=== TradeCat freeze gate (v0.8) ==="

@@ -16,6 +16,11 @@
 | 美股/加密 CLI | `tradecat signal|daemon|backtest|paper` + 策略 YAML |
 | 采集口径 | **on-demand**（见 `docs/pipeline/DATA_COLLECTION.md`） |
 
+## v1 抽离（封板后）
+
+- 数据双轨与迁移：`data/`、`scripts/migrate_data_to_tradeagnt.sh`、`docs/MIGRATE_v0.8_to_v1.0.md`
+- 独立版说明：`docs/STANDALONE.md`
+
 ## 不包含（已知缺口）
 
 - 常驻 `collector-service` → TimescaleDB 7×24 落库

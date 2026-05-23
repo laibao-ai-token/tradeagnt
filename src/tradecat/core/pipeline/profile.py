@@ -150,8 +150,13 @@ def bootstrap_pipeline_profile(
     repo_root: Path | None = None,
     only_if_unset: bool = True,
 ) -> PipelineProfile | None:
-    """Load profile from ``TRADECAT_PIPELINE_PROFILE`` when set; return profile or None."""
-    name = (profile_name or os.getenv("TRADECAT_PIPELINE_PROFILE") or "").strip()
+    """Load profile from ``TRADEAGNT_PIPELINE_PROFILE`` / ``TRADECAT_PIPELINE_PROFILE``."""
+    name = (
+        profile_name
+        or os.getenv("TRADEAGNT_PIPELINE_PROFILE")
+        or os.getenv("TRADECAT_PIPELINE_PROFILE")
+        or ""
+    ).strip()
     if not name:
         return None
     profile = load_pipeline_profile(name, repo_root=repo_root)

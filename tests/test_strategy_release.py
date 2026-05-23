@@ -11,9 +11,18 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "strategy_release.py"
+V08_RELEASE = "20260523_v08_dual"
+CURRENT_LINK = REPO_ROOT / "config" / "strategies" / "current"
 
 
 class StrategyReleaseTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        """Restore freeze release after tests that --activate."""
+        target = REPO_ROOT / "config" / "strategies" / "releases" / V08_RELEASE
+        if target.is_dir():
+            if CURRENT_LINK.is_symlink() or CURRENT_LINK.exists():
+                CURRENT_LINK.unlink(missing_ok=True)
+            CURRENT_LINK.symlink_to(target.resolve())
     def test_bundle_creates_dual_release(self) -> None:
         release_id = "test_dual_bundle"
         proc = subprocess.run(
