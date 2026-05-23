@@ -1,9 +1,11 @@
 """PaperTradingEngine — orchestrates orders, positions, risk, and execution."""
 from __future__ import annotations
 
-from decimal import Decimal
+import datetime as _dt
+from decimal import ROUND_DOWN, Decimal
 from uuid import UUID
 
+from tradecat.core.symbols import normalize_market, normalize_symbol
 from tradecat.core.paper_trading.models import (
     OrderStatus,
     PaperAccount,
@@ -13,7 +15,14 @@ from tradecat.core.paper_trading.models import (
     PortfolioSnapshot,
     Side,
 )
+from tradecat.core.paper_trading.consolidate import consolidate_positions_in_repo
+from tradecat.core.paper_trading.metrics import compute_portfolio_summary, update_drawdown_snapshot
 from tradecat.core.paper_trading.repository import BaseRepository, InMemoryRepository
+
+
+def _paper_symbol(symbol: str, market: str | None = None) -> str:
+    norm = normalize_symbol(symbol, market)
+    return norm or (symbol or "").strip().upper()
 
 
 class RiskGuard:
@@ -96,6 +105,7 @@ class OrderManager:
             qty=o.qty,
             price=price,
             fee=fee,
+            ts=_dt.datetime.now(_dt.timezone.utc),
         )
         self._repo.record_fill(fill)
         return fill
@@ -114,15 +124,18 @@ class PositionManager:
     def __init__(self, repo: BaseRepository) -> None:
         self._repo = repo
 
-    def apply_fill(self, account_id: UUID, fill: PaperFill) -> PaperPosition:
-        pos = self._repo.get_position(account_id, fill.symbol)
+    def apply_fill(self, account_id: UUID, fill: PaperFill) -> tuple[PaperPosition, Decimal]:
+        symbol = _paper_symbol(fill.symbol)
+        fill = fill.model_copy(update={"symbol": symbol}) if hasattr(fill, "model_copy") else fill
+        pos = self._repo.get_position(account_id, symbol)
         order = self._repo.get_order(fill.order_id)
         leverage = order.leverage if order else Decimal("1.0")
+        realized_delta = Decimal("0")
 
         if not pos:
             pos = PaperPosition(
                 account_id=account_id,
-                symbol=fill.symbol,
+                symbol=symbol,
                 side=fill.side,
                 qty=fill.qty,
                 entry_price=fill.price,
@@ -139,10 +152,9 @@ class PositionManager:
             else:
                 # Opposite direction — reduce or flip
                 if fill.qty >= pos.qty:
-                    realized = (fill.price - pos.entry_price) * pos.qty
+                    realized_delta = (fill.price - pos.entry_price) * pos.qty
                     if pos.side == Side.SHORT:
-                        realized *= Decimal("-1")
-                    pos.realized_pnl += realized
+                        realized_delta *= Decimal("-1")
                     # Flip if remaining
                     remaining = fill.qty - pos.qty
                     if remaining > 0:
@@ -154,31 +166,32 @@ class PositionManager:
                         pos.side = Side.NEUTRAL
                 else:
                     # Partial close
-                    realized = (fill.price - pos.entry_price) * fill.qty
+                    realized_delta = (fill.price - pos.entry_price) * fill.qty
                     if pos.side == Side.SHORT:
-                        realized *= Decimal("-1")
-                    pos.realized_pnl += realized
+                        realized_delta *= Decimal("-1")
                     pos.qty -= fill.qty
             pos.margin = pos.qty * pos.entry_price / leverage
             if leverage != pos.leverage:
                 pos.leverage = leverage
+        pos.realized_pnl = Decimal("0")
         self._repo.upsert_position(pos)
-        return pos
+        return pos, realized_delta
 
-    def close(self, account_id: UUID, symbol: str, close_price: Decimal) -> PaperPosition | None:
+    def close(self, account_id: UUID, symbol: str, close_price: Decimal) -> tuple[PaperPosition | None, Decimal]:
+        symbol = _paper_symbol(symbol)
         pos = self._repo.get_position(account_id, symbol)
         if not pos or pos.qty == 0:
-            return None
-        realized = (close_price - pos.entry_price) * pos.qty
+            return None, Decimal("0")
+        realized_delta = (close_price - pos.entry_price) * pos.qty
         if pos.side == Side.SHORT:
-            realized *= Decimal("-1")
-        pos.realized_pnl += realized
+            realized_delta *= Decimal("-1")
+        pos.realized_pnl = Decimal("0")
         pos.unrealized_pnl = Decimal("0")
         pos.qty = Decimal("0")
         pos.side = Side.NEUTRAL
         pos.margin = Decimal("0")
         self._repo.upsert_position(pos)
-        return pos
+        return pos, realized_delta
 
 
 class PaperTradingEngine:
@@ -193,8 +206,13 @@ class PaperTradingEngine:
     # ─── Account ───
 
     def create_account(self, name: str, balance: Decimal = Decimal("10000"), leverage: Decimal = Decimal("1")) -> PaperAccount:
-        acct = PaperAccount(name=name, balance=balance, leverage=leverage)
+        acct = PaperAccount(name=name, balance=balance, initial_balance=balance, leverage=leverage)
         return self._repo.create_account(acct)
+
+    def rebuild_ledger(self, account_id: UUID) -> PaperAccount | None:
+        from tradecat.core.paper_trading.ledger import rebuild_account_ledger
+
+        return rebuild_account_ledger(self._repo, account_id)
 
     def get_account(self, account_id: UUID) -> PaperAccount | None:
         return self._repo.get_account(account_id)
@@ -209,7 +227,16 @@ class PaperTradingEngine:
         acct = self._repo.get_account(account_id)
         if not acct:
             return {"ok": False, "error": "account not found"}
-        qty = (notional / price).quantize(Decimal("0.000001"))
+        symbol = _paper_symbol(symbol)
+        if price <= 0:
+            return {"ok": False, "error": "invalid price"}
+        initial = acct.initial_balance if acct.initial_balance and acct.initial_balance > 0 else Decimal("10000")
+        cap_base = acct.balance if acct.balance > 0 else initial
+        max_notional = cap_base * acct.max_single_trade_pct
+        trade_notional = min(notional, max_notional)
+        qty = (trade_notional / price).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+        if qty <= 0:
+            return {"ok": False, "error": "qty too small"}
         order = self.orders.create(account_id, symbol, side, qty, price, leverage)
         # Risk guard
         passed, reason = self.risk.check(acct, order)
@@ -222,7 +249,8 @@ class PaperTradingEngine:
         self.orders.confirm(order.order_id)
         fill = self.orders.fill(order.order_id, price)
         if fill:
-            self.positions.apply_fill(account_id, fill)
+            _pos, realized_delta = self.positions.apply_fill(account_id, fill)
+            self._apply_cash_delta(account_id, realized_delta, fill.fee)
             return {"ok": True, "order": order, "fill": fill}
         return {"ok": False, "error": "fill failed", "order": order}
 
@@ -233,9 +261,11 @@ class PaperTradingEngine:
         return self._open_order(account_id, symbol, Side.SHORT, notional, price, leverage)
 
     def close(self, account_id: UUID, symbol: str, price: Decimal) -> dict:
-        pos = self.positions.close(account_id, symbol, price)
+        symbol = _paper_symbol(symbol)
+        pos, realized_delta = self.positions.close(account_id, symbol, price)
         if not pos:
             return {"ok": False, "error": "no position to close"}
+        self._apply_cash_delta(account_id, realized_delta, Decimal("0"))
         return {"ok": True, "position": pos}
 
     def flip(self, account_id: UUID, symbol: str, notional: Decimal, price: Decimal, leverage: Decimal = Decimal("1")) -> dict:
@@ -248,30 +278,78 @@ class PaperTradingEngine:
 
     # ─── Queries ───
 
-    def status(self, account_id: UUID) -> dict:
+    def _apply_cash_delta(self, account_id: UUID, realized_delta: Decimal, fee: Decimal) -> None:
         acct = self._repo.get_account(account_id)
-        positions = self._repo.list_positions(account_id)
+        if not acct:
+            return
+        if acct.initial_balance is None:
+            acct.initial_balance = acct.balance
+        acct.balance = acct.balance - fee + realized_delta
+        if hasattr(self._repo, "update_account"):
+            self._repo.update_account(acct)
+
+    def consolidate_positions(self, account_id: UUID) -> int:
+        """Merge duplicate symbol rows (e.g. BTCUSDT + BTC_USDT) into one."""
+        return consolidate_positions_in_repo(self._repo, account_id)
+
+    def portfolio_summary(
+        self,
+        account_id: UUID,
+        mark_prices: dict[str, Decimal] | None = None,
+    ) -> dict:
+        """NAV / P&L relative to account balance (initial capital)."""
+        acct = self._repo.get_account(account_id)
+        # 本金固定为 initial_balance，绝不能回退到当前 balance（穿仓后会把本金显示成负现金）
+        if acct and acct.initial_balance is not None:
+            initial = acct.initial_balance
+        else:
+            initial = Decimal("10000")
+        cash = acct.balance if acct else Decimal("0")
+        summary = compute_portfolio_summary(
+            self._repo,
+            account_id,
+            initial_capital=initial,
+            cash_balance=cash,
+            mark_prices=mark_prices,
+        )
+        drawdown = update_drawdown_snapshot(
+            self._repo,
+            account_id,
+            nav=summary["nav"],
+            cash_balance=summary["cash_balance"],
+        )
+        summary["drawdown_pct"] = drawdown
+        summary["account"] = acct
+        summary["total_equity"] = summary["nav"]
+        return summary
+
+    def status(self, account_id: UUID, mark_prices: dict[str, Decimal] | None = None) -> dict:
+        summary = self.portfolio_summary(account_id, mark_prices=mark_prices)
         orders = self._repo.list_orders(account_id, limit=20)
-        # Simple equity calc
-        total_equity = acct.balance if acct else Decimal("0")
-        for p in positions:
-            total_equity += p.realized_pnl
         snap = self._repo.get_latest_snapshot(account_id)
-        peak = snap.peak_equity if snap else total_equity
-        drawdown = Decimal("0")
-        if peak > 0 and total_equity < peak:
-            drawdown = ((peak - total_equity) / peak * 100).quantize(Decimal("0.01"))
         return {
-            "account": acct,
-            "positions": positions,
+            "account": summary.get("account"),
+            "positions": summary["positions"],
             "recent_orders": orders,
-            "total_equity": total_equity,
-            "peak_equity": peak,
-            "drawdown_pct": drawdown,
+            "total_equity": summary["nav"],
+            "initial_capital": summary["initial_capital"],
+            "nav": summary["nav"],
+            "cash_available": summary["cash_available"],
+            "realized_pnl": summary["realized_pnl"],
+            "unrealized_pnl": summary["unrealized_pnl"],
+            "pnl": summary["pnl"],
+            "pnl_pct": summary["pnl_pct"],
+            "exposure": summary["exposure"],
+            "peak_equity": snap.peak_equity if snap else summary["nav"],
+            "drawdown_pct": summary["drawdown_pct"],
         }
 
     def history(self, account_id: UUID, limit: int = 20) -> list:
         return self._repo.list_orders(account_id, limit=limit)
+
+    def recent_fills(self, account_id: UUID, limit: int = 20) -> list:
+        """Recent fills newest-first (actual executions, not order intents)."""
+        return self._repo.list_fills(account_id, limit=limit)
 
     def portfolio(self, account_id: UUID) -> dict:
         return self.status(account_id)
@@ -300,7 +378,10 @@ class PaperTradingEngine:
 
     def from_signal(self, account_id: UUID, payload: dict, price: Decimal) -> dict:
         """Bridge: SignalEngine → PaperTradingEngine order."""
-        symbol = payload.get("symbol", "")
+        market = normalize_market(str(payload.get("market", "")))
+        symbol = _paper_symbol(str(payload.get("symbol", "")), market or None)
+        if not symbol:
+            return {"ok": False, "error": "invalid symbol"}
         side_str = payload.get("side", "").upper()
         side = Side(side_str) if side_str in ("LONG", "SHORT", "NEUTRAL") else Side.NEUTRAL
         if side == Side.NEUTRAL:

@@ -1,7 +1,7 @@
 """Paper trading models (Decimal precision throughout)."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID, uuid4
@@ -30,6 +30,7 @@ class PaperAccount(BaseModel):
     account_id: UUID = Field(default_factory=uuid4)
     name: str = "default"
     balance: Decimal = Decimal("10000.0")
+    initial_balance: Decimal | None = None
     leverage: Decimal = Decimal("1.0")
     max_drawdown_pct: Decimal = Decimal("10.0")
     max_positions: int = 5
@@ -88,13 +89,13 @@ class PaperFill(BaseModel):
     qty: Decimal
     price: Decimal
     fee: Decimal = Decimal("0")
-    ts: datetime = Field(default_factory=datetime.utcnow)
+    ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PortfolioSnapshot(BaseModel):
     """Periodic portfolio state."""
 
-    ts: datetime = Field(default_factory=datetime.utcnow)
+    ts: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     account_id: UUID
     cash_balance: Decimal
     total_equity: Decimal

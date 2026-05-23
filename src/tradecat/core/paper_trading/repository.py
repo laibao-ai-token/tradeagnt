@@ -215,6 +215,10 @@ class SqliteRepository(BaseRepository):
         """
         with self._conn() as conn:
             conn.executescript(ddl)
+            try:
+                conn.execute("ALTER TABLE paper_accounts ADD COLUMN initial_balance TEXT")
+            except Exception:
+                pass
             conn.commit()
 
     def _to_row(self, obj: Any) -> dict[str, Any]:
@@ -230,15 +234,27 @@ class SqliteRepository(BaseRepository):
         return data
 
     def create_account(self, account: PaperAccount) -> PaperAccount:
+        if account.initial_balance is None:
+            account.initial_balance = account.balance
         with self._conn() as conn:
             conn.execute(
                 """INSERT INTO paper_accounts
-                (account_id, name, balance, leverage, max_drawdown_pct, max_positions, max_single_trade_pct, created_at)
-                VALUES (:account_id, :name, :balance, :leverage, :max_drawdown_pct, :max_positions, :max_single_trade_pct, :created_at)""",
+                (account_id, name, balance, initial_balance, leverage, max_drawdown_pct, max_positions, max_single_trade_pct, created_at)
+                VALUES (:account_id, :name, :balance, :initial_balance, :leverage, :max_drawdown_pct, :max_positions, :max_single_trade_pct, :created_at)""",
                 self._to_row(account),
             )
             conn.commit()
         return account
+
+    def update_account(self, account: PaperAccount) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """UPDATE paper_accounts
+                SET balance = :balance, initial_balance = :initial_balance, leverage = :leverage
+                WHERE account_id = :account_id""",
+                self._to_row(account),
+            )
+            conn.commit()
 
     def get_account(self, account_id: UUID) -> PaperAccount | None:
         with self._conn() as conn:
@@ -247,12 +263,21 @@ class SqliteRepository(BaseRepository):
             ).fetchone()
         if not row:
             return None
-        return PaperAccount(**{k: row[k] for k in row.keys()})
+        data = {k: row[k] for k in row.keys()}
+        if data.get("initial_balance") in (None, ""):
+            data["initial_balance"] = "10000"
+        return PaperAccount(**data)
 
     def list_accounts(self) -> list[PaperAccount]:
         with self._conn() as conn:
             rows = conn.execute("SELECT * FROM paper_accounts").fetchall()
-        return [PaperAccount(**{k: r[k] for k in r.keys()}) for r in rows]
+        out: list[PaperAccount] = []
+        for r in rows:
+            data = {k: r[k] for k in r.keys()}
+            if data.get("initial_balance") in (None, ""):
+                data["initial_balance"] = "10000"
+            out.append(PaperAccount(**data))
+        return out
 
     def create_order(self, order: PaperOrder) -> PaperOrder:
         with self._conn() as conn:

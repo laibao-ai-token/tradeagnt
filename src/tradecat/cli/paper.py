@@ -8,6 +8,7 @@ from uuid import UUID
 import click
 
 from tradecat.core.paper_trading import InMemoryRepository, PaperTradingEngine, Side
+from tradecat.core.symbols import normalize_market, normalize_symbol
 
 
 @click.group(name="paper")
@@ -51,6 +52,13 @@ def _fmt_decimal(d: Decimal) -> str:
     return f"{d:.6f}".rstrip("0").rstrip(".")
 
 
+def _resolve_symbol(symbol: str, market: str) -> str:
+    norm = normalize_symbol(symbol, normalize_market(market) if market else None)
+    if not norm:
+        raise click.ClickException(f"Invalid symbol: {symbol}")
+    return norm
+
+
 # ─── Account ───
 
 @paper.group(name="account")
@@ -87,15 +95,17 @@ def account_list() -> None:
 @click.option("--notional", required=True, help="Notional value in USDT")
 @click.option("--price", required=True, help="Entry price")
 @click.option("--leverage", default="1", help="Leverage multiplier")
+@click.option("--market", default="", help="市场: crypto / us_stock（留空自动识别）")
 @click.argument("symbol")
-def long_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
+def long_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str, market: str) -> None:
     """Open a LONG position."""
     engine = _engine()
     acct = _get_account(engine, account_id)
     if not acct:
         # Auto-create default account on first use
         acct = engine.create_account("default")
-    result = engine.long(acct.account_id, symbol.upper(), Decimal(notional), Decimal(price), Decimal(leverage))
+    norm = _resolve_symbol(symbol, market)
+    result = engine.long(acct.account_id, norm, Decimal(notional), Decimal(price), Decimal(leverage))
     if result["ok"]:
         o = result["order"]
         click.echo(click.style(f"✓ LONG {symbol}", fg="green"))
@@ -110,14 +120,16 @@ def long_cmd(symbol: str, account_id: str | None, notional: str, price: str, lev
 @click.option("--notional", required=True, help="Notional value in USDT")
 @click.option("--price", required=True, help="Entry price")
 @click.option("--leverage", default="1", help="Leverage multiplier")
+@click.option("--market", default="", help="市场: crypto / us_stock（留空自动识别）")
 @click.argument("symbol")
-def short_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
+def short_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str, market: str) -> None:
     """Open a SHORT position."""
     engine = _engine()
     acct = _get_account(engine, account_id)
     if not acct:
         acct = engine.create_account("default")
-    result = engine.short(acct.account_id, symbol.upper(), Decimal(notional), Decimal(price), Decimal(leverage))
+    norm = _resolve_symbol(symbol, market)
+    result = engine.short(acct.account_id, norm, Decimal(notional), Decimal(price), Decimal(leverage))
     if result["ok"]:
         o = result["order"]
         click.echo(click.style(f"✓ SHORT {symbol}", fg="green"))
@@ -130,14 +142,16 @@ def short_cmd(symbol: str, account_id: str | None, notional: str, price: str, le
 @paper.command(name="close")
 @click.option("--account-id", help="Account UUID")
 @click.option("--price", required=True, help="Close price")
+@click.option("--market", default="", help="市场: crypto / us_stock（留空自动识别）")
 @click.argument("symbol")
-def close_cmd(symbol: str, account_id: str | None, price: str) -> None:
+def close_cmd(symbol: str, account_id: str | None, price: str, market: str) -> None:
     """Close an existing position."""
     engine = _engine()
     acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found. Create one with: tradecat paper account create")
-    result = engine.close(acct.account_id, symbol.upper(), Decimal(price))
+    norm = _resolve_symbol(symbol, market)
+    result = engine.close(acct.account_id, norm, Decimal(price))
     if result["ok"]:
         p = result["position"]
         click.echo(click.style(f"✓ Closed {symbol}", fg="green"))
@@ -151,14 +165,16 @@ def close_cmd(symbol: str, account_id: str | None, price: str) -> None:
 @click.option("--notional", required=True, help="New position notional")
 @click.option("--price", required=True, help="Flip price")
 @click.option("--leverage", default="1", help="Leverage")
+@click.option("--market", default="", help="市场: crypto / us_stock（留空自动识别）")
 @click.argument("symbol")
-def flip_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str) -> None:
+def flip_cmd(symbol: str, account_id: str | None, notional: str, price: str, leverage: str, market: str) -> None:
     """Close existing position and flip to opposite side."""
     engine = _engine()
     acct = _get_account(engine, account_id)
     if not acct:
         raise click.ClickException("No account found.")
-    result = engine.flip(acct.account_id, symbol.upper(), Decimal(notional), Decimal(price), Decimal(leverage))
+    norm = _resolve_symbol(symbol, market)
+    result = engine.flip(acct.account_id, norm, Decimal(notional), Decimal(price), Decimal(leverage))
     if result["ok"]:
         click.echo(click.style(f"✓ Flipped {symbol}", fg="green"))
     else:
@@ -177,9 +193,12 @@ def status_cmd(account_id: str | None) -> None:
         raise click.ClickException("No account found.")
     st = engine.status(acct.account_id)
     click.echo(click.style(f"📊 {acct.name}", fg="blue", bold=True))
-    click.echo(f"Balance:      {_fmt_decimal(acct.balance)} USDT")
-    click.echo(f"Total Equity: {_fmt_decimal(st['total_equity'])} USDT")
-    click.echo(f"Drawdown:     {st['drawdown_pct']}%")
+    click.echo(f"本金:     {_fmt_decimal(st.get('initial_capital', 10000))} USDT")
+    click.echo(f"净值:     {_fmt_decimal(st.get('nav', st['total_equity']))} USDT")
+    click.echo(f"盈亏:     {_fmt_decimal(st.get('pnl', 0))} USDT ({st.get('pnl_pct', 0)}%)")
+    click.echo(f"现金盈亏: {_fmt_decimal(st.get('realized_pnl', 0))} USDT")
+    click.echo(f"浮盈:     {_fmt_decimal(st.get('unrealized_pnl', 0))} USDT")
+    click.echo(f"回撤:     {st['drawdown_pct']}%")
     click.echo("-" * 40)
     if st["positions"]:
         click.echo("Positions:")
@@ -240,6 +259,7 @@ def stats_cmd(account_id: str | None) -> None:
 @click.option("--notional", help="Override notional value")
 @click.option("--leverage", default="1", help="Leverage multiplier")
 @click.option("--idempotency-key", help="Deduplication key")
+@click.option("--market", default="", help="市场: crypto / us_stock（留空自动识别）")
 @click.argument("symbol")
 def from_signal_cmd(
     symbol: str,
@@ -249,14 +269,17 @@ def from_signal_cmd(
     notional: str | None,
     leverage: str,
     idempotency_key: str | None,
+    market: str,
 ) -> None:
     """Execute a signal-derived order."""
     engine = _engine()
     acct = _get_account(engine, account_id)
     if not acct:
         acct = engine.create_account("default")
+    norm = _resolve_symbol(symbol, market)
     payload = {
-        "symbol": symbol.upper(),
+        "symbol": norm,
+        "market": normalize_market(market) if market else "",
         "side": side,
         "qty_notional": notional or "0",
         "leverage": leverage,
