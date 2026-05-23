@@ -130,9 +130,9 @@ def _make_base_response() -> dict[str, Any]:
         "tool": TOOL_NAME,
         "ts": _utc_now_iso(),
         "source": {
-            "mode": "direct_module",
+            "mode": "tradecat_package",
             "script": "scripts/tradecat_get_quotes.py",
-            "reader": "src/tradecat/tui/quote.py",
+            "reader": "tradecat.tui.quote",
             "writes": False,
         },
         "request": {},
@@ -169,6 +169,10 @@ def _load_module(module_name: str, module_path: Path) -> ModuleType:
 
 
 def _load_runtime(repo_root: Path) -> QuoteRuntime:
+    src_path = str(repo_root / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
     libs_path = repo_root / "libs"
     libs_path_str = str(libs_path)
     if libs_path_str not in sys.path:
@@ -184,8 +188,16 @@ def _load_runtime(repo_root: Path) -> QuoteRuntime:
                 # Quote fetching can still work without config/.env, so keep this best-effort.
                 pass
 
-    quote_module = _load_module("tradecat_tui_quote", QUOTE_MODULE_PATH)
-    watchlists_module = _load_module("tradecat_tui_watchlists", WATCHLISTS_MODULE_PATH)
+    try:
+        from tradecat.tui import quote as quote_module
+        from tradecat.tui import watchlists as watchlists_module
+    except Exception as exc:  # noqa: BLE001 - structured CLI error
+        raise CliError(
+            "import_failed",
+            f"failed to import tradecat.tui.quote: {exc}",
+            details={"path": str(QUOTE_MODULE_PATH), "type": exc.__class__.__name__},
+        ) from exc
+
     return QuoteRuntime(quote_module=quote_module, watchlists_module=watchlists_module)
 
 

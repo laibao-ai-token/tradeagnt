@@ -26,7 +26,7 @@ from pathlib import Path
 
 from tradecat.common.utils.scheduler import wait_seconds
 
-from .db import SignalRow, fetch_recent, parse_ts, probe
+from .db import SignalRow, fetch_recent, fetch_recent_with_unfiltered, parse_ts, probe
 from .etf_profiles import (
     get_all_domain_keys,
     get_domain_label,
@@ -1266,6 +1266,10 @@ def run(
     top_page = _init_tp
     market_tab = _init_mt
 
+    from tradecat.core.pipeline.profile import bootstrap_pipeline_profile
+
+    bootstrap_pipeline_profile(only_if_unset=True)
+
     while True:
         try:
             curses.wrapper(_main, db_path, refresh_s, limit, quotes or QuoteConfigs(), micro, sv, watchlists_path, watcher)
@@ -1373,6 +1377,8 @@ def _main(
 
     paper_db_path = resolve_paper_db_path(db_path)
     strategy_env = os.environ.get("TUI_SIGNAL_STRATEGY", "current/fast_1m.yaml").strip() or "current/fast_1m.yaml"
+    poll_interval_s = float(os.environ.get("TUI_SIGNAL_POLL_INTERVAL_S", "60") or 60)
+    poll_min_strength = int(os.environ.get("TUI_SIGNAL_MIN_STRENGTH", "50") or 50)
     poll_symbols: list[str] = []
     try:
         from tradecat.core.signals import StrategyLoader
@@ -1388,7 +1394,13 @@ def _main(
         poll_symbols = list(normalize_crypto_symbols(micro_cfg.symbol or ""))
     if not poll_symbols:
         poll_symbols = ["BTC_USDT", "ETH_USDT"]
-    start_signal_pollers(db_path, poll_symbols, strategy=strategy_env)
+    start_signal_pollers(
+        db_path,
+        poll_symbols,
+        strategy=strategy_env,
+        interval_s=poll_interval_s,
+        min_strength=poll_min_strength,
+    )
     start_auto_consumer(db_path, paper_db_path, refresh_s)
 
     last_id = 0
@@ -1959,22 +1971,14 @@ def _main(
             if not filt.paused and (now - last_refresh) >= refresh_s:
                 ok, _ = probe(db_path)
                 if ok:
-                    new_rows = fetch_recent(
+                    rows, rows_all = fetch_recent_with_unfiltered(
                         db_path,
                         limit=limit,
-                        min_id=None,
+                        unfiltered_limit=max(200, int(limit)),
                         sources=sorted(filt.sources),
                         directions=sorted(filt.directions),
                     )
-                    # Also keep an unfiltered view for cross-page correlation (quotes <-> signals),
-                    # so the quotes pages can still show "latest signal" even if the user hides a direction/source.
-                    rows_all = fetch_recent(
-                        db_path,
-                        limit=max(200, int(limit)),
-                        min_id=None,
-                    )
-                    # fetch_recent returns DESC order (newest first)
-                    rows = new_rows
+                    # fetch_recent* returns DESC order (newest first)
                     if rows:
                         last_id = max(last_id, rows[0].id)
                 else:

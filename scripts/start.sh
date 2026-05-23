@@ -81,10 +81,19 @@ prepare_collector_runtime_env() {
     export COLLECTOR_CRYPTO_METRICS_ENABLED=1
 }
 
+collector_on_demand_cli() {
+    local python_bin=""
+    if ! python_bin="$(collector_python)"; then
+        echo "✗ 未找到可用的 Python 解释器" >&2
+        return 1
+    fi
+    "$python_bin" "$ROOT/scripts/lib/collector_on_demand.py" "$@"
+}
+
 run_collector_cli() {
     if [[ ! -d "$COLLECTOR_SERVICE_DIR" ]]; then
-        echo "✗ collector-service 目录不存在: $COLLECTOR_SERVICE_DIR" >&2
-        return 1
+        collector_on_demand_cli "$@"
+        return $?
     fi
 
     local python_bin=""
@@ -128,6 +137,12 @@ collector_service_is_running() {
 }
 
 collector_service_start() {
+    if [[ ! -d "$COLLECTOR_SERVICE_DIR" ]]; then
+        echo "collector-service: on-demand 模式（无常驻采集，见 docs/pipeline/DATA_COLLECTION.md）"
+        collector_on_demand_cli --run >/dev/null
+        return 0
+    fi
+
     mkdir -p "$(dirname "$COLLECTOR_PID")" "$(dirname "$COLLECTOR_LOG")"
 
     if collector_service_is_running; then
@@ -188,6 +203,12 @@ collector_service_stop() {
 }
 
 collector_service_status() {
+    if [[ ! -d "$COLLECTOR_SERVICE_DIR" ]]; then
+        echo "collector-service: on-demand 模式（无常驻进程）"
+        collector_on_demand_cli
+        return 0
+    fi
+
     if collector_service_is_running; then
         echo "collector-service 运行中 (PID: $(cat "$COLLECTOR_PID"))"
         echo "  日志: $COLLECTOR_LOG"

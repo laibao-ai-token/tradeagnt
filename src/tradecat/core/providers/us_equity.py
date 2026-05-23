@@ -1,4 +1,4 @@
-"""US equity data provider (Nasdaq / Tencent / Yahoo via TUI quote layer)."""
+"""US equity data provider (Nasdaq / Tencent / Yahoo via core HTTP layer)."""
 from __future__ import annotations
 
 import asyncio
@@ -65,16 +65,16 @@ def _resample_ohlcv(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
 
 
 def _fetch_us_minute_series_sync(symbol: str, limit: int) -> list[tuple[int, float, float]]:
-    from tradecat.tui.quote import (
+    from tradecat.core.providers.us_market_http import (
         fetch_nasdaq_us_minute_series,
-        fetch_tencent_equity_minute_series,
+        fetch_tencent_us_minute_series,
     )
 
     safe_limit = max(30, min(int(limit), 390))
     series = fetch_nasdaq_us_minute_series(symbol, timeout_s=8.0, limit=safe_limit)
     if series:
         return series
-    return fetch_tencent_equity_minute_series(symbol, market="us_stock", timeout_s=8.0, limit=safe_limit)
+    return fetch_tencent_us_minute_series(symbol, timeout_s=8.0, limit=safe_limit)
 
 
 class UsEquityProvider(DataProvider):
@@ -112,7 +112,7 @@ class UsEquityProvider(DataProvider):
         return await asyncio.to_thread(self._fetch_latest_sync, symbol)
 
     def _fetch_latest_sync(self, symbol: str) -> dict[str, Any]:
-        from tradecat.tui.quote import fetch_tencent_us_quote, fetch_yahoo_us_stock_quote
+        from tradecat.core.providers.us_market_http import fetch_tencent_us_quote, fetch_yahoo_us_stock_quote
 
         sym = normalize_us_ticker(symbol)
         if not sym:

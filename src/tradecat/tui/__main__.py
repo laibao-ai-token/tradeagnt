@@ -107,8 +107,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    from tradecat.core.pipeline.profile import bootstrap_pipeline_profile
+
+    pipeline_profile = bootstrap_pipeline_profile(repo_root=repo_root, only_if_unset=True)
+
     if args.db:
         db_path = Path(args.db).expanduser().resolve()
+    elif pipeline_profile and pipeline_profile.signal_db_path:
+        db_path = Path(pipeline_profile.signal_db_path)
     else:
         db_path = repo_root / "libs" / "database" / "services" / "signal-service" / "signal_history.db"
 

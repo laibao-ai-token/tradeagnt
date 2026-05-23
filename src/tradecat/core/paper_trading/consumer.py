@@ -1,4 +1,8 @@
-"""Signal consumer: poll signal_history.db and auto-execute paper trades."""
+"""Signal consumer: poll signal_history.db and auto-execute paper trades.
+
+.. deprecated::
+    TUI 路径请使用 ``tradecat.tui.auto_consumer``；本模块保留给 CLI/脚本直连。
+"""
 from __future__ import annotations
 
 import sqlite3

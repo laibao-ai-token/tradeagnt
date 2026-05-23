@@ -1,3 +1,5 @@
-from tradecat.core.pipeline.base import AnalysisPipeline
+"""Runtime pipeline profiles (config/pipeline/*.yaml)."""
 
-__all__ = ["AnalysisPipeline"]
+from tradecat.core.pipeline.profile import PipelineProfile, bootstrap_pipeline_profile, load_pipeline_profile
+
+__all__ = ["PipelineProfile", "bootstrap_pipeline_profile", "load_pipeline_profile"]

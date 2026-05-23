@@ -1,0 +1,51 @@
+# TUI 模拟盘默认策略（偏稳健，减少 1m 来回扫单）
+name: "Paper RSI 5m"
+market: crypto
+symbols:
+  - BTC_USDT
+  - ETH_USDT
+timeframe: 5m
+
+indicators:
+  - name: rsi
+    params:
+      period: 14
+
+rules:
+  # 超卖区反弹做多（避免 RSI≈50 附近反复穿越）
+  - name: RSI超卖反弹买入
+    category: momentum
+    subcategory: rsi
+    direction: BUY
+    strength: 62
+    priority: high
+    cooldown: 300
+    min_volume: 0
+    condition:
+      type: threshold_cross_up
+      field: rsi
+      threshold: 35
+    message_template: "RSI超卖反弹: {rsi:.1f}"
+    fields:
+      rsi: rsi
+
+  # 超买区回落做空
+  - name: RSI超买回落卖出
+    category: momentum
+    subcategory: rsi
+    direction: SELL
+    strength: 62
+    priority: high
+    cooldown: 300
+    min_volume: 0
+    condition:
+      type: threshold_cross_down
+      field: rsi
+      threshold: 65
+    message_template: "RSI超买回落: {rsi:.1f}"
+    fields:
+      rsi: rsi
+
+thresholds:
+  min_strength: 50
+  max_cooldown: 600

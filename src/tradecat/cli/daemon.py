@@ -104,6 +104,15 @@ def daemon(
     account: str,
 ) -> None:
     """Run the TradeCat daemon: periodic signal monitoring with optional auto-trade."""
+    from tradecat.core.pipeline.profile import bootstrap_pipeline_profile
+
+    profile = bootstrap_pipeline_profile(only_if_unset=True)
+    if profile:
+        if strategy == "current/fast_1m.yaml":
+            strategy = profile.primary_strategy
+        interval = int(os.getenv("TUI_SIGNAL_POLL_INTERVAL_S", str(interval)))
+        min_strength = int(os.getenv("TUI_SIGNAL_MIN_STRENGTH", str(min_strength)))
+
     strat = StrategyLoader.load(strategy)
     market = normalize_market(strat.market)
     raw_symbols = [s.strip() for s in symbols.split(",") if s.strip()] if symbols else list(strat.symbols)

@@ -11,10 +11,13 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "libs"))
-sys.path.insert(0, str(REPO_ROOT / "services" / "signal-service"))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from src.storage.read_only import fetch_recent_signals, probe_signal_history, resolve_history_db_path
+from tradecat.core.signals.history_read import (  # noqa: E402
+    fetch_recent_signals,
+    probe_signal_history,
+    resolve_history_db_path,
+)
 
 
 TOOL_NAME = "tradecat_get_signals"
@@ -75,7 +78,7 @@ def build_parser() -> JsonArgumentParser:
     """Create the CLI parser for the read-only signal query tool."""
     parser = JsonArgumentParser(description="Read recent signals from TradeCat signal_history.db as JSON.")
     parser.add_argument("--symbol", help="Filter by symbol, for example BTCUSDT or NVDA.")
-    parser.add_argument("--timeframe", help="Filter by timeframe, for example 1m or 1h.")
+    parser.add_argument("--timeframe", help="Filter by timeframe, for example 1m or 5m.")
     parser.add_argument("--limit", type=int, default=20, help="Maximum number of rows to return (1-500).")
     parser.add_argument("--db-path", help="Optional override for signal_history.db.")
     return parser

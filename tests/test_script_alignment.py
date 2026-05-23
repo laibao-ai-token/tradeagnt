@@ -1,41 +1,30 @@
 import unittest
+from pathlib import Path
 
 
-REPO_ROOT = "/home/tradecat"
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _read(path):
-    with open(path, "r", encoding="utf-8") as fh:
-        return fh.read()
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 class ScriptAlignmentTests(unittest.TestCase):
-    def test_verify_script_checks_collector_sources(self):
-        script_text = _read(REPO_ROOT + "/scripts/verify.sh")
+    def test_verify_script_checks_monolith_sources(self) -> None:
+        script_text = _read(REPO_ROOT / "scripts" / "verify.sh")
+        self.assertIn("src/tradecat", script_text)
 
-        self.assertIn("services/collector-service/src", script_text)
-        self.assertNotIn("services/data-service/src", script_text)
-        self.assertNotIn("services-preview/markets-service/src", script_text)
+    def test_start_sh_has_on_demand_collector_fallback(self) -> None:
+        script_text = _read(REPO_ROOT / "scripts" / "start.sh")
+        self.assertIn("collector_on_demand_cli", script_text)
+        self.assertIn("on_demand", _read(REPO_ROOT / "docs" / "pipeline" / "DATA_COLLECTION.md"))
 
-    def test_check_env_checks_collector_runtime_paths(self):
-        script_text = _read(REPO_ROOT + "/scripts/check_env.sh")
+    def test_install_script_exists(self) -> None:
+        self.assertTrue((REPO_ROOT / "scripts" / "install.sh").is_file())
 
-        self.assertIn("collector-service", script_text)
-        self.assertNotIn("services/data-service/logs", script_text)
-        self.assertNotIn("services-preview/markets-service/logs", script_text)
-
-    def test_install_script_targets_collector_service(self):
-        script_text = _read(REPO_ROOT + "/scripts/install.sh")
-
-        self.assertIn("collector-service", script_text)
-        self.assertNotIn("services/data-service", script_text)
-
-    def test_tui_start_script_no_longer_depends_on_data_service_or_markets_service(self):
-        script_text = _read(REPO_ROOT + "/services-preview/tui-service/scripts/start.sh")
-
-        self.assertIn("collector-service", script_text)
-        self.assertNotIn("services/data-service", script_text)
-        self.assertNotIn("services-preview/markets-service", script_text)
+    def test_tui_cli_does_not_require_collector_by_default(self) -> None:
+        script_text = _read(REPO_ROOT / "src" / "tradecat" / "cli" / "tui.py")
+        self.assertIn("TUI_AUTO_START_COLLECTOR", script_text)
 
 
 if __name__ == "__main__":

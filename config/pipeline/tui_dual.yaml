@@ -6,7 +6,7 @@ description: TUI 双市场实盘模拟（替代分散的 TUI_SIGNAL_* / PAPER_AU
 
 strategies:
   - path: current/fast_1m.yaml
-  - path: us_fast_5m.yaml
+  - path: current/us_fast_5m.yaml
 
 runtime:
   poll_interval_s: 60

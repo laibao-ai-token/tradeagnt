@@ -14,6 +14,7 @@ STRATEGIES_ROOT = REPO_ROOT / "config" / "strategies"
 RELEASES_DIR = STRATEGIES_ROOT / "releases"
 CURRENT_LINK = STRATEGIES_ROOT / "current"
 DEFAULT_STRATEGY = "fast_1m.yaml"
+DUAL_BUNDLE = ("fast_1m.yaml", "us_fast_5m.yaml")
 
 
 def _now_release_id() -> str:
@@ -39,56 +40,112 @@ def _resolve_current_dir() -> Path | None:
     return None
 
 
-def cmd_snapshot(args: argparse.Namespace) -> int:
-    src_name = args.file.strip() or DEFAULT_STRATEGY
-    src_candidates = [
-        STRATEGIES_ROOT / "current" / src_name,
+def _resolve_source_file(src_name: str, *, release_dir: Path | None = None) -> Path | None:
+    """Resolve editable source YAML, avoiding copies from the target release folder."""
+    release_resolved = release_dir.resolve() if release_dir else None
+    src_candidates: list[Path] = [
         STRATEGIES_ROOT / src_name,
+        STRATEGIES_ROOT / "current" / src_name,
     ]
     cur = _resolve_current_dir()
     if cur:
-        src_candidates.insert(0, cur / src_name)
+        src_candidates.append(cur / src_name)
 
-    src: Path | None = None
-    for c in src_candidates:
-        if c.is_file():
-            src = c.resolve()
-            break
-    if src is None:
-        print(f"error: strategy file not found: {src_name}", file=sys.stderr)
+    seen: set[Path] = set()
+    for candidate in src_candidates:
+        if not candidate.is_file():
+            continue
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if release_resolved and release_resolved in resolved.parents:
+            continue
+        return resolved
+    return None
+
+
+def _snapshot_files(
+    *,
+    files: list[str],
+    release_id: str,
+    note: str,
+    activate: bool,
+    force: bool,
+) -> int:
+    if not files:
+        print("error: no strategy files specified", file=sys.stderr)
         return 1
 
-    release_id = (args.release_id or "").strip() or _now_release_id()
     release_dir = RELEASES_DIR / release_id
-    if release_dir.exists() and not args.force:
+    if release_dir.exists() and not force:
         print(f"error: release already exists: {release_id} (use --force)", file=sys.stderr)
         return 1
 
     release_dir.mkdir(parents=True, exist_ok=True)
-    dest = release_dir / src_name
-    shutil.copy2(src, dest)
+    copied: list[str] = []
+    sources: list[str] = []
+
+    for src_name in files:
+        src = _resolve_source_file(src_name, release_dir=release_dir)
+        if src is None:
+            print(f"error: strategy file not found: {src_name}", file=sys.stderr)
+            return 1
+        dest = release_dir / src.name
+        shutil.copy2(src, dest)
+        copied.append(src.name)
+        rel = src.relative_to(REPO_ROOT) if src.is_relative_to(REPO_ROOT) else str(src)
+        sources.append(str(rel))
 
     manifest = {
         "release_id": release_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "note": (args.note or "").strip(),
-        "source_path": str(src.relative_to(REPO_ROOT)) if src.is_relative_to(REPO_ROOT) else str(src),
-        "files": [src_name],
+        "note": note.strip(),
+        "bundle": len(copied) > 1,
+        "source_paths": sources,
+        "files": copied,
     }
     (release_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
 
-    if args.activate or args.set_current:
+    if activate:
         _set_current(release_dir)
 
     rel = release_dir.relative_to(REPO_ROOT)
-    print(f"ok: snapshot -> {rel}/{src_name}")
-    if args.activate or args.set_current:
+    print(f"ok: snapshot -> {rel}/ ({', '.join(copied)})")
+    if activate:
         print(f"ok: current -> {rel}")
-    print(f"load with: current/{src_name}  or  releases/{release_id}/{src_name}")
+    print(f"load with: current/{copied[0]}  or  releases/{release_id}/{copied[0]}")
     return 0
+
+
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    files = list(args.file or [])
+    if not files:
+        files = [args.legacy_file.strip() or DEFAULT_STRATEGY]
+    release_id = (args.release_id or "").strip() or _now_release_id()
+    return _snapshot_files(
+        files=files,
+        release_id=release_id,
+        note=(args.note or "").strip(),
+        activate=bool(args.activate or args.set_current),
+        force=bool(args.force),
+    )
+
+
+def cmd_bundle(args: argparse.Namespace) -> int:
+    files = list(args.file or list(DUAL_BUNDLE))
+    release_id = (args.release_id or "").strip() or _now_release_id()
+    note = (args.note or "").strip() or "dual market bundle (crypto + us_stock)"
+    return _snapshot_files(
+        files=files,
+        release_id=release_id,
+        note=note,
+        activate=bool(args.activate),
+        force=bool(args.force),
+    )
 
 
 def _set_current(release_dir: Path) -> None:
@@ -128,8 +185,9 @@ def cmd_list(_: argparse.Namespace) -> int:
         mf = _read_manifest(d)
         note = (mf.get("note") or "").strip()
         files = ", ".join(mf.get("files") or [])
+        bundle = " [bundle]" if mf.get("bundle") else ""
         extra = f" | {note}" if note else ""
-        print(f"  {d.name}{mark}  [{files}]{extra}")
+        print(f"  {d.name}{mark}{bundle}  [{files}]{extra}")
     return 0
 
 
@@ -152,13 +210,34 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_snap = sub.add_parser("snapshot", help="Copy strategy YAML into releases/<timestamp>/")
-    p_snap.add_argument("-f", "--file", default=DEFAULT_STRATEGY, help="Strategy filename")
+    p_snap.add_argument(
+        "-f",
+        "--file",
+        action="append",
+        default=[],
+        help="Strategy filename (repeatable; default fast_1m.yaml)",
+    )
+    p_snap.add_argument("legacy_file", nargs="?", default="", help=argparse.SUPPRESS)
     p_snap.add_argument("-n", "--note", default="", help="Short note stored in manifest.json")
     p_snap.add_argument("--release-id", default="", help="Override folder name (default UTC timestamp)")
     p_snap.add_argument("-a", "--activate", action="store_true", help="Point config/strategies/current to this release")
     p_snap.add_argument("--set-current", action="store_true", help=argparse.SUPPRESS)
     p_snap.add_argument("--force", action="store_true", help="Overwrite existing release folder")
     p_snap.set_defaults(func=cmd_snapshot)
+
+    p_bundle = sub.add_parser("bundle", help=f"Snapshot dual-market pair ({', '.join(DUAL_BUNDLE)})")
+    p_bundle.add_argument(
+        "-f",
+        "--file",
+        action="append",
+        default=[],
+        help="Override bundle file list",
+    )
+    p_bundle.add_argument("-n", "--note", default="", help="Note in manifest.json")
+    p_bundle.add_argument("--release-id", default="", help="Override release folder name")
+    p_bundle.add_argument("-a", "--activate", action="store_true", help="Set current/ to this release")
+    p_bundle.add_argument("--force", action="store_true", help="Overwrite existing release folder")
+    p_bundle.set_defaults(func=cmd_bundle)
 
     p_use = sub.add_parser("use", help="Activate a release (symlink current/)")
     p_use.add_argument("release_id", help="Folder name under releases/")

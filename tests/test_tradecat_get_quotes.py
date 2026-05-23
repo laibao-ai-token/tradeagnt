@@ -179,6 +179,11 @@ class TradecatGetQuotesTests(unittest.TestCase):
         self.assertFalse(payload["data"][1]["ok"])
         self.assertEqual(payload["data"][1]["error"]["code"], "quote_not_found")
 
+    def test_load_runtime_imports_package_modules(self) -> None:
+        runtime = self.module._load_runtime(REPO_ROOT)
+        self.assertTrue(hasattr(runtime.quote_module, "fetch_quote"))
+        self.assertTrue(hasattr(runtime.watchlists_module, "normalize_crypto_symbols"))
+
     def test_batch_failure_falls_back_to_single_fetch(self) -> None:
         quote = SimpleNamespace(
             symbol="NVDA",

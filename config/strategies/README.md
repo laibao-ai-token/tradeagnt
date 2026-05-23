@@ -13,8 +13,14 @@
 ## 常用命令
 
 ```bash
-# 改完 current/fast_1m.yaml 后打快照（并设为当前）
+# 改完策略后打快照（并设为当前）
 python3 scripts/strategy_release.py snapshot -n "调 RSI 阈值" --activate
+
+# 加密 + 美股双策略一次打包（封板推荐）
+python3 scripts/strategy_release.py bundle -n "v0.8 dual freeze" --activate
+
+# 多文件自定义
+python3 scripts/strategy_release.py snapshot -f fast_1m.yaml -f us_fast_5m.yaml -n "dual" --activate
 
 # 列出所有版本
 python3 scripts/strategy_release.py list
@@ -54,11 +60,10 @@ tradecat paper long NVDA --notional 1000 --price 120.5 --market us_stock
 # TUI 仅美股策略
 TUI_SIGNAL_STRATEGY=us_fast_5m.yaml PAPER_AUTO_MARKET=us_stock tradecat tui
 
-# TUI 加密 + 美股双策略（P2 用 1/2 切换加密/美股模拟视图）
-TUI_SIGNAL_STRATEGY=current/fast_1m.yaml \
-TUI_SIGNAL_STRATEGY_EXTRA=us_fast_5m.yaml \
-PAPER_AUTO_MARKET=all \
-tradecat tui
+# TUI 双策略（推荐：pipeline 或 current/ 下两文件）
+TRADECAT_PIPELINE_PROFILE=tui_dual tradecat tui
+# 等价：
+# TUI_SIGNAL_STRATEGY=current/fast_1m.yaml TUI_SIGNAL_STRATEGY_EXTRA=current/us_fast_5m.yaml
 ```
 
 ## 归档记录（示例）

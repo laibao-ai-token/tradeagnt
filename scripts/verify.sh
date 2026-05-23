@@ -152,21 +152,17 @@ else
     warn "docs/prompts 目录不存在"
 fi
 
-# 10. 单元测试 (如有)
+# 10. 封板门禁（v0.8 子集，失败则退出）
 echo ""
-echo "10. 单元测试..."
-if command -v pytest &> /dev/null; then
-    if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
-        if pytest tests/ -q --tb=no 2>/dev/null; then
-            success "单元测试通过"
-        else
-            warn "单元测试失败或无测试"
-        fi
+echo "10. 封板测试子集 (freeze gate)..."
+if [ -x "scripts/freeze_verify.sh" ]; then
+    if ./scripts/freeze_verify.sh; then
+        success "封板测试通过"
     else
-        warn "无测试文件，跳过"
+        fail "封板测试失败（见 scripts/freeze_verify.sh）"
     fi
 else
-    warn "pytest 未安装，跳过"
+    warn "scripts/freeze_verify.sh 不存在，跳过"
 fi
 
 echo ""

@@ -78,6 +78,50 @@ def _signal_history_has_extra_column(conn: sqlite3.Connection) -> bool:
     return False
 
 
+def fetch_recent_with_unfiltered(
+    db_path: str,
+    limit: int = 200,
+    *,
+    unfiltered_limit: int | None = None,
+    sources: Optional[Iterable[str]] = None,
+    directions: Optional[Iterable[str]] = None,
+) -> tuple[list[SignalRow], list[SignalRow]]:
+    """One DB round-trip: filtered view + broader unfiltered view for cross-page correlation."""
+    fetch_limit = max(int(limit), int(unfiltered_limit or 0), 1)
+    rows = fetch_recent(
+        db_path,
+        limit=fetch_limit,
+        min_id=None,
+        sources=None,
+        directions=None,
+    )
+    filtered = _filter_signal_rows(rows, limit=limit, sources=sources, directions=directions)
+    all_limit = int(unfiltered_limit) if unfiltered_limit else len(rows)
+    unfiltered = rows[: max(all_limit, 0)]
+    return filtered, unfiltered
+
+
+def _filter_signal_rows(
+    rows: list[SignalRow],
+    *,
+    limit: int,
+    sources: Optional[Iterable[str]] = None,
+    directions: Optional[Iterable[str]] = None,
+) -> list[SignalRow]:
+    src_set = {s for s in (sources or []) if s}
+    dir_set = {d for d in (directions or []) if d}
+    out: list[SignalRow] = []
+    for row in rows:
+        if src_set and (row.source or "") not in src_set:
+            continue
+        if dir_set and row.direction not in dir_set:
+            continue
+        out.append(row)
+        if len(out) >= int(limit):
+            break
+    return out
+
+
 def fetch_recent(
     db_path: str,
     limit: int = 200,

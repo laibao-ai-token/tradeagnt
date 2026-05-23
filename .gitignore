@@ -39,6 +39,9 @@ node_modules/
 # ====================
 # 运行时
 # ====================
+libs/database/**/.paper_trading.consumer_state.json
+config/strategies/releases/test_*/
+skills/Untitled
 logs/
 pids/
 *.pid
