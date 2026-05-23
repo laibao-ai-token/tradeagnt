@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "@mkusaka/mcp-server-linear"],
+      "env": {
+        "LINEAR_API_KEY": "${env:LINEAR_API_KEY}"
+      },
+      "envFile": "${workspaceFolder}/config/.env"
+    }
+  }
+}

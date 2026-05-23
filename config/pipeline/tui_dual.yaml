@@ -1,0 +1,27 @@
+# TUI 默认剖面：加密 + 美股双策略，信号落库 + 模拟盘跟单
+# 使用：TRADECAT_PIPELINE_PROFILE=tui_dual tradecat tui
+
+name: tui_dual
+description: TUI 双市场实盘模拟（替代分散的 TUI_SIGNAL_* / PAPER_AUTO_*）
+
+strategies:
+  - path: current/fast_1m.yaml
+  - path: us_fast_5m.yaml
+
+runtime:
+  poll_interval_s: 60
+  min_strength: 50
+
+stores:
+  signal_history:
+    # 空则使用默认 libs/.../signal_history.db（由代码 resolve）
+    path: ""
+
+consumers:
+  paper:
+    enabled: true
+    markets: all
+    notional_pct: 0.15
+    trade_cooldown_s: 180
+    min_strength: 50
+    min_equity_ratio: 0.20

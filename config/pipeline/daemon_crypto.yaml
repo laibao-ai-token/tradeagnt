@@ -1,0 +1,23 @@
+# CLI daemon 单策略剖面（加密）
+# 使用：TRADECAT_PIPELINE_PROFILE=daemon_crypto tradecat daemon --auto-trade
+
+name: daemon_crypto
+description: 后台 daemon，单 crypto 策略
+
+strategies:
+  - path: current/fast_1m.yaml
+
+runtime:
+  poll_interval_s: 60
+  min_strength: 40
+
+stores:
+  signal_history:
+    path: ""
+
+consumers:
+  paper:
+    enabled: true
+    markets: [crypto]
+    notional_pct: 0.15
+    trade_cooldown_s: 180

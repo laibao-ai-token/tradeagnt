@@ -4,18 +4,35 @@
 
 ---
 
+## 0. 仓库现状（2026-05，模块化单体）
+
+本仓库 **`tradeagnt` / tradecat v0.8** 已从多微服务目录收敛为 **单一 Python 包**：
+
+| 现状 | 说明 |
+|:---|:---|
+| **主代码** | `src/tradecat/`（`cli` / `core` / `tui` / `common`） |
+| **入口** | `tradecat` CLI（`pyproject.toml` → `tradecat.cli.main`） |
+| **无 `services/`** | 旧路径 `services/*`、`services-preview/*` **已不在本仓**；勿再引用 |
+| **策略** | `config/strategies/`（含 `current/`、`us_fast_5m.yaml`） |
+| **任务跟踪** | **Linear（MCP）** 为 SSOT；本地 `.issues/` 仅草稿 |
+
+新市场接入：`docs/market-integration/README.md`。  
+Pipeline 固化（单一运行上下文）：`docs/pipeline/README.md`，剖面配置 `config/pipeline/*.yaml`。
+
+---
+
 ## 1. Mission & Scope（目标与边界）
 
 ### 1.1 允许的操作
 
-- 修改 `services/*/src/` 下的业务代码
-- 修改 `services-preview/*/src/` 下的业务代码
-- 修改 `config/.env.example` 全局配置模板
-- 添加/修改技术指标 (`services/trading-service/src/indicators/`)
-- 添加/修改 TUI 页面与数据适配 (`services-preview/tui-service/src/`)
-- 修改启动脚本 (`services/*/scripts/`, `scripts/`)
-- 更新文档 (`README.md`, `README_EN.md`, `AGENTS.md`)
-- 修改 `Makefile`、`pyproject.toml`
+- 修改 `src/tradecat/` 下业务代码（`cli/`、`core/`、`tui/`、`common/`）
+- 修改 `config/.env.example`、策略 YAML（`config/strategies/`）
+- 添加/修改指标（`src/tradecat/core/indicators/`）
+- 添加/修改 Provider（`src/tradecat/core/providers/`）
+- 添加/修改 TUI（`src/tradecat/tui/`）
+- 修改启动与工具脚本（`scripts/`）
+- 更新文档（`README.md`、`README_EN.md`、`AGENTS.md`、`docs/`）
+- 修改根目录 `Makefile`、`pyproject.toml`、`.cursor/` MCP 与规则
 
 ### 1.2 禁止的操作
 
@@ -46,6 +63,26 @@
 - **必须声明边界与归属**：多 Agent 并行时需明确职责边界、文件归属和最终产出，避免重复分析、重复实现，或同时修改同一文件造成相互覆盖
 - **主 Agent 负责收敛与决策**：主 Agent 负责汇总结论、整合改动、冲突裁决与最终交付，不得将关键决策完全下放给子 Agent
 
+### 1.5 终端命令与上下文保护（Token 节约）
+
+执行任何可能产生大量文本输出的系统命令前（如全量 `pytest -v`、`git diff` 无范围、大规模 `find`/`rg`、回测/采集日志），先评估输出量：
+
+- 预期超过约 **20 行** 时：用 `head`/`tail`、`grep`/`rg` 过滤，或只汇报统计摘要
+- 输出体量未知时，默认：`COMMAND 2>&1 | head -c 4000`
+- 测试/构建失败：优先保留失败用例与关键栈；完整日志写入文件，对话中只给路径
+- **禁止**将完整冗长日志直接灌入上下文；需要细节时再针对性读取
+
+与 [RTK](https://github.com/rtk-ai/rtk) 配合：Shell 命令经 hook 自动压缩；内置 Read/Grep 读大文件时仍应主动限范围。
+
+### 1.6 Linear 任务跟踪（MCP + 规则驱动，必遵）
+
+- **SSOT**：需求、Bug、迭代只在 **Linear（团队 TRA）**；规范见 [`docs/linear-issue-spec.md`](docs/linear-issue-spec.md)。
+- **活跃项目**：仅 **`TradeCat v0.8`** 可新建 Issue；`tradeagent` / `Archive: 008 monolith` 已归档。
+- **标签**：必带 `area:tui|paper|us-stock|core|docs|infra` 之一 + `Feature|Bug|Improvement`。
+- **配置**：`.cursor/mcp.json` + `config/.env` 的 `LINEAR_API_KEY`；见 [`docs/linear-mcp-setup.md`](docs/linear-mcp-setup.md)。
+- **Agent 规则**：`.cursor/rules/linear-workflow.mdc`（`alwaysApply`）。
+- **本地 `.issues/`**：仅草稿；合并后标注 `superseded-by: TRA-xx`（见 [`.issues/README.md`](.issues/README.md)）。
+
 ---
 
 ## 2. Golden Path（推荐执行路径）
@@ -53,48 +90,46 @@
 ### 2.1 最短可复现场景
 
 ```bash
-# 进入项目根目录
-cd /path/to/tradecat
+cd /path/to/tradeagnt
 
-# 1) 初始化：创建各服务 .venv、安装依赖、复制配置模板
-./scripts/init.sh
+# 1) 虚拟环境与依赖（根目录单一 .venv）
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-# 2) 填写全局配置（含 DB / 代理 等）
+# 2) 配置
 cp config/.env.example config/.env && chmod 600 config/.env
-vim config/.env
 
-# 3) 启动核心服务（collector + signal + trading）
-./scripts/start.sh start
-./scripts/start.sh status
+# 3) 验证
+./scripts/verify.sh
+tradecat --help
 ```
 
-> 顶层 `./scripts/start.sh` 默认管理 collector-service / signal-service / trading-service。
-> 如需显式查看/运行 `collector-service` 切片：
-> `./scripts/start.sh start-collector [--only=crypto,fund_cn]`
-> `./scripts/start.sh status-collector [--exclude=orderbook]`
+> 可选：`./scripts/init.sh` / `./scripts/install.sh` 与历史部署脚本兼容；**新开发以 `tradecat` CLI + `src/tradecat` 为准**。
 
-### 2.2 预览版服务启动
+### 2.2 TUI 与守护进程（当前主路径）
 
 ```bash
-# signal-service（信号检测）
-cd services/signal-service && ./scripts/start.sh start
+source .venv/bin/activate
 
-# tui-service（终端信号看板，默认轻量模式：自动拉起 collector-service 的 crypto 采集，不自动拉起 signal-service）
-cd services-preview/tui-service && ./scripts/start.sh run
-cd services-preview/tui-service && ./scripts/start.sh run-news 15
-cd services-preview/tui-service && ./scripts/start.sh run-equity us_stock yfinance NVDA 60 5
-# 或在仓库根目录直接启动 TradeCat TUI：
+# TUI（三页：P1 行情 / P2 模拟盘 / P3 资讯；子页 1=加密 2=美股，仅 t 切大页）
 ./scripts/start.sh run
-# 兼容别名：
-./scripts/start.sh run-single
-# 若需要自动启动 signal-service：
-TUI_AUTO_START_SIGNAL=1 ./scripts/start.sh run
-# 若不需要自动启动 collector-service：
-TUI_AUTO_START_COLLECTOR=0 ./scripts/start.sh run
-# 默认退出 TUI 后 1 小时自动停止由 TUI 启动的 collector/signal 服务。
-# 若退出 TUI 立即停止 collector/signal：
-TUI_COLLECTOR_STOP_DELAY_SECONDS=0 TUI_SIGNAL_STOP_DELAY_SECONDS=0 ./scripts/start.sh run
+# 或
+tradecat tui
+
+# 加密 + 美股双策略 + 双市场模拟盘跟单
+TUI_SIGNAL_STRATEGY=current/fast_1m.yaml \
+TUI_SIGNAL_STRATEGY_EXTRA=us_fast_5m.yaml \
+PAPER_AUTO_MARKET=all \
+tradecat tui
+
+# 信号 / 守护 / 模拟盘 / 回测（模块化 CLI）
+tradecat signal --config config/strategies/us_fast_5m.yaml --symbol NVDA
+tradecat daemon --strategy us_fast_5m.yaml --auto-trade
+tradecat paper status
+tradecat backtest --strategy us_fast_5m.yaml --symbol NVDA --days 3
 ```
+
+> `./scripts/start.sh` 仍可用于 `run`、collector 占位、daemon；底层逐步收敛到 `tradecat` 子命令。
 
 ### 2.3 只读桥接命令
 
@@ -113,32 +148,43 @@ python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 ### 2.4 开发/修改流程
 
 ```bash
-# 1. 进入对应服务并激活虚拟环境
-cd services/trading-service && source .venv/bin/activate
+source .venv/bin/activate
 
-# 2. 修改代码...
+# 1. Linear：确认/创建 Issue（MCP 或网页）
+# 2. 修改 src/tradecat/ ...
+ruff check src/tradecat tests
+pytest tests/ -q --tb=no 2>&1 | tail -20
 
-# 3. 使用服务级 Makefile
-make lint      # 代码检查
-make format    # 代码格式化
-make test      # 运行测试
-
-# 4. 验证
-cd /path/to/tradecat
+# 3. 验证
 ./scripts/verify.sh
 
-# 5. 若涉及命令/配置/目录变更，同步更新 README.md / README_EN.md / AGENTS.md
+# 4. 文档：README / AGENTS / docs/market-integration / config/.env.example
+# 5. Linear：Issue 标 Done + 验证命令
 ```
 
 ---
 
 ## 3. Must-Run Commands（必须执行的命令清单）
 
+### 3.0 tradecat CLI（主入口）
+
+| 命令 | 说明 |
+|:---|:---|
+| `tradecat tui` | 终端看板（行情 / 模拟盘 / 资讯） |
+| `tradecat signal` | 单标的策略信号 |
+| `tradecat daemon` | 周期扫描 + 可选自动模拟盘 |
+| `tradecat paper` | 模拟盘账户与下单 |
+| `tradecat backtest` | 策略回测（YAML，`--market` 支持 `us_stock`） |
+| `tradecat fetch` / `indicator` / `analyze` | 数据拉取与指标分析 |
+| `tradecat migrate` | 数据库迁移 |
+
+安装：`pip install -e .` 后可直接调用；开发时 `PYTHONPATH=src` 亦可。
+
 ### 3.1 全局脚本
 
 | 命令 | 说明 |
 |:---|:---|
-| `./scripts/init.sh` | 初始化所有核心服务虚拟环境 |
+| `./scripts/init.sh` | 初始化环境（历史脚本；新仓优先 `pip install -e ".[dev]"`） |
 | `./scripts/init.sh <service>` | 初始化单个服务 |
 | `./scripts/init.sh --all` | 初始化全部服务（含 preview + collector-service） |
 | `./scripts/start.sh start\|stop\|status\|restart` | 核心服务管理 |
@@ -154,8 +200,9 @@ cd /path/to/tradecat
 | `python scripts/data/download_hf_data.py` | 从 HuggingFace 下载历史数据并导入 |
 | `python scripts/quality/check_i18n_keys.py` | 检查 i18n 翻译键对齐 |
 | `python scripts/data/sync_market_data_to_rds.py` | 增量同步 SQLite `market_data.db` 到 PostgreSQL（RDS/Aurora） |
-| `cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml` | 回测 M1 最小闭环（输出到 artifacts/backtest/latest；每次运行会创建 `artifacts/backtest/YYYYMMDD-HHMMSS/` 时间戳目录；单次 run 会额外产出 `stability_report.json/.md`） |
-| `./scripts/backtest.sh` | 回测 M1 最小闭环（脚本转发） |
+| `tradecat backtest --strategy config/strategies/fast_1m.yaml --symbol BTC_USDT` | **当前推荐** 模块化回测 |
+| `./scripts/backtest.sh` | **遗留** 回测脚本转发（依赖旧 signal-service 布局时可能需适配） |
+| `cd services/signal-service && python -m src.backtest ...` | **已废弃路径**（本仓无 `services/`） |
 | `./scripts/backtest.sh --run-id tune-b-strict --long-threshold 90 --short-threshold 90 --close-threshold 15` | 回测参数调优示例（阈值覆盖） |
 | `./scripts/backtest.sh --mode offline_replay --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 覆盖不足时使用离线信号回放（基于 K 线生成信号） |
 | `./scripts/backtest.sh --mode offline_rule_replay --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 使用 SQLite 129 规则离线重放（不依赖 signal_history；当 timeframe=1m 时默认规则周期自动按 1m 对齐） |
@@ -189,34 +236,17 @@ cd /path/to/tradecat
 | `make backtest` | 运行 signal-service 回测（M1） |
 | `make export-db` | 导出 TimescaleDB 数据 |
 
-### 3.3 服务级 Makefile（统一接口）
-
-每个服务都有标准化的 Makefile，支持以下 targets：
+### 3.3 根目录 Makefile
 
 ```bash
-cd services/<service-name>  # 或 services-preview/<service-name>
-
-make help        # 显示帮助
-make venv        # 创建虚拟环境
-make install     # 安装依赖
-make install-dev # 安装开发依赖
-make clean       # 清理缓存
-make reset       # 重建虚拟环境（依赖坏了用这个）
-make lock        # 导出当前依赖到 requirements.lock.txt
-
-make lint        # 代码检查 (ruff)
-make format      # 代码格式化 (ruff)
-make test        # 运行测试 (pytest)
-make test-cov    # 运行测试 + 覆盖率
-make typecheck   # 类型检查 (mypy)
-make check       # 完整检查 (lint + test)
-make syntax      # 语法验证（快速）
-
-make run         # 前台运行（调试用）
-make start       # 后台启动
-make stop        # 停止服务
-make status      # 查看状态
+make install   # ./scripts/install.sh
+make verify    # ruff + compileall（src/tradecat）
+make test      # 建议在 venv 内：pytest tests/
+make start     # ./scripts/start.sh start（遗留多进程占位）
+make backtest  # ./scripts/backtest.sh（遗留）
 ```
+
+> 旧文档中的「每服务独立 Makefile / .venv」**不再适用**；统一使用根目录 `.venv` + `pyproject.toml`。
 
 ### 3.4 数据库操作
 
@@ -243,47 +273,48 @@ sqlite3 libs/database/services/telegram-service/market_data.db
 
 ### 4.1 架构原则
 
-- **微服务独立**：每个服务有独立的 `.venv`、`requirements.txt`、`pyproject.toml`、`Makefile`
-- **配置统一**：所有配置集中在 `config/.env`，各服务共用
-- **数据流向**：`collector-service → TimescaleDB → trading-service/signal-service → SQLite/PG → tui-service`
+- **模块化单体**：单一包 `tradecat`，按层划分 `cli` / `core` / `tui`
+- **市场插件化**：`StrategyConfig.market` → `symbols` + `Provider` → 共用 `SignalEngine` / `PaperTrading`
+- **配置统一**：`config/.env` + `config/strategies/*.yaml`
+- **数据**：TimescaleDB（K 线）+ SQLite（`libs/database/services/signal-service/` 信号/冷却/模拟盘）
 
-### 4.2 服务清单（4 个活跃 + 2 个归档）
+### 4.2 模块清单（`src/tradecat/`）
 
-| 服务 | 位置 | 职责 | 入口 |
-|:---|:---|:---|:---|
-| collector-service | services/ | 统一数据采集（加密货币/股票/基金/新闻） | `src/__main__.py` |
-| trading-service | services/ | 指标计算 | `src/__main__.py` |
-| signal-service | services/ | 信号检测（129条规则） | `src/__main__.py` |
-| tui-service | services-preview/ | 终端 TUI 信号看板（预览） | `src/__main__.py` |
-| data-service（归档） | _deprecated/services/ | 历史 crypto 采集实现，仅保留参考 | `src/__main__.py` |
-| markets-service（归档） | _deprecated/services-preview/ | 历史多市场采集实现，仅保留参考 | `src/__main__.py` |
+| 模块 | 路径 | 职责 |
+|:---|:---|:---|
+| CLI | `cli/` | `tradecat` 子命令：signal、daemon、paper、backtest、tui |
+| 信号 | `core/signals/` | 策略加载、规则引擎、冷却 |
+| 指标 | `core/indicators/` | 指标注册与计算 |
+| 数据 | `core/providers/` | 行情/K 线（crypto `gate`、美股 `us_equity` 等） |
+| 符号 | `core/symbols/` | 按市场归一化标的 |
+| 模拟盘 | `core/paper_trading/` | 账户、持仓、成交、账本 |
+| 回测 | `core/backtest/` | 回测仿真 |
+| TUI | `tui/` | 终端 UI、报价轮询、自动跟单 |
 
 ### 4.3 模块边界
 
-| 服务 | 职责 | 禁止 |
+| 层 | 允许 | 禁止 |
 |:---|:---|:---|
-| collector-service | 统一数据采集（加密货币/股票/基金/新闻），存储到 TimescaleDB | 禁止计算指标 |
-| trading-service | 指标计算、写入 SQLite | 禁止直接推送消息 |
-| signal-service | 信号检测、规则引擎（独立服务） | 只读数据库，禁止 UI 依赖 |
-| tui-service | 终端 TUI 信号看板（预览） | 只读数据库，禁止写入/推送 |
+| `core/providers` | 拉行情/K 线 | 写信号库、改 UI |
+| `core/signals` | 检测信号、写 `signal_history.db` | 依赖 curses/TUI |
+| `core/paper_trading` | 模拟成交、账本 | 直连交易所实盘 |
+| `tui` | 展示、轮询、消费信号进模拟盘 | 内嵌业务规则（应调 `core`） |
 
-> **注意**：信号检测逻辑全部在 signal-service 中；tui-service 仅负责展示与交互。
-> 冷却持久化：`signal-service/src/storage/cooldown.py` 负责将冷却键写入 `libs/database/services/signal-service/cooldown.db`，SQLite 引擎启动时加载，`_set_cooldown()` 同步落盘；公共接口 `get_cooldown_storage()` 供其他模块复用。
-> 冷却持久化：`signal-service/src/storage/cooldown.py` 负责将冷却键写入 `libs/database/services/signal-service/cooldown.db`，SQLite 引擎启动时加载，`_set_cooldown()` 同步落盘；公共接口 `get_cooldown_storage()` 供其他模块复用。
+> 冷却与信号历史路径：`libs/database/services/signal-service/cooldown.db`、`signal_history.db`（只读除非任务明确要求）。
 
 ### 4.4 依赖添加规则
 
-1. 添加依赖前检查是否已存在
-2. 添加到对应服务的 `requirements.txt`
-3. 运行 `make lock` 更新 `requirements.lock.txt`
-4. 如需系统库（如 TA-Lib），在 README 中说明安装方法
-5. 禁止添加未经验证的依赖
+1. 添加依赖前检查根目录 `pyproject.toml` 是否已有
+2. 写入 `[project.dependencies]` 或 `[project.optional-dependencies.dev]`
+3. `pip install -e ".[dev]"` 验证
+4. 禁止未经验证的第三方依赖
 
 ### 4.5 兼容性要求
 
-- Python >= 3.10（CI 使用 3.12，pyproject.toml 声明 >=3.9）
-- 保持与现有数据库 schema 兼容
-- 新增指标需注册到 `indicators/__init__.py`
+- Python **>= 3.12**（`pyproject.toml` / `.python-version`）
+- 保持现有 DB schema 兼容（无明确要求不改 schema）
+- 新指标注册到 `src/tradecat/core/indicators/__init__.py`
+- 新 Provider 注册到 `src/tradecat/core/providers/registry.py`
 
 ---
 
@@ -296,9 +327,7 @@ sqlite3 libs/database/services/telegram-service/market_data.db
 - **类型注解**：关键函数添加类型注解
 - **文档字符串**：公开函数需有 docstring
 
-### 5.2 项目配置（pyproject.toml 统一标准）
-
-所有服务的 `pyproject.toml` 使用统一配置：
+### 5.2 项目配置（根目录 `pyproject.toml`）
 
 ```toml
 [project]
@@ -354,145 +383,55 @@ logger.error("错误: %s", error, exc_info=True)
 ## 6. Project Map（项目结构速览）
 
 ```
-tradecat/
-├── config/                         # 统一配置（所有服务共用）
-│   ├── .env                        # 生产配置（含密钥，不提交）
-│   ├── .env.example                # 配置模板（默认端口 5434）
-│   └── logrotate.conf              # 日志轮转
-│
-├── scripts/                        # 全局脚本
-│   ├── init.sh                     # 初始化脚本
-│   ├── install.sh                  # 一键安装
-│   ├── start.sh                    # 统一启动脚本
-│   ├── verify.sh                   # 验证脚本（ruff + py_compile + i18n）
-│   ├── check_env.sh                # 环境检查
-│   ├── tradecat_get_quotes.py      # 只读行情 JSON 命令
-│   ├── tradecat_get_signals.py     # 只读信号 JSON 命令
-│   ├── tradecat_get_news.py        # 只读新闻 JSON 命令
-│   ├── tradecat_get_backtest_summary.py # 只读回测摘要 JSON 命令
-│   ├── quality/check_i18n_keys.py  # i18n 翻译键对齐检查
-│   ├── dev/archive_symphony_workspace.sh # Symphony 工作区归档工具
-│   ├── data/download_hf_data.py    # HuggingFace 数据下载
-│   ├── analysis/signal_correlation_analysis.py # 信号相关性分析（cooldown + PG）
-│   ├── data/sync_market_data_to_rds.py  # SQLite -> PostgreSQL 增量同步
-│   ├── backtest/real_window_validation.sh # 真实窗口回测校准闭环脚本
-│   ├── backtest/backtest_issue_fill.py # 从回测产物提取 issue 回填草稿
-│   ├── data/export_timescaledb.sh  # 数据导出（默认端口 5434）
-│   ├── data/export_timescaledb_main4.sh # 导出 Main4 精简数据集（默认端口 5434）
-│   └── data/timescaledb_compression.sh  # 压缩管理（默认端口 5434）
-│
-├── services/                       # 核心微服务 (3个)
-│   ├── collector-service/          # 统一数据采集
-│   ├── trading-service/            # 指标计算（34个指标模块）
-│   └── signal-service/             # 信号检测（129条规则）
-│
-├── services-preview/               # 预览版微服务 (1个)
-│   └── tui-service/                # 终端 TUI 信号看板（预览）
-│
-├── _deprecated/                    # 已归档旧服务
-│   ├── services/data-service/
-│   └── services-preview/markets-service/
-│
-├── libs/
-│   ├── database/                   # 数据库文件
-│   │   ├── db/                     # DDL schema 定义
-│   │   ├── csv/                    # CSV 数据
-│   │   └── services/
-│   │       ├── telegram-service/
-│   │       │   └── market_data.db      # 指标数据（Telegram 展示使用）
-│   │       └── signal-service/
-│   │           ├── cooldown.db         # 冷却状态持久化（防重复推送）
-│   │           └── signal_history.db   # 信号触发历史（append-only）
-│   ├── common/                     # 共享工具库
-│   │   ├── i18n.py                 # 国际化模块
-│   │   ├── symbols.py              # 币种管理模块
-│   │   ├── proxy_manager.py        # 代理管理器
-│   │   └── utils/                  # 工具函数
-│   └── external/                   # 外部依赖/数据
-│
-├── .github/                        # 社区规范与 CI
-│   ├── workflows/                  # CI 配置
-│   │   ├── ci.yml                  # ruff + py_compile 抽样检查
-│   │   ├── pypi-ci.yml             # PyPI CI
-│   │   └── pypi-publish.yml        # PyPI 发布
-│   ├── CONTRIBUTING.md             # 贡献指南
-│   ├── CODE_OF_CONDUCT.md          # 行为准则
-│   └── SECURITY.md                 # 安全政策
-│
-├── artifacts/                      # 构建/测试产物
-│   ├── analysis/                   # 分析产物
-│   │   └── signal_correlation/     # 信号相关性分析输出
-│   ├── coverage/                   # 覆盖率数据
-│   ├── dist/                       # 构建输出
-│   └── i18n/                       # i18n 编译产物
-│
-├── cache/                          # 工具缓存
-│   ├── pytest/
-│   └── ruff/
-│
-├── docs/                           # 项目文档
-│   ├── analysis/                   # 分析文档
-│   │   └── signal_correlation.md   # 信号相关性分析说明
-│   ├── CHANGELOG.md                # 变更日志
-│   ├── COMPETITION_REPORT.md       # 比赛汇报材料
-│   ├── MARKETING_PROMO.md          # 宣传材料
-│   └── TODO.md                     # 待办清单
-│
-├── logs/                           # 顶层日志
-│   └── daemon.log
-│
-├── run/                            # 顶层进程状态
-│   └── daemon.pid
-│
-├── Makefile                        # 常用命令快捷方式
-├── pyproject.toml                  # 根级项目配置
-├── README.md                       # 项目文档（中文）
-├── README_EN.md                    # 项目文档（英文）
-├── PERFORMANCE_AUDIT_TRADING_SERVICE.md # trading-service Python 性能优化审计报告（静态审计版）
-├── TODO.md                         # trading-service 性能优化执行清单
+tradeagnt/                          # 仓库根（包名 tradecat）
+├── .cursor/
+│   ├── mcp.json                    # Linear MCP（项目级）
+│   └── rules/linear-workflow.mdc   # Agent 任务跟踪规则
+├── config/
+│   ├── .env                        # 生产配置（不提交）
+│   ├── .env.example
+│   └── strategies/                 # YAML 策略 + current/ + releases/
+├── src/tradecat/                   # ★ 主代码
+│   ├── cli/                        # tradecat 子命令
+│   ├── core/                       # 引擎：signals/indicators/providers/paper/backtest
+│   ├── tui/                        # 终端看板
+│   └── common/                     # 共享工具
+├── tests/                          # pytest（pythonpath=src）
+├── scripts/                        # init/start/verify、只读桥接、遗留 backtest.sh
+├── libs/database/                  # SQLite 数据文件（signal/cooldown/paper）
+├── docs/
+│   ├── market-integration/         # 新市场接入
+│   └── linear-mcp-setup.md         # Linear MCP 启用说明
+├── .issues/                        # 本地 Issue 草稿（SSOT=Linear）
+├── artifacts/                      # 回测/分析产物
+├── pyproject.toml                  # 包定义 + ruff/pytest
+├── Makefile
 ├── AGENTS.md                       # 本文档
-└── .python-version                 # Python 版本锁定
+└── README.md
 ```
 
-### 6.1 服务标准化结构
+> **无 `services/` 目录**：旧微服务文档若仍出现该路径，视为过期。
 
-每个服务遵循统一结构：
-
-```
-<service>/
-├── .python-version         # Python 版本 (3.12)
-├── .gitignore              # Git 忽略规则
-├── .venv/                  # 虚拟环境（不提交）
-├── Makefile                # 服务级 Make 命令
-├── pyproject.toml          # 项目配置（含 ruff/pytest/mypy）
-├── requirements.txt        # 运行依赖
-├── requirements-dev.txt    # 开发依赖
-├── requirements.lock.txt   # 锁定依赖
-├── src/                    # 源代码
-│   ├── __init__.py
-│   └── __main__.py         # 入口
-├── tests/                  # 测试
-│   ├── __init__.py
-│   └── conftest.py
-├── scripts/
-│   └── start.sh            # 启动脚本
-└── logs/                   # 日志目录
-```
-
-### 6.2 trading-service core 分层（IO/Compute/Storage）
+### 6.1 `core` 分层（逻辑边界）
 
 ```
-services/trading-service/src/core/
-├── engine.py               # 流程编排：只管调度与观测
-├── io.py                   # 数据读取与缓存装配（只读）
-├── compute.py              # 指标计算与并行调度（纯计算）
-└── storage.py              # 结果落盘与后处理（只写）
+src/tradecat/core/
+├── providers/          # 行情/K 线（按市场插件）
+├── indicators/         # 指标计算
+├── signals/            # 策略 YAML + 规则引擎
+├── paper_trading/      # 模拟盘
+├── backtest/           # 回测
+├── symbols/            # 标的归一化（crypto / us_stock）
+└── connectors/         # 交易所连接器（可选）
 ```
 
-边界约束：
-- IO 只负责读取与缓存装配，不写库、不计算指标
-- Compute 只计算，不做任何数据库读写
-- Storage 只负责落盘与后处理，不参与指标计算
+### 6.2 TUI 三页结构
+
+| 顶页 | 按键 | 子页 |
+|:---|:---|:---|
+| P1 行情 | `t` 切页；`1`/`2`/`[/]` | 加密 / 美股（`3`–`6` A股/港股/基金） |
+| P2 模拟盘 | 同上子页 | 过滤持仓/成交；`t` 仅切大页 |
+| P3 资讯 | `t` 切页 | 无数字键跳页 |
 
 ---
 
@@ -524,9 +463,10 @@ PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -c "\l"
 ### 7.3 虚拟环境问题
 
 ```bash
-# 重建虚拟环境（依赖坏了用这个）
-cd services/<service>
-make reset
+# 重建根目录虚拟环境
+rm -rf .venv
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ### 7.4 .env 权限问题
@@ -701,11 +641,19 @@ CI（`.github/workflows/ci.yml`）仅执行：
 | `HTTP_PROXY` | HTTP 代理 | `http://127.0.0.1:9910` |
 | `DEFAULT_LOCALE` | 默认语言 | `en` |
 | `SIGNAL_DATA_MAX_AGE` | 信号数据最大允许时长（秒，超限不触发） | `600` |
-| `COOLDOWN_SECONDS` | signal-service PG 全局冷却时间（秒，持久化） | `300` |
-| `SIGNAL_DATA_MAX_AGE` | 信号数据最大允许时长（秒，超限不触发） | `600` |
-| `COOLDOWN_SECONDS` | signal-service PG 全局冷却时间（秒，持久化） | `300` |
+| `COOLDOWN_SECONDS` | 全局信号冷却（秒） | `300` |
+| `LINEAR_API_KEY` | Linear MCP（API Key 方式，可选） | 见 `docs/linear-mcp-setup.md` |
 
-### 10.2 币种管理
+### 10.2 TUI / 模拟盘（`tradecat tui`）
+
+| 变量 | 说明 |
+|:---|:---|
+| `TUI_SIGNAL_STRATEGY` | 主策略 YAML（默认 `current/fast_1m.yaml`） |
+| `TUI_SIGNAL_STRATEGY_EXTRA` | 第二策略（如 `us_fast_5m.yaml`） |
+| `PAPER_AUTO_MARKET` | 跟单市场：`crypto` / `us_stock` / `all` |
+| `TUI_SIGNAL_POLLER` | `0` 关闭后台信号轮询 |
+
+### 10.3 币种管理（SYMBOLS_*）
 
 | 变量 | 说明 |
 |:---|:---|
@@ -714,7 +662,7 @@ CI（`.github/workflows/ci.yml`）仅执行：
 | `SYMBOLS_EXTRA` | 额外添加的币种 |
 | `SYMBOLS_EXCLUDE` | 强制排除的币种 |
 
-### 10.3 数据采集配置
+### 10.4 数据采集配置（遗留 env 名）
 
 | 变量 | 服务 | 说明 |
 |:---|:---|:---|
@@ -727,7 +675,7 @@ CI（`.github/workflows/ci.yml`）仅执行：
 | `KLINE_INTERVALS` | collector-service（legacy fallback） | WebSocket 订阅周期 |
 | `FUTURES_INTERVALS` | collector-service（legacy fallback） | 期货指标周期（最小 5m） |
 
-### 10.4 服务配置
+### 10.5 服务配置（遗留 env 名）
 
 | 变量 | 服务 | 说明 |
 |:---|:---|:---|
@@ -756,25 +704,30 @@ CI（`.github/workflows/ci.yml`）仅执行：
 ## 11. 快速参考卡片
 
 ```bash
-# 初始化
-./scripts/init.sh
-
-# 启动/停止
-./scripts/start.sh start|stop|status
-./scripts/start.sh start-collector --only=crypto,fund_cn
-./scripts/start.sh status-collector --exclude=orderbook
-
-# 单服务管理
-cd services/<name> && make start|stop|status
-
-# 根目录启动 TUI
-./scripts/start.sh run
-
-# 代码检查
-cd services/<name> && make lint format test
-
-# 验证
+# 环境与验证
+source .venv/bin/activate
+pip install -e ".[dev]"
 ./scripts/verify.sh
+ruff check src/tradecat tests
+pytest tests/ -q
+
+# Linear MCP：Cursor Settings → MCP → 启用 linear（见 docs/linear-mcp-setup.md）
+
+# 启动/停止（遗留脚本 + TUI）
+./scripts/start.sh start|stop|status|run
+tradecat tui
+
+# 模块化 CLI
+tradecat signal --config config/strategies/us_fast_5m.yaml --symbol NVDA
+tradecat daemon --strategy current/fast_1m.yaml --auto-trade
+tradecat paper status
+tradecat backtest --strategy us_fast_5m.yaml --symbol NVDA --days 3
+
+# TUI 双市场
+TUI_SIGNAL_STRATEGY=current/fast_1m.yaml \
+TUI_SIGNAL_STRATEGY_EXTRA=us_fast_5m.yaml \
+PAPER_AUTO_MARKET=all \
+tradecat tui
 
 # Trade Agent 只读桥接命令
 python scripts/tradecat_get_quotes.py NVDA
@@ -784,10 +737,10 @@ python scripts/tradecat_get_signals.py --symbol BTCUSDT --timeframe 1m --limit 5
 python scripts/tradecat_get_news.py --symbol BTCUSDT --limit 5 --since-minutes 120
 python3 scripts/tradecat_get_backtest_summary.py --run-id <run_id>
 
-# 回测（M1 最小闭环）
+# 回测（推荐模块化 CLI）
+tradecat backtest --strategy config/strategies/fast_1m.yaml --symbol BTC_USDT --days 7
+# 遗留脚本（可选）
 ./scripts/backtest.sh
-# 或
-cd services/signal-service && python -m src.backtest --config src/backtest/strategies/default.crypto.yaml
 # 覆盖率检查（仅检查，不执行）
 ./scripts/backtest.sh --check-only --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"
 # 覆盖不足时可切离线回放（不依赖 signal_history 覆盖）
@@ -827,6 +780,8 @@ sqlite3 libs/database/services/telegram-service/market_data.db
 
 ## 12. 变更日志
 
+- 2026-05-23: Linear 清理（项目 TradeCat v0.8 / 归档 008 & tradeagent；`area:*` 标签）；`docs/linear-issue-spec.md` 规则驱动 Issue 规范。
+- 2026-05-23: `AGENTS.md` 对齐模块化单体（`src/tradecat`）；新增 Linear MCP（`.cursor/mcp.json`、`docs/linear-mcp-setup.md`）；`verify.sh` 改为检查 `src/tradecat`。
 - 2026-01-28: 新增信号相关性分析脚本与文档，输出分析产物目录。
 - 2026-01-29: 新增宣传材料与比赛汇报材料文档。
 - 2026-01-29: Tradecat Preview API 新增 `/api/futures/base-data`（直读 SQLite 基础数据）。

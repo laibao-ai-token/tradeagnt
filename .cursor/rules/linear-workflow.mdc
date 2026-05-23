@@ -1,0 +1,37 @@
+---
+description: Linear 规则驱动任务跟踪（TradeCat TRA / v0.8）
+alwaysApply: true
+---
+
+# Linear 任务跟踪（规则驱动）
+
+完整规范：**`docs/linear-issue-spec.md`**（创建 Issue 前必读）。
+
+## SSOT
+
+- 需求 / Bug / 迭代 **只在 Linear**；`.issues/` 仅草稿。
+- **新 Issue 只允许项目：`TradeCat v0.8`**
+- 历史项目 `tradeagent`、`Archive: 008 monolith` **勿新增**
+
+## 创建 Issue 必填
+
+1. **Project**：`TradeCat v0.8`
+2. **Labels**：1× `area:*`（tui / paper / us-stock / core / docs / infra）+ 1× `Feature|Bug|Improvement`
+3. **标题**：`<模块>: <动词> <对象>`（例 `tui: P2 模拟盘子页隔离`）
+4. **描述**：含「背景 / 验收标准 / 影响路径 / 验证命令」四段（见规范模板）
+
+## Agent 工作流
+
+1. **开工**：搜索 Linear 是否已有 TRA-xx；无则按规范创建。
+2. **开发**：分支或 commit 引用 `TRA-xx`；改 `src/tradecat/` 为主。
+3. **完工**：状态 → Done；评论写验证命令（`pytest` / `tradecat ...`），勿贴密钥。
+
+## 并行度
+
+- **In Progress** 建议同时 ≤2 条，避免东一茬西一茬。
+- 大 Epic 拆多个 Issue，禁止一个单子包 TUI+美股+文档。
+
+## MCP
+
+- 配置：`.cursor/mcp.json` + `config/.env` 的 `LINEAR_API_KEY`
+- 启用：Cursor Settings → MCP → linear
