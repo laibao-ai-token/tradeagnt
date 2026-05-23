@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 
@@ -27,8 +27,8 @@ def _connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def parse_ts(ts: str) -> datetime:
-    """Parse ISO-ish timestamp to naive datetime for display."""
+def parse_ts(ts: str, *, assume_utc: bool = False) -> datetime:
+    """Parse ISO-ish timestamp to naive **local** datetime for display."""
     if not ts:
         return datetime.min
     s = ts.strip()
@@ -38,14 +38,19 @@ def parse_ts(ts: str) -> datetime:
 
     try:
         dt = datetime.fromisoformat(s)
-        # Keep downstream code simple: always return naive datetime.
+        # Keep downstream code simple: always return naive local wall-clock.
         if dt.tzinfo is not None:
             return dt.astimezone().replace(tzinfo=None)
+        if assume_utc:
+            return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
         return dt
     except ValueError:
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
             try:
-                return datetime.strptime(s, fmt)
+                dt = datetime.strptime(s, fmt)
+                if assume_utc:
+                    return dt.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+                return dt
             except ValueError:
                 continue
     return datetime.min

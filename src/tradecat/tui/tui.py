@@ -73,7 +73,16 @@ from .news_health import (
 )
 from .fund_bridge import DirectFundBridge, seed_curve_from_daily_candles
 from .quote import Quote, fetch_daily_curve_1d, fetch_intraday_curve_1m, fetch_quote
-from ._helpers import _MARKET_TABS, _MARKET_TAB_LABELS, _PAGE_NEWS_VIEW
+from ._helpers import (
+    _MARKET_TABS,
+    _MARKET_TAB_LABELS,
+    _MARKET_TABS_P1_PRIMARY,
+    _PAGE_NEWS_VIEW,
+    _cycle_p1_market_tab,
+    _fmt_time,
+    _signal_row_age_seconds,
+    _split_signal_rows_by_age,
+)
 from .watchlists import (
 
     Watchlists,
@@ -668,12 +677,6 @@ def _init_colors() -> dict[str, int]:
     curses.init_pair(4, curses.COLOR_CYAN, -1)    # source
     return {"BUY": 1, "SELL": 2, "ALERT": 3, "SRC": 4}
 
-def _fmt_time(ts: str) -> str:
-    dt = parse_ts(ts)
-    if dt == datetime.min:
-        return "--:--:--"
-    return dt.strftime("%H:%M:%S")
-
 def _fmt_date(ts: str) -> str:
     dt = parse_ts(ts)
     if dt == datetime.min:
@@ -705,20 +708,10 @@ def _fmt_quote_ts_date8(ts: str) -> str:
     return s[:8]
 
 def _crypto_signal_symbol_to_pair(symbol: str) -> str:
-    """
-    Convert signal symbol format (e.g. BTCUSDT) to quote pair format (e.g. BTC_USDT).
-    This enables "signals <-> quotes" alignment in the TUI.
-    """
-    s = (symbol or "").strip().upper()
-    if not s:
-        return ""
-    s = s.replace("/", "").replace("-", "").replace("_", "")
-    # Common quotes
-    for quote in ("USDT", "USDC", "USD", "BTC", "ETH"):
-        if s.endswith(quote) and len(s) > len(quote):
-            base = s[: -len(quote)]
-            return f"{base}_{quote}"
-    return s
+    """Convert signal symbol (e.g. BTCUSDT) to quote pair format (BTC_USDT)."""
+    from tradecat.core.symbols.crypto import normalize_crypto_pair
+
+    return normalize_crypto_pair(symbol)
 
 def _build_latest_signal_map(rows: list[SignalRow]) -> dict[str, SignalRow]:
     """
@@ -728,7 +721,7 @@ def _build_latest_signal_map(rows: list[SignalRow]) -> dict[str, SignalRow]:
     out: dict[str, SignalRow] = {}
     for r in rows:
         pair = _crypto_signal_symbol_to_pair(r.symbol)
-        if not pair or "/" not in pair:
+        if not pair:
             continue
         if pair not in out:
             out[pair] = r
@@ -897,12 +890,6 @@ def _window_signal_stats(
         return stats, None, None
     return stats, min(parsed_ages), max(parsed_ages)
 
-def _signal_row_age_seconds(row: SignalRow, now_dt: datetime) -> int | None:
-    ts_dt = parse_ts(row.timestamp)
-    if ts_dt == datetime.min:
-        return None
-    return max(0, int((now_dt - ts_dt).total_seconds()))
-
 def _count_recent_signal_rows(rows: list[SignalRow], now_dt: datetime, *, max_age_s: int) -> int:
     limit_s = max(0, int(max_age_s))
     count = 0
@@ -911,27 +898,6 @@ def _count_recent_signal_rows(rows: list[SignalRow], now_dt: datetime, *, max_ag
         if age_s is not None and age_s <= limit_s:
             count += 1
     return count
-
-def _split_signal_rows_by_age(
-    rows: list[SignalRow],
-    now_dt: datetime,
-) -> tuple[list[tuple[SignalRow, int]], list[tuple[SignalRow, int]], list[tuple[SignalRow, int]]]:
-    realtime_rows: list[tuple[SignalRow, int]] = []
-    h1_rows: list[tuple[SignalRow, int]] = []
-    h12_rows: list[tuple[SignalRow, int]] = []
-
-    for row in rows:
-        age_s = _signal_row_age_seconds(row, now_dt)
-        if age_s is None:
-            continue
-        if age_s <= 5 * 60:
-            realtime_rows.append((row, age_s))
-        elif age_s <= 60 * 60:
-            h1_rows.append((row, age_s))
-        elif age_s <= 12 * 60 * 60:
-            h12_rows.append((row, age_s))
-
-    return realtime_rows, h1_rows, h12_rows
 
 def _latest_signal_row(rows: list[SignalRow], now_dt: datetime) -> tuple[SignalRow, int] | None:
     latest: tuple[SignalRow, int] | None = None
@@ -1403,13 +1369,26 @@ def _main(
     # 后台规则扫描 → signal_history.db；自动消费者：信号→模拟盘
     from tradecat.core.paper_trading.paths import resolve_paper_db_path
     from tradecat.tui.auto_consumer import start_auto_consumer
-    from tradecat.tui.signal_poller import start_signal_poller
+    from tradecat.tui.signal_poller import start_signal_pollers
 
     paper_db_path = resolve_paper_db_path(db_path)
-    poll_symbols = list(normalize_crypto_symbols(micro_cfg.symbol or ""))
+    strategy_env = os.environ.get("TUI_SIGNAL_STRATEGY", "current/fast_1m.yaml").strip() or "current/fast_1m.yaml"
+    poll_symbols: list[str] = []
+    try:
+        from tradecat.core.signals import StrategyLoader
+        from tradecat.core.symbols import normalize_market, normalize_symbols_for_strategy
+
+        _strat = StrategyLoader.load(strategy_env)
+        poll_symbols = normalize_symbols_for_strategy(list(_strat.symbols), normalize_market(_strat.market))
+    except Exception:
+        poll_symbols = []
+    if not poll_symbols:
+        poll_symbols = list(normalize_crypto_symbols(",".join(quote_cfgs.crypto.symbols or [])))
+    if not poll_symbols:
+        poll_symbols = list(normalize_crypto_symbols(micro_cfg.symbol or ""))
     if not poll_symbols:
         poll_symbols = ["BTC_USDT", "ETH_USDT"]
-    start_signal_poller(db_path, poll_symbols)
+    start_signal_pollers(db_path, poll_symbols, strategy=strategy_env)
     start_auto_consumer(db_path, paper_db_path, refresh_s)
 
     last_id = 0
@@ -1439,6 +1418,49 @@ def _main(
 
     top_page = 1
     market_tab = 0
+    paper_tab = 0  # 与 market_tab 主战场同步：0=加密 1=美股（P1 行情 / P2 模拟盘共用）
+
+    def _sync_paper_tab_from_market() -> None:
+        nonlocal paper_tab
+        paper_tab = 1 if market_tab == 1 else 0
+
+    def _set_p1_market_tab(tab_index: int) -> None:
+        """P1 专用：切换行情子市场，不离开 P1。"""
+        nonlocal market_tab, paper_tab, view
+        if top_page != 1:
+            return
+        market_tab = tab_index
+        if tab_index in _MARKET_TABS_P1_PRIMARY:
+            _sync_paper_tab_from_market()
+        view = _MARKET_TABS[market_tab]
+        _remember_primary_view(view)
+
+    def _set_p2_sub_tab(idx: int) -> None:
+        """P2 专用：1/2 切换加密/美股模拟视图，不离开 P2。"""
+        nonlocal market_tab, paper_tab, view
+        if top_page != 2:
+            return
+        market_tab = _MARKET_TABS_P1_PRIMARY[idx]
+        paper_tab = idx
+        view = "paper_trading"
+
+    def _cycle_p1_primary_sub(delta: int) -> None:
+        if top_page != 1:
+            return
+        nonlocal market_tab, paper_tab, view
+        market_tab = _cycle_p1_market_tab(market_tab, delta)
+        _sync_paper_tab_from_market()
+        view = _MARKET_TABS[market_tab]
+        _remember_primary_view(view)
+
+    def _cycle_p2_sub(delta: int) -> None:
+        if top_page != 2:
+            return
+        nonlocal market_tab, paper_tab, view
+        market_tab = _cycle_p1_market_tab(market_tab, delta)
+        _sync_paper_tab_from_market()
+        view = "paper_trading"
+
     qscroll: dict[str, int] = {
         "quotes_us": 0,
         "quotes_hk": 0,
@@ -2299,12 +2321,12 @@ def _main(
             if frame_due and (dirty.any() or idle_due):
                 if header_only_due and not idle_due:
                     _, w = stdscr.getmaxyx()
-                    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
+                    _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab, paper_tab)
                     stdscr.noutrefresh()
                     curses.doupdate()
                 else:
                     news_snapshot: NewsFeedSnapshot | None = None
-                    if view == "market_news":
+                    if top_page == 3:
                         if news_poller is not None:
                             news_snapshot = news_poller.snapshot()
                         else:
@@ -2357,6 +2379,7 @@ def _main(
                         top_page,
                         market_tab,
                         paper_db_path,
+                        paper_tab,
                     )
                 render_state.last_draw_at = now
                 next_frame_at = now + _RENDER_FRAME_INTERVAL_S
@@ -2374,24 +2397,26 @@ def _main(
                 filt.paused = not filt.paused
                 _sync_background_activity(force=True)
             elif key == ord("\t"):
-                if view == "market_news":
+                if top_page == 3:
                     focus_order = ("middle", "right")
                     try:
                         idx = focus_order.index(news_state.focus)
                     except ValueError:
                         idx = 0
                     news_state.focus = focus_order[(idx + 1) % len(focus_order)]
-                elif _is_master_view(view) and _master_has_signal_panel(view):
-                    pane = master_panes[view]
-                    pane.focus = "right" if pane.focus == "left" else "left"
-                else:
-                    view = _next_view(view)
-                    _remember_primary_view(view)
+                elif top_page == 1:
+                    if _is_master_view(view) and _master_has_signal_panel(view):
+                        pane = master_panes[view]
+                        pane.focus = "right" if pane.focus == "left" else "left"
+                    else:
+                        view = _next_view(view)
+                        _remember_primary_view(view)
             elif key == ord("t"):
-                # Only cycle top-level pages: 行情(1) → 模拟盘(2) → 资讯(3)
+                # 顶栏三页：行情(P1) → 模拟盘(P2) → 资讯(P3)
                 if top_page == 1:
                     top_page = 2
                     view = "paper_trading"
+                    _sync_paper_tab_from_market()
                 elif top_page == 2:
                     top_page = 3
                     view = _PAGE_NEWS_VIEW
@@ -2402,59 +2427,43 @@ def _main(
                     view = _MARKET_TABS[market_tab]
                     _remember_primary_view(view)
             elif key == ord("1"):
-                top_page = 1
-                market_tab = 1  # 美股
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
+                if top_page == 1:
+                    _set_p1_market_tab(_MARKET_TABS_P1_PRIMARY[0])
+                elif top_page == 2:
+                    _set_p2_sub_tab(0)
             elif key == ord("2"):
-                top_page = 1
-                market_tab = 2  # A股
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
-            elif key == ord("3"):
-                top_page = 1
-                market_tab = 0  # 加密
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
-            elif key == ord("4"):
-                top_page = 1
-                market_tab = 3  # 港股
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
+                if top_page == 1:
+                    _set_p1_market_tab(_MARKET_TABS_P1_PRIMARY[1])
+                elif top_page == 2:
+                    _set_p2_sub_tab(1)
+            elif key == ord("3") and top_page == 1:
+                _set_p1_market_tab(2)  # A股
+            elif key == ord("4") and top_page == 1:
+                _set_p1_market_tab(3)  # 港股
             elif key == ord("b"):
                 if top_page == 2:
                     if view == "market_backtest":
                         view = "paper_trading"
                     else:
                         view = "market_backtest"
-            elif key == ord("5"):
-                top_page = 1
-                market_tab = 4  # 基金
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
-            elif key == ord("6"):
-                top_page = 1
-                market_tab = 3  # 港股
-                view = _MARKET_TABS[market_tab]
-                _remember_primary_view(view)
-            elif key == ord("7"):
-                top_page = 1
-                view = "market_news"
-                _remember_primary_view(view)
+            elif key == ord("5") and top_page == 1:
+                _set_p1_market_tab(4)  # 基金
+            elif key == ord("6") and top_page == 1:
+                _set_p1_market_tab(3)  # 港股
             elif key == ord("["):
                 if top_page == 1:
-                    market_tab = (market_tab - 1) % len(_MARKET_TABS)
-                    view = _MARKET_TABS[market_tab]
-                    _remember_primary_view(view)
+                    _cycle_p1_primary_sub(-1)
+                elif top_page == 2:
+                    _cycle_p2_sub(-1)
                 elif view == "market_micro":
                     _switch_micro_symbol(-1)
                 elif view in {"market_us", "market_cn", "market_hk", "market_fund_cn"}:
                     _cycle_master_symbol(view, -1)
             elif key == ord("]"):
                 if top_page == 1:
-                    market_tab = (market_tab + 1) % len(_MARKET_TABS)
-                    view = _MARKET_TABS[market_tab]
-                    _remember_primary_view(view)
+                    _cycle_p1_primary_sub(1)
+                elif top_page == 2:
+                    _cycle_p2_sub(1)
                 elif view == "market_micro":
                     _switch_micro_symbol(1)
                 elif view in {"market_us", "market_cn", "market_hk", "market_fund_cn"}:
@@ -2489,12 +2498,12 @@ def _main(
                             pane.selected = 0
                             pane.left_scroll = 0
                         master_switches["market_fund_cn"].bump(now, _SWITCH_DEBOUNCE_S)
-            elif key == ord("0"):
-                # Keep a stable home key, now pointing to micro page by default.
+            elif key == ord("0") and top_page == 1:
+                _set_p1_market_tab(0)
                 view = "market_micro"
                 _remember_primary_view(view)
             elif key == curses.KEY_UP:
-                if view == "market_news":
+                if top_page == 3:
                     _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, news_state.news_selected - 1)
                     news_state.news_selected = min(news_state.news_selected, max(0, item_count - 1))
@@ -2516,7 +2525,7 @@ def _main(
                 else:
                     scroll = max(0, scroll - 1)
             elif key == curses.KEY_DOWN:
-                if view == "market_news":
+                if top_page == 3:
                     _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = min(max(0, item_count - 1), news_state.news_selected + 1)
                 elif _is_master_view(view):
@@ -2537,7 +2546,7 @@ def _main(
                 else:
                     scroll = min(max(0, len(rows) - 1), scroll + 1)
             elif key == curses.KEY_PPAGE:  # PageUp
-                if view == "market_news":
+                if top_page == 3:
                     _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, news_state.news_selected - 10)
                     news_state.news_selected = min(news_state.news_selected, max(0, item_count - 1))
@@ -2556,7 +2565,7 @@ def _main(
                 else:
                     scroll = max(0, scroll - 10)
             elif key == curses.KEY_NPAGE:  # PageDown
-                if view == "market_news":
+                if top_page == 3:
                     _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = min(max(0, item_count - 1), news_state.news_selected + 10)
                 elif _is_master_view(view):
@@ -2574,7 +2583,7 @@ def _main(
                 else:
                     scroll = min(max(0, len(rows) - 1), scroll + 10)
             elif key == ord("g"):
-                if view == "market_news":
+                if top_page == 3:
                     news_state.news_selected = 0
                     news_state.news_scroll = 0
                 elif _is_master_view(view):
@@ -2593,7 +2602,7 @@ def _main(
                 else:
                     scroll = 0
             elif key == ord("G"):
-                if view == "market_news":
+                if top_page == 3:
                     _, item_count = _news_counts(news_state=news_state, news_poller=news_poller, now_ts=now)
                     news_state.news_selected = max(0, item_count - 1)
                 elif _is_master_view(view):
@@ -2613,23 +2622,23 @@ def _main(
             elif key in (10, 13, curses.KEY_ENTER):
                 pass
             elif key == ord("/"):
-                if view == "market_news":
+                if top_page == 3:
                     raw = _prompt("News search keyword: ", max_len=80)
                     news_state.search_query = (raw or "").strip()
                     news_state.news_selected = 0
                     news_state.news_scroll = 0
             elif key in (ord("f"), ord("F")):
-                if view == "market_news":
+                if top_page == 3:
                     news_state.category_idx = (news_state.category_idx + 1) % len(_NEWS_CATEGORIES)
                     news_state.news_selected = 0
                     news_state.news_scroll = 0
             elif key in (ord("w"), ord("W")):
-                if view == "market_news":
+                if top_page == 3:
                     news_state.window_idx = (news_state.window_idx + 1) % len(_NEWS_WINDOWS_H)
                     news_state.news_selected = 0
                     news_state.news_scroll = 0
             elif key in (ord("c"), ord("C")):
-                if view == "market_news":
+                if top_page == 3:
                     news_state.search_query = ""
                     news_state.source_idx = 0
                     news_state.news_selected = 0
@@ -2639,7 +2648,7 @@ def _main(
                 scroll = 0
                 last_refresh = 0.0
             elif key in (ord("s"), ord("S")):
-                if view == "market_news":
+                if top_page == 3:
                     source_options = _news_source_options(news_poller=news_poller)
                     if source_options:
                         news_state.source_idx = (news_state.source_idx + 1) % len(source_options)

@@ -37,6 +37,7 @@ from tradecat.tui.fund_symbols import (
     normalize_cn_fund_symbol as _normalize_cn_fund_symbol_shared,
 )
 from tradecat.tui.db import SignalRow, fetch_recent, parse_ts, probe
+from tradecat.tui.pages.paper import draw_paper_trading_page as _draw_paper_trading_page
 from tradecat.tui.watchlists import (
     Watchlists,
     normalize_cn_fund_symbols,
@@ -130,7 +131,10 @@ from tradecat.tui._helpers import (
     _MARKET_MICRO_LEFT_BASE_MIN_WIDTH, _MARKET_MICRO_LEFT_FLOOR_MIN_WIDTH,
     _MARKET_MICRO_LEFT_MIN_RATIO, _MARKET_MICRO_LEFT_RATIO,
     _MARKET_MICRO_RIGHT_MIN_WIDTH,
-    _MARKET_TABS, _MARKET_TAB_LABELS, _PAGE_NEWS_VIEW,
+    _MARKET_TABS,
+    _MARKET_TAB_LABELS,
+    _MARKET_TAB_LABELS_P1_PRIMARY,
+    _PAGE_NEWS_VIEW,
 )
 # Lazy imports to avoid circular dependency
 _draw_market_backtest = None
@@ -346,152 +350,6 @@ def _draw_view_panel(
         _draw_signals(win, db_path, rows, filt, scroll, colors, refresh_s, last_id, w, h, quote_state_crypto)
 
 
-def _draw_paper_trading_page(
-    stdscr,
-    h: int,
-    w: int,
-    colors: dict[str, int],
-    *,
-    paper_db_path: str,
-) -> None:
-    """P2 模拟盘页面：三栏终端风 — 账户概览 | 持仓明细 | 最近订单"""
-    try:
-        from tradecat.core.paper_trading.engine import PaperTradingEngine
-        from tradecat.core.paper_trading.repository import SqliteRepository
-
-        repo = SqliteRepository(db_path=paper_db_path)
-        engine = PaperTradingEngine(repo)
-        accounts = engine.list_accounts()
-    except Exception:
-        accounts = []
-
-    if not accounts:
-        try:
-            from decimal import Decimal
-            default_acct = engine.create_account(name="default", balance=Decimal("10000"), leverage=Decimal("1"))
-            accounts = [default_acct]
-            try:
-                status = engine.status(default_acct.account_id)
-            except Exception:
-                status = {}
-            balance = status.get("account", default_acct).balance if status.get("account") else default_acct.balance
-            equity = status.get("total_equity", balance)
-            positions = status.get("positions", [])
-            orders = status.get("recent_orders", [])
-            drawdown = status.get("drawdown_pct", 0)
-        except Exception:
-            pass
-
-    if not accounts:
-        # 清除残留字符
-        for row in range(2, min(h - 1, 12)):
-            _safe_addstr(stdscr, row, 0, " " * max(0, w))
-        _safe_addstr(stdscr, 3, 2, "暂无模拟盘账户", curses.A_BOLD)
-        _safe_addstr(stdscr, 5, 2, "使用 tradecat paper create <名称> 创建账户")
-        return
-
-    acct = accounts[0]
-    try:
-        status = engine.status(acct.account_id)
-    except Exception:
-        status = {}
-
-    balance = status.get("account", acct).balance if status.get("account") else acct.balance
-    equity = status.get("total_equity", balance)
-    positions = status.get("positions", [])
-    orders = status.get("recent_orders", [])
-    drawdown = status.get("drawdown_pct", 0)
-    try:
-        drawdown = float(drawdown or 0)
-    except (TypeError, ValueError):
-        drawdown = 0
-
-    # Header（顶部横跨，反色）
-    hdr = f" 账户: {acct.name}  |  余额: {balance}  |  权益: {equity}  |  杠杆: {acct.leverage}x  |  回撤: {drawdown}% "
-    _safe_addstr(stdscr, 2, 2, _truncate(hdr, w - 4), curses.A_BOLD | curses.A_REVERSE)
-
-    # 三栏宽度
-    c1w = max(18, w // 3)
-    c2w = max(28, w * 2 // 5)
-    c3w = max(16, w - c1w - c2w)
-    top = 4
-    body_h = h - top - 1
-
-    # ── 左栏 · 账户概览 ──
-    _safe_addstr(stdscr, top, 1, _truncate(" 账户概览 ", c1w - 2), curses.A_REVERSE)
-    items = [
-        f"余额:   {balance}",
-        f"权益:   {equity}",
-        f"杠杆:   {acct.leverage}x",
-        f"回撤:   {drawdown:.2f}%",
-        f"持仓数: {len(positions)}",
-        f"订单数: {len(orders)}",
-    ]
-    row = top + 2
-    for item in items:
-        if row >= h - 1:
-            break
-        _safe_addstr(stdscr, row, 3, _truncate(item, c1w - 5))
-        row += 1
-
-    # ── 中栏 · 持仓明细 ──
-    cx = c1w + 1
-    _safe_addstr(stdscr, top, cx + 1, _truncate(" 持仓明细 ", c2w - 2), curses.A_REVERSE)
-    row = top + 2
-    if positions:
-        # 表头
-        hdr2 = f"{'方向':5s} {'标的':10s} {'数量':>8s} {'开仓价':>10s} {'盈亏':>10s}"
-        _safe_addstr(stdscr, row, cx + 1, _truncate(hdr2, c2w - 2))
-        row += 1
-        for pos in positions[:body_h - 3]:
-            if row >= h - 1:
-                break
-            side = pos.side.value if hasattr(pos.side, 'value') else str(pos.side)
-            sym = pos.symbol
-            qty = str(pos.qty)
-            entry = str(pos.entry_price)
-            pnl_raw = getattr(pos, 'unrealized_pnl', 0)
-            try:
-                pnl = float(pnl_raw or 0)
-            except (TypeError, ValueError):
-                pnl = 0
-            pnl_str = f"+{pnl:.2f}" if pnl >= 0 else f"{pnl:.2f}"
-            line = f"{side:5s} {sym:10s} {qty:>8s} {entry:>10s} {pnl_str:>10s}"
-            attr = curses.color_pair(colors.get("BUY", 0)) if pnl >= 0 else curses.color_pair(colors.get("SELL", 0))
-            _safe_addstr(stdscr, row, cx + 1, _truncate(line, c2w - 2), attr)
-            row += 1
-    else:
-        _safe_addstr(stdscr, row, cx + 3, "无持仓")
-
-    # ── 右栏 · 最近订单 ──
-    rx = c1w + c2w + 2
-    _safe_addstr(stdscr, top, rx + 1, _truncate(" 最近订单 ", c3w - 2), curses.A_REVERSE)
-    row = top + 2
-    if orders:
-        for order in orders[:body_h - 2]:
-            if row >= h - 1:
-                break
-            side = order.side.value if hasattr(order.side, 'value') else str(order.side)
-            sym = order.symbol
-            qty = str(order.qty)
-            price = str(order.entry_price)
-            st = order.status.value if hasattr(order.status, 'value') else str(order.status)
-            line = f"{side} {sym} {qty} @ {price} [{st}]"
-            _safe_addstr(stdscr, row, rx + 1, _truncate(line, c3w - 2))
-            row += 1
-    else:
-        _safe_addstr(stdscr, row, rx + 3, "无订单")
-
-    # 分隔线（仅在足够宽时显示）
-    if w >= 80:
-        for vy in range(top, h - 1):
-            _safe_addstr(stdscr, vy, c1w, "|")
-            _safe_addstr(stdscr, vy, c1w + c2w + 1, "|")
-    elif w >= 55:
-        for vy in range(top, h - 1):
-            _safe_addstr(stdscr, vy, c1w, "|")
-
-
 def _draw(
     stdscr,
     db_path: str,
@@ -532,30 +390,49 @@ def _draw(
     top_page: int = 1,
     market_tab: int = 0,
     paper_db_path: str = "",
+    paper_tab: int = 0,
 ) -> None:
     # --- P2 模拟盘页面 ---
     if top_page == 2:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
-        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
+        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab, paper_tab)
         if view == "market_backtest":
             _lazy_imports()
             _draw_market_backtest(stdscr, colors, w, h)
         else:
             from tradecat.core.paper_trading.paths import resolve_paper_db_path
+            from tradecat.tui.pages.paper import _marks_for_paper_view
 
+            paper_market = "us_stock" if paper_tab == 1 else "crypto"
+            marks = _marks_for_paper_view(
+                paper_market,
+                quote_state_crypto.entries,
+                quote_state_us.entries,
+            )
             _draw_paper_trading_page(
                 stdscr,
                 h,
                 w,
                 colors,
                 paper_db_path=paper_db_path or resolve_paper_db_path(db_path),
+                mark_prices=marks,
+                paper_market=paper_market,
             )
-            _safe_addstr(stdscr, h - 1, 0, _truncate("按键: q退出 | t切换页面 | b回测 | r刷新", w))
+            sub = "美股" if paper_tab == 1 else "加密"
+            _safe_addstr(
+                stdscr,
+                h - 1,
+                0,
+                _truncate(
+                    f"按键: q退出 | t切页(仅t换大页) | 1加密 2美股 [/]切子页 | 当前={sub}模拟 | 持仓+成交",
+                    w,
+                ),
+            )
     else:
         stdscr.erase()
         h, w = stdscr.getmaxyx()
-        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab)
+        _draw_header(stdscr, colors, filt, refresh_s, view, service_status, w, top_page, market_tab, paper_tab)
         _draw_view_panel(
             stdscr,
             db_path,
@@ -607,6 +484,7 @@ def _draw_header(
     width: int,
     top_page: int = 1,
     market_tab: int = 0,
+    paper_tab: int = 0,
 ) -> None:
     now = datetime.now().strftime("%y-%m-%d %H:%M:%S")
     status = "已暂停" if filt.paused else f"刷新={refresh_s:.1f}s"
@@ -615,20 +493,34 @@ def _draw_header(
     stdscr.move(0, 0)
     stdscr.clrtoeol()
     _safe_addstr(stdscr, 0, 0, header, curses.color_pair(colors.get("ALERT", 0)) | curses.A_BOLD)
-    # --- 三页 tab 栏（只在 P1 行情页显示）---
+    pages = [("行情", 1), ("模拟盘", 2), ("资讯", 3)]
+    tab_parts = []
+    for label, tp in pages:
+        if tp == top_page:
+            tab_parts.append(f"= {label} =")
+        else:
+            tab_parts.append(f"  {label}  ")
     if top_page == 1:
-        pages = [("行情", 1), ("模拟盘", 2), ("资讯", 3)]
-        tab_parts = []
-        for label, tp in pages:
-            if tp == top_page:
-                tab_parts.append(f"= {label} =")
-            else:
-                tab_parts.append(f"  {label}  ")
-        sub_tabs = _MARKET_TAB_LABELS
         sub_line = " ".join(
-            f">{lbl}<" if i == market_tab else f" {lbl} " for i, lbl in enumerate(sub_tabs)
+            f">{lbl}<" if i == market_tab else f" {lbl} "
+            for i, lbl in zip((0, 1), _MARKET_TAB_LABELS_P1_PRIMARY, strict=False)
         )
         tab_line = " ".join(tab_parts) + "  |  " + sub_line
+        stdscr.move(1, 0)
+        stdscr.clrtoeol()
+        _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
+    elif top_page == 2:
+        # 与 P1 相同子标签：加密 | 美股（1/2 在行情与模拟盘间共用）
+        sub_line = " ".join(
+            f">{lbl}<" if i == paper_tab else f" {lbl} "
+            for i, lbl in zip((0, 1), _MARKET_TAB_LABELS_P1_PRIMARY, strict=False)
+        )
+        tab_line = " ".join(tab_parts) + "  |  " + sub_line
+        stdscr.move(1, 0)
+        stdscr.clrtoeol()
+        _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
+    elif top_page == 3:
+        tab_line = " ".join(tab_parts)
         stdscr.move(1, 0)
         stdscr.clrtoeol()
         _safe_addstr(stdscr, 1, 0, _truncate(tab_line, width), curses.A_BOLD)
@@ -1603,7 +1495,7 @@ def _draw_market_quad(
     h: int,
     refresh_s: float,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | [/]切换 | +/-加减自选 | r刷新"
+    key_hint = "按键: q退出 | t切页 | 1加密 2美股 3A股 4港股 5基金 6港股 | [/]切市场 | +/-自选 | r刷新"
 
     symbols = [s.strip().upper() for s in (quote_cfg.symbols or []) if (s or "").strip()]
     if not (quote_cfg.enabled and symbols):
@@ -1897,7 +1789,7 @@ def _draw_market_fund_two_panel(
     refresh_s: float,
     runtime_state: RuntimeState,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新"
+    key_hint = "按键: q退出 | t切页 | 1加密 2美股 3A股 4港股 5基金 | [/]切标的 | ,.领域 | +/-自选 | r刷新"
     fund_domain = runtime_state.fund_domain
 
     # 获取当前选中领域
@@ -2229,7 +2121,7 @@ def _draw_market_micro(
     w: int,
     h: int,
 ) -> None:
-    key_hint = "按键: q退出 | 1行情 2模拟盘 3资讯 | ←→切标签 | r刷新"
+    key_hint = "按键: q退出 | t切页 | 1加密 2美股 3A股 4港股 5基金 | r刷新"
     _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
 
     symbols = [s.strip().upper() for s in (micro_symbols or []) if (s or "").strip()]

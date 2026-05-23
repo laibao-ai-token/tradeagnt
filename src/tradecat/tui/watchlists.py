@@ -101,9 +101,6 @@ def normalize_cn_fund_symbols(raw: str) -> list[str]:
     return normalize_cn_fund_symbols_csv(raw)
 
 
-_CRYPTO_PAIR_RE = re.compile(r"^[A-Z0-9]{2,12}_[A-Z0-9]{2,12}$")
-
-
 def normalize_crypto_symbols(raw: str) -> list[str]:
     """
     Normalize crypto pairs for the default spot provider (Gate).
@@ -114,25 +111,13 @@ def normalize_crypto_symbols(raw: str) -> list[str]:
       - BTC-USDT -> BTC_USDT
       - eth_usdt -> ETH_USDT
     """
+    from tradecat.core.symbols.crypto import normalize_crypto_pair
+
     out: list[str] = []
     for token in (raw or "").replace(" ", "").split(","):
-        t = token.strip().upper()
-        if not t:
-            continue
-        t = t.replace("/", "_")
-        t = t.replace("-", "_")
-        if "_" not in t:
-            # Best-effort: infer BTCUSDT -> BTC_USDT
-            if t.endswith("USDT") and len(t) > 4:
-                t = t[:-4] + "_USDT"
-            else:
-                # Common UX: user types "DOGE" meaning "DOGE_USDT".
-                # Default to USDT to match the built-in watchlist.
-                if t.isalnum() and 2 <= len(t) <= 12:
-                    t = t + "_USDT"
-        if not _CRYPTO_PAIR_RE.match(t):
-            continue
-        out.append(t)
+        pair = normalize_crypto_pair(token)
+        if pair:
+            out.append(pair)
     return _dedup_keep_order(out)
 
 

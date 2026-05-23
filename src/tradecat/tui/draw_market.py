@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .db import SignalRow, parse_ts
+from tradecat.tui._helpers import _fmt_time, _split_signal_rows_by_age
 from .etf_profiles import get_domain_label, get_etf_domain_profile
 from .etf_selector import select_etf_candidates
 from .micro import Candle, MicroSnapshot
@@ -169,15 +170,6 @@ def _line_chars() -> tuple[str, str, str, str, str, str]:
     return ("│", "─", "┌", "┐", "└", "┘")
 
 
-def _fmt_time(ts: str) -> str:
-    try:
-        if "T" in ts:
-            return ts.split("T")[1][:8]
-        return ts[11:19] if len(ts) > 11 else ts
-    except (IndexError, AttributeError):
-        return ts
-
-
 def _fmt_vol(v: float) -> str:
     if v >= 1_000_000_000:
         return f"{v / 1_000_000_000:.1f}B"
@@ -217,25 +209,6 @@ def _build_recent_signal_panel_title(rows: list, now_dt: datetime) -> str:
         return "信号(0)"
     cnt = _count_recent_signal_rows(rows, now_dt, max_age_s=12 * 60 * 60)
     return f"信号({cnt})"
-
-
-def _split_signal_rows_by_age(
-    rows: list[SignalRow], now_dt: datetime
-) -> tuple[list[tuple[SignalRow, int]], list[tuple[SignalRow, int]], list[tuple[SignalRow, int]]]:
-    realtime: list[tuple[SignalRow, int]] = []
-    h1: list[tuple[SignalRow, int]] = []
-    h12: list[tuple[SignalRow, int]] = []
-    for row in rows:
-        ts_dt = parse_ts(row.timestamp)
-        age_s = max(0, int((now_dt - ts_dt).total_seconds())) if ts_dt != datetime.min else 0
-        pair = (row, age_s)
-        if age_s <= 3600:        # 放宽：1小时内
-            realtime.append(pair)
-        elif age_s <= 3600 * 6:  # 放宽：6小时内
-            h1.append(pair)
-        else:
-            h12.append(pair)
-    return realtime, h1, h12
 
 
 def _snapshot_quote_curves(curves: dict) -> dict:
@@ -363,7 +336,7 @@ def quad_config(market: str = "") -> MarketPanelConfig:
     return MarketPanelConfig(
         mode="quad",
         market=market,
-        key_hint="按键: q退出 | t主页面切换 | 1美股 | 2A股 | 3加密 | 5基金 | 6港股 | 7资讯 | [/]切换 | +/-加减自选 | r刷新",
+        key_hint="按键: q退出 | t切页(P1行情/P2模拟/P3资讯) | 1加密 2美股 | [/]切市场 | +/-自选 | r刷新",
         column_tiers=[
             (56, [
                 ("idx", "序", 3, "right"),
@@ -404,7 +377,7 @@ def fund_config() -> MarketPanelConfig:
         domain_column_width=10,
         right_bottom_mode="details",
         stats_mode="fund",
-        key_hint="按键: q退出 | t主页面切换 | 1加密 | 2美股 | 3A股 | 4港股 | 5基金 | 7资讯 | [/]切换标的 | ,.切换领域 | +/-加减自选 | r刷新",
+        key_hint="按键: q退出 | t切页 | 1加密 2美股 | 3A股 4港股 5基金 | [/]切标的 | ,.领域 | +/-自选 | r刷新",
         left_ratio=0.38,
         right_top_ratio=0.58,
         column_tiers=[
@@ -447,7 +420,7 @@ def micro_config() -> MarketPanelConfig:
         mode="micro",
         market="crypto_spot",
         stats_mode="micro",
-        key_hint="按键: q退出 | t主页面切换 | 1加密 | 2美股 | 3A股 | 4港股 | 5基金 | 7资讯 | [/]切换标的 | r刷新",
+        key_hint="按键: q退出 | t切页 | 1加密 2美股 | 3A股 4港股 5基金 | [/]切标的 | r刷新",
         left_ratio=_MARKET_MICRO_LEFT_RATIO,
         left_min_width=_MARKET_MICRO_LEFT_BASE_MIN_WIDTH,
         right_min_width=_MARKET_MICRO_RIGHT_MIN_WIDTH,

@@ -1366,6 +1366,44 @@ def fetch_yahoo_quote(symbol: str, timeout_s: float = 3.0) -> Optional[Quote]:
     return fetch_yahoo_quotes([sym], timeout_s=timeout_s).get(yahoo_sym)
 
 
+def fetch_yahoo_us_stock_quote(symbol: str, timeout_s: float = 3.0) -> Optional[Quote]:
+    """Fetch US equity quote from Yahoo v7 (bare ticker, e.g. NVDA)."""
+    sym = (symbol or "").strip().upper()
+    if not sym or not _is_safe_yahoo_symbol(sym):
+        return None
+    encoded = urllib.parse.quote(sym, safe="")
+    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={encoded}"
+    try:
+        text = _http_get(url, timeout_s=timeout_s)
+        obj = json.loads(text)
+    except Exception:
+        return None
+    qr = obj.get("quoteResponse") if isinstance(obj, dict) else None
+    rows = (qr.get("result") if isinstance(qr, dict) else None) if qr is not None else None
+    if not isinstance(rows, list) or not rows:
+        return None
+    row = rows[0]
+    if not isinstance(row, dict):
+        return None
+    q = _parse_yahoo_quote_row(row)
+    if q is None:
+        return None
+    return Quote(
+        symbol=sym,
+        name=q.name,
+        price=q.price,
+        prev_close=q.prev_close,
+        open=q.open,
+        high=q.high,
+        low=q.low,
+        currency=q.currency or "USD",
+        volume=q.volume,
+        amount=q.amount,
+        ts=q.ts,
+        source="yahoo",
+    )
+
+
 def _parse_stooq_csv_line(line: str) -> Optional[Quote]:
     # CSV example:
     # Symbol,Date,Time,Open,High,Low,Close,Volume

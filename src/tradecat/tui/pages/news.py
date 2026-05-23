@@ -1372,7 +1372,7 @@ def _draw_market_news(
     w: int,
     h: int,
 ) -> None:
-    key_hint = "q退出 t切页 | ↑↓滚动 /搜索 f分类 s来源 w时间窗"
+    key_hint = "q退出 | t切页(仅t切换大页) | ↑↓滚动 /搜索 f分类 s来源 w时间窗"
     _safe_addstr(stdscr, h - 1, 0, _truncate(key_hint, w))
 
     category = _NEWS_CATEGORIES[min(max(0, state.category_idx), len(_NEWS_CATEGORIES) - 1)]

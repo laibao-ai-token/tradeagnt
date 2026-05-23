@@ -11,7 +11,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 
-from tradecat.tui.db import SignalRow
+from tradecat.tui.db import SignalRow, parse_ts
 from tradecat.tui.micro import Candle
 from tradecat.tui.quote import Quote
 
@@ -172,13 +172,16 @@ def _fmt_duration_compact(seconds: int | None) -> str:
     return f"{seconds // 86400}d"
 
 
+def _signal_timestamp_now() -> str:
+    """ISO timestamp in local timezone for signal_history persistence."""
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
 def _signal_row_age_seconds(row: SignalRow, now_dt: datetime) -> int | None:
-    try:
-        from dateutil import parser as _dp
-        dt = _dp.parse(row.timestamp)
-        return max(0, int((now_dt - dt).total_seconds()))
-    except Exception:
+    ts_dt = parse_ts(row.timestamp)
+    if ts_dt == datetime.min:
         return None
+    return max(0, int((now_dt - ts_dt).total_seconds()))
 
 
 def _count_recent_signal_rows(rows: list[SignalRow], now_dt: datetime, *, max_age_s: int) -> int:
@@ -190,12 +193,26 @@ def _count_recent_signal_rows(rows: list[SignalRow], now_dt: datetime, *, max_ag
     return count
 
 
-def _split_signal_rows_by_age(rows: list[SignalRow], now_dt: datetime, *, threshold_s: int):
-    recent, older = [], []
+def _split_signal_rows_by_age(
+    rows: list[SignalRow],
+    now_dt: datetime,
+) -> tuple[list[tuple[SignalRow, int]], list[tuple[SignalRow, int]], list[tuple[SignalRow, int]]]:
+    """Bucket signals: realtime <=5m, 1h <=1h, 12h <=12h (by local wall-clock age)."""
+    realtime_rows: list[tuple[SignalRow, int]] = []
+    h1_rows: list[tuple[SignalRow, int]] = []
+    h12_rows: list[tuple[SignalRow, int]] = []
     for row in rows:
-        age = _signal_row_age_seconds(row, now_dt)
-        (recent if age is not None and age <= threshold_s else older).append(row)
-    return recent, older
+        age_s = _signal_row_age_seconds(row, now_dt)
+        if age_s is None:
+            continue
+        pair = (row, age_s)
+        if age_s <= 5 * 60:
+            realtime_rows.append(pair)
+        elif age_s <= 60 * 60:
+            h1_rows.append(pair)
+        elif age_s <= 12 * 60 * 60:
+            h12_rows.append(pair)
+    return realtime_rows, h1_rows, h12_rows
 
 
 def _latest_signal_row(rows: list[SignalRow], now_dt: datetime) -> tuple[SignalRow, int] | None:
@@ -272,11 +289,15 @@ def _view_display_name(view: str) -> str:
     return mapping.get((view or "").strip().lower(), view)
 
 
-def _fmt_time(ts: str) -> str:
-    try:
-        return ts[11:19] if len(ts) >= 19 else ts
-    except Exception:
-        return ts
+def _fmt_time(ts: str, *, assume_utc: bool = False) -> str:
+    """Format timestamp in local wall-clock (matches TUI header clock)."""
+    dt = parse_ts(ts, assume_utc=assume_utc)
+    if dt == datetime.min:
+        return "--:--:--"
+    now = datetime.now()
+    if dt.date() != now.date():
+        return dt.strftime("%m-%d %H:%M")
+    return dt.strftime("%H:%M:%S")
 
 
 def _fmt_date(ts: str) -> str:
@@ -421,7 +442,20 @@ _MARKET_MICRO_RIGHT_MIN_WIDTH = 28
 # ── Page / tab constants ──
 _MARKET_TABS = ["market_micro", "market_us", "market_cn", "market_hk", "market_fund_cn"]
 _MARKET_TAB_LABELS = ["加密", "美股", "A股", "港股", "基金"]
+# P1 主战场：←→ 与顶栏子标签仅循环加密 + 美股（A/HK/基金仍可用数字键 3/4/5 进入）
+_MARKET_TABS_P1_PRIMARY = (0, 1)  # indices into _MARKET_TABS
+_MARKET_TAB_LABELS_P1_PRIMARY = ["加密", "美股"]
 _PAGE_NEWS_VIEW = "market_news"
+
+
+def _cycle_p1_market_tab(market_tab: int, delta: int) -> int:
+    """Cycle market_tab within primary P1 tabs (crypto, us)."""
+    primary = list(_MARKET_TABS_P1_PRIMARY)
+    try:
+        idx = primary.index(market_tab)
+    except ValueError:
+        idx = 0
+    return primary[(idx + delta) % len(primary)]
 
 def _read_env_ratio(name: str, default: float, min_value: float = 0.25, max_value: float = 0.60) -> float:
     raw = str(os.environ.get(name, "")).strip()
