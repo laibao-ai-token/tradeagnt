@@ -1,86 +1,40 @@
 # 贡献指南
 
-感谢您对 TradeCat 的兴趣！我们欢迎任何形式的贡献。
+感谢关注 **tradeagnt**。本仓库为单体 `src/tradecat`，与上游 TradeCat 微服务版分离维护。
 
-## 如何贡献
+## 报告问题
 
-### 报告 Bug
+请在本仓库提交 Issue：[github.com/laibao-ai-token/tradeagnt/issues](https://github.com/laibao-ai-token/tradeagnt/issues)
 
-如果您在使用中发现任何错误，请通过 [Issues](https://github.com/tukuaiai/tradecat/issues) 页面提交。
+请尽量包含：现象、复现步骤、环境（OS、Python 版本）、相关日志片段。
 
-请尽可能详细地描述：
-- 问题现象
-- 复现步骤
-- 期望行为
-- 环境信息（操作系统、Python 版本等）
+## 提交 Pull Request
 
-### 功能建议
-
-如果您有任何关于新功能或改进的建议，也请通过 [Issues](https://github.com/tukuaiai/tradecat/issues) 页面告诉我们。
-
-### 提交代码 (Pull Request)
-
-1. Fork 本仓库
-2. 创建功能分支
-   ```bash
-   git checkout -b feature/your-amazing-feature
-   ```
-3. 进行修改并提交
-   ```bash
-   git commit -m 'feat: add some amazing feature'
-   ```
-4. 推送到您的 Fork
-   ```bash
-   git push origin feature/your-amazing-feature
-   ```
-5. 创建 Pull Request
+1. Fork [laibao-ai-token/tradeagnt](https://github.com/laibao-ai-token/tradeagnt)
+2. 创建分支：`git checkout -b feat/your-feature`
+3. 修改后运行：`./scripts/verify.sh` 与 `./scripts/freeze_verify.sh`（与改动相关时）
+4. 推送并创建 PR
 
 ## 开发环境
 
 ```bash
-# 克隆仓库
-git clone https://github.com/tukuaiai/tradecat.git
-cd tradecat
-
-# 初始化开发环境
-./scripts/init.sh
-
-# 运行验证
-./scripts/verify.sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp config/.env.example config/.env
+chmod 600 config/.env
 ```
 
-## Commit 规范
+启动 TUI：
 
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
-
-```
-<type>(<scope>): <subject>
-
-<body>
+```bash
+TRADECAT_PIPELINE_PROFILE=tui_dual tradecat tui
 ```
 
-**Type**:
-- `feat`: 新功能
-- `fix`: 修复 bug
-- `docs`: 文档更新
-- `refactor`: 重构
-- `test`: 测试
-- `chore`: 杂项
+## 代码规范
 
-**示例**:
-```
-feat(trading): 添加 K线形态检测指标
-fix(telegram): 修复排行榜数据加载错误
-docs: 更新 README 快速开始指南
-```
+- Python 3.12+
+- 格式化 / 检查：ruff（见 `pyproject.toml`）
+- 勿提交 `config/.env`、本地 `data/*.db`、`libs/database/**/.paper_trading.consumer_state.json`
 
-## 代码风格
-
-- 遵循 PEP 8
-- 使用 ruff 进行格式检查
-- 关键函数添加类型注解和文档字符串
-
-## 联系方式
-
-- Telegram 交流群: [glue_coding](https://t.me/glue_coding)
-- Twitter: [123olp](https://x.com/123olp)
+更多约束见根目录 [AGENTS.md](../AGENTS.md)。

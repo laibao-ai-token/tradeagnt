@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tradecat"
 version = "0.8.0"
-description = "通用金融分析引擎 — 从微服务到模块化单体"
+description = "tradeagnt — standalone terminal trading assistant (monolith tradecat package)"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"

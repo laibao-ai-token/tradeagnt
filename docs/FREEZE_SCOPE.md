@@ -1,4 +1,4 @@
-# TradeCat v0.8 封板范围
+# tradeagnt v0.8 封板范围
 
 > 封板日期：2026-05-23  
 > 策略版本：`config/strategies/releases/20260523_v08_dual`（`current/`）  
