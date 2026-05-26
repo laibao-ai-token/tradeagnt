@@ -20,10 +20,9 @@ from .watchlists import (
 
 def _find_repo_root(start: Path) -> Path:
     cur = start.resolve()
-    for _ in range(10):
-        if (cur / "services").exists() and (cur / "config").exists() and (cur / "AGENTS.md").exists():
-            return cur
-        cur = cur.parent
+    for candidate in [cur, *cur.parents]:
+        if (candidate / "AGENTS.md").is_file() and (candidate / "src" / "tradecat").is_dir():
+            return candidate
     return start.resolve()
 
 

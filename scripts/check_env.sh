@@ -131,30 +131,21 @@ check_system_deps() {
 check_venvs() {
     echo ""
     echo "=== 虚拟环境 ==="
-    
-    local services=(collector-service trading-service signal-service)
-    
-    for svc in "${services[@]}"; do
-        local svc_dir="$ROOT/services/$svc"
-        local venv_python="$svc_dir/.venv/bin/python"
-        if [ -d "$svc_dir/.venv" ] && [ -x "$venv_python" ]; then
-            if tc_python_is_compatible "$venv_python"; then
-                if "$venv_python" -m pip --version &>/dev/null; then
-                    success "$svc: .venv 存在且可用 ($(tc_python_version_string "$venv_python"))"
-                else
-                    fail "$svc: .venv 缺少 pip（环境损坏，建议重建）"
-                fi
-            else
-                fail "$svc: .venv Python 版本过低 ($(tc_python_version_string "$venv_python"))，需要重建为 3.12+"
-            fi
+
+    local root_venv="$ROOT/.venv/bin/python"
+    if [[ -x "$root_venv" ]] && tc_python_is_compatible "$root_venv"; then
+        if "$root_venv" -m pip show tradecat &>/dev/null; then
+            success "tradeagnt: .venv + tradecat 包 ($(tc_python_version_string "$root_venv"))"
         else
-            if [ -d "$svc_dir" ]; then
-                fail "$svc: .venv 缺失 (运行 ./scripts/init.sh $svc)"
-            else
-                info "$svc: 服务目录不存在"
-            fi
+            warn "tradeagnt: .venv 存在但未安装包 (运行 ./scripts/init.sh)"
         fi
-    done
+    else
+        fail "tradeagnt: 根目录 .venv 缺失或 Python 版本过低 (运行 ./scripts/init.sh)"
+    fi
+
+    if [[ -d "$ROOT/services/collector-service/.venv/bin/python" ]]; then
+        info "检测到遗留 services/collector-service/.venv（单体模式可忽略）"
+    fi
 }
 
 # ==================== 4. 配置文件 ====================
@@ -329,29 +320,32 @@ check_data_dirs() {
     echo "=== 数据目录 ==="
     
     local dirs=(
+        "$ROOT/data"
+        "$ROOT/libs/database/services/signal-service"
         "$ROOT/libs/database/services/telegram-service"
-        "$ROOT/services/collector-service/logs"
-        "$ROOT/services/trading-service/logs"
-        "$ROOT/services/signal-service/logs"
-        "$ROOT/services-preview/tui-service/logs"
     )
-    
+
     for dir in "${dirs[@]}"; do
         local rel="${dir#$ROOT/}"
-        if [ -d "$dir" ]; then
+        if [[ -d "$dir" ]]; then
             success "$rel: 存在"
         else
-            warn "$dir: 不存在"
+            warn "$rel: 不存在"
         fi
     done
-    
-    # SQLite 数据库
-    local sqlite_db="$ROOT/libs/database/services/telegram-service/market_data.db"
-    if [ -f "$sqlite_db" ]; then
-        local size=$(du -h "$sqlite_db" | cut -f1)
-        success "market_data.db: $size"
+
+    if [[ -f "$ROOT/data/signal_history.db" ]]; then
+        success "data/signal_history.db: $(du -h "$ROOT/data/signal_history.db" | cut -f1)"
+    elif [[ -f "$ROOT/libs/database/services/signal-service/signal_history.db" ]]; then
+        success "libs/.../signal_history.db: $(du -h "$ROOT/libs/database/services/signal-service/signal_history.db" | cut -f1)"
     else
-        info "market_data.db: 不存在 (首次启动会创建)"
+        info "signal_history.db: 不存在（信号运行后会创建）"
+    fi
+
+    if [[ -f "$ROOT/libs/database/services/telegram-service/market_data.db" ]]; then
+        success "market_data.db: $(du -h "$ROOT/libs/database/services/telegram-service/market_data.db" | cut -f1)"
+    else
+        info "market_data.db: 不存在（可选指标库）"
     fi
 }
 
@@ -373,7 +367,7 @@ check_disk_space() {
 # ==================== 主程序 ====================
 main() {
     echo "=========================================="
-    echo "  TradeCat 环境检查"
+    echo "  tradeagnt 环境检查"
     echo "=========================================="
     echo "  项目路径: $ROOT"
     echo "  检查时间: $(date '+%Y-%m-%d %H:%M:%S')"

@@ -60,6 +60,7 @@ def _ensure_services(repo_root: Path) -> None:
 @click.option("--no-quote", is_flag=True, help="禁用报价行")
 def tui(refresh: float, limit: int, no_quote: bool) -> None:
     """Launch the TradeCat TUI signal dashboard."""
+    from tradecat.core.paper_trading.paths import default_signal_db_path
     from tradecat.core.pipeline.profile import bootstrap_pipeline_profile
     from tradecat.tui.tui import run
 
@@ -71,7 +72,7 @@ def tui(refresh: float, limit: int, no_quote: bool) -> None:
     db_path = (
         profile.signal_db_path
         if profile and profile.signal_db_path
-        else str(repo_root / "libs" / "database" / "services" / "signal-service" / "signal_history.db")
+        else str(default_signal_db_path(repo_root))
     )
     run(db_path, refresh_s=refresh, limit=limit)
 

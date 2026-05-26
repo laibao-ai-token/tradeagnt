@@ -1,4 +1,4 @@
-# TradeCat - AI Agent 操作手册
+# tradeagnt - AI Agent 操作手册
 
 > 本文档面向 AI 编码 Agent，以可执行指令的视角编写，约束与指导 Agent 行为。
 
@@ -50,7 +50,8 @@ Pipeline 固化（单一运行上下文）：`docs/pipeline/README.md`，剖面�
 | `config/.env` | 生产配置（含密钥） | 只读 |
 | `libs/database/services/telegram-service/market_data.db` | SQLite 指标数据 | 只读 |
 | `libs/database/services/signal-service/cooldown.db` | 信号冷却持久化 | 只读 |
-| `libs/database/services/signal-service/signal_history.db` | 信号触发历史 | 只读 |
+| `libs/database/services/signal-service/signal_history.db` | 信号触发历史（v0.8 兼容路径） | 只读 |
+| `data/signal_history.db` | v1 推荐信号库路径 | 只读（迁移见 `docs/MIGRATE_v0.8_to_v1.0.md`） |
 | `backups/timescaledb/` | 数据库备份 | 禁止修改 |
 
 > 提醒：服务启动脚本会检查 `config/.env` 权限（需 600/400），不符合直接退出。
@@ -104,17 +105,18 @@ cp config/.env.example config/.env && chmod 600 config/.env
 tradecat --help
 ```
 
-> 可选：`./scripts/init.sh` / `./scripts/install.sh` 与历史部署脚本兼容；**新开发以 `tradecat` CLI + `src/tradecat` 为准**。
+> `./scripts/init.sh` 默认创建根目录 `.venv` 并 `pip install -e .`；`./scripts/install.sh` 等价快捷方式。  
+> `./scripts/init.sh --legacy-services` 仅当仓内仍存在 `services/*` 时使用。
 
 ### 2.2 TUI 与守护进程（当前主路径）
 
 ```bash
 source .venv/bin/activate
 
-# TUI（三页：P1 行情 / P2 模拟盘 / P3 资讯；子页 1=加密 2=美股，仅 t 切大页）
-./scripts/start.sh run
-# 或
+# TUI（三页：P1 行情 / P2 模拟盘 / P3 资讯；子页 1=加密 2=美股）
 tradecat tui
+# 或
+./scripts/start.sh run
 
 # 加密 + 美股双策略 + 双市场模拟盘跟单
 TUI_SIGNAL_STRATEGY=current/fast_1m.yaml \
@@ -200,22 +202,10 @@ pytest tests/ -q --tb=no 2>&1 | tail -20
 | `python scripts/data/download_hf_data.py` | 从 HuggingFace 下载历史数据并导入 |
 | `python scripts/quality/check_i18n_keys.py` | 检查 i18n 翻译键对齐 |
 | `python scripts/data/sync_market_data_to_rds.py` | 增量同步 SQLite `market_data.db` 到 PostgreSQL（RDS/Aurora） |
-| `tradecat backtest --strategy config/strategies/fast_1m.yaml --symbol BTC_USDT` | **当前推荐** 模块化回测 |
-| `./scripts/backtest.sh` | **遗留** 回测脚本转发（依赖旧 signal-service 布局时可能需适配） |
-| `cd services/signal-service && python -m src.backtest ...` | **已废弃路径**（本仓无 `services/`） |
-| `./scripts/backtest.sh --run-id tune-b-strict --long-threshold 90 --short-threshold 90 --close-threshold 15` | 回测参数调优示例（阈值覆盖） |
-| `./scripts/backtest.sh --mode offline_replay --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 覆盖不足时使用离线信号回放（基于 K 线生成信号） |
-| `./scripts/backtest.sh --mode offline_rule_replay --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 使用 SQLite 129 规则离线重放（不依赖 signal_history；当 timeframe=1m 时默认规则周期自动按 1m 对齐） |
-| `./scripts/backtest.sh --mode compare_history_rule --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 输出历史信号 vs 129规则离线重放对比报告（comparison.json/.md，含 missing 规则未命中原因诊断；会输出 `rule_timeframe_profiles` 并标记 `timeframe_no_data`，默认不受 signal days/count 门槛限制） |
-| `./scripts/backtest.sh --mode compare_history_rule --alignment-min-score 70 --alignment-max-risk-level medium --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 对齐 gate 示例：若 `alignment_score` 低于阈值或 `alignment_risk_level` 高于阈值则返回退出码 2，适合本地检查 / CI |
-| `./scripts/backtest.sh --check-only --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | 回测前覆盖率检查（仅检查不执行） |
-| `./scripts/backtest.sh --check-only --min-signal-days 7 --min-signal-count 200 --min-candle-coverage-pct 95` | 覆盖率门槛防呆（不足时失败，可加 `--force` 继续） |
-| `./scripts/backtest.sh --symbols BTCUSDT,ETHUSDT --initial-equity 3000 --leverage 2 --position-size-pct 0.2` | 回测资金口径覆盖示例（本金/杠杆/仓位） |
-| `./scripts/backtest.sh --config src/backtest/strategies/default.crypto.btc_eth.safe.yaml` | BTC/ETH 保守模板（阈值 200/200，低频） |
-| `./scripts/backtest.sh --walk-forward --wf-train-days 7 --wf-test-days 3 --wf-step-days 3 --walk-forward-max-folds 6 --symbols BTCUSDT,ETHUSDT --start "2026-01-14 00:00:00" --end "2026-02-13 00:00:00"` | Walk-Forward（滚动窗口）回测摘要输出；默认会在训练窗对 `base/aggressive/conservative` 候选做轻量选参，`walk_forward_summary.json/metrics.json` 会记录每折 `selected_params` |
-| `./scripts/backtest/real_window_validation.sh --dry-run` | 真实窗口校准闭环脚本（`check-only / compare gate / history_signal / walk-forward`）；`--dry-run` 可在 TimescaleDB 未恢复时先预览命令 |
-| `python3 scripts/backtest/backtest_issue_fill.py --run-prefix <run_prefix> --print` | 从真实窗口校准产物中提取 `#006-01/#006-02/#006-03/#006-04` 的 issue 回填草稿；加 `--apply-issues` 可直接写回 issue 文件 |
-| `./scripts/backtest.sh --walk-forward --walk-forward-auto-fallback --min-signal-days 7 --min-signal-count 200` | Walk-Forward 分折自动回放兜底（历史信号不足时切 offline_replay） |
+| `tradecat backtest --strategy current/fast_1m.yaml --symbol BTC_USDT --days 3` | **当前推荐** 单体策略回测（scan/runner/dry） |
+| `./scripts/backtest.sh --strategy current/us_fast_5m.yaml --symbol NVDA --days 5` | 同上（转发 `tradecat backtest`） |
+| `cd services/signal-service && python -m src.backtest ...` | **已废弃**（本仓无 `services/`） |
+| `./scripts/backtest/real_window_validation.sh` 等 | **遗留** 微服务时代 M1 脚本；需 TimescaleDB / 旧产物目录，独立版默认可忽略 |
 | `./scripts/data/export_timescaledb.sh` | 导出 TimescaleDB 数据（默认端口 5434） |
 | `./scripts/data/export_timescaledb_main4.sh` | 导出 Main4 精简数据集（默认端口 5434） |
 | `./scripts/data/timescaledb_compression.sh` | 压缩管理（默认端口 5434） |
@@ -224,26 +214,21 @@ pytest tests/ -q --tb=no 2>&1 | tail -20
 
 | 命令 | 说明 |
 |:---|:---|
-| `make init` | 初始化所有服务 |
-| `make install` | 一键安装（等价 `./scripts/install.sh`） |
-| `make start` | 启动所有服务 |
-| `make stop` | 停止所有服务 |
-| `make status` | 查看服务状态 |
-| `make daemon` | 启动守护进程（自动重启） |
-| `make daemon-stop` | 停止守护进程 |
-| `make verify` | 代码验证 |
+| `make init` | 根目录 `.venv` + `pip install -e .` |
+| `make install` | 同 `./scripts/install.sh` |
+| `make run` | TUI（`./scripts/start.sh run`） |
+| `make verify` | ruff + compileall + freeze 子集 |
+| `make status` | collector on-demand JSON |
+| `make backtest` | `./scripts/backtest.sh` 帮助 / 转发 CLI |
 | `make clean` | 清理缓存 |
-| `make backtest` | 运行 signal-service 回测（M1） |
-| `make export-db` | 导出 TimescaleDB 数据 |
 
 ### 3.3 根目录 Makefile
 
 ```bash
 make install   # ./scripts/install.sh
 make verify    # ruff + compileall（src/tradecat）
-make test      # 建议在 venv 内：pytest tests/
-make start     # ./scripts/start.sh start（遗留多进程占位）
-make backtest  # ./scripts/backtest.sh（遗留）
+make run       # TUI
+make backtest  # tradecat backtest 转发
 ```
 
 > 旧文档中的「每服务独立 Makefile / .venv」**不再适用**；统一使用根目录 `.venv` + `pyproject.toml`。

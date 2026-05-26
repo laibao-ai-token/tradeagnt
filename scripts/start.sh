@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
-# tradecat 统一启动脚本
-# 用法: ./scripts/start.sh {start|stop|status|restart|daemon|daemon-stop|start-collector|status-collector|run|run-dev|run-equity}
+# tradeagnt 启动脚本（单体优先；collector 为 on-demand 或可选常驻）
+# 用法: ./scripts/start.sh {run|run-dev|run-equity|start-collector|status-collector|start|stop|status|daemon|daemon-stop}
 
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MONOLITH_LIB="$ROOT/scripts/lib/monolith_runtime.sh"
+if [[ -f "$MONOLITH_LIB" ]]; then
+    # shellcheck disable=SC1091
+    source "$MONOLITH_LIB"
+fi
 DB_URL_HELPER="$ROOT/scripts/lib/db_url.sh"
 if [[ -f "$DB_URL_HELPER" ]]; then
     # shellcheck disable=SC1090
     source "$DB_URL_HELPER"
 fi
 
-# 核心服务（与 init.sh 保持一致）
+# 单体仓仅 collector 有实际入口；其余为历史兼容占位（目录不存在则跳过）
 SERVICES=(collector-service signal-service trading-service)
 COLLECTOR_SERVICE_DIR="$ROOT/services/collector-service"
 COLLECTOR_PID="$ROOT/run/collector-service.pid"
@@ -480,48 +485,21 @@ daemon_stop() {
     stop_all
 }
 
-# ==================== TUI 快捷入口（根目录直启） ====================
-run_tui_single() {
-    local tui_dir="$ROOT/services-preview/tui-service"
-    if [ ! -d "$tui_dir" ]; then
-        echo "✗ tui-service 目录不存在: $tui_dir"
-        return 1
-    fi
-    cd "$tui_dir"
-    ./scripts/start.sh run "$@"
+# ==================== TUI（单体 src/tradecat） ====================
+run_tui() {
+    monolith_run_tradecat_tui "$ROOT" "$@"
 }
 
-run_tui() {
-    echo "[TUI] 正在启动依赖服务..."
-    # 启动 collector-service（行情数据采集）
-    collector_service_start 2>&1 | sed 's/^/  [collector] /'
-    # 启动 signal-service（信号检测）
-    if [ -d "$ROOT/services/signal-service" ]; then
-        cd "$ROOT/services/signal-service"
-        ./scripts/start.sh start 2>&1 | sed 's/^/  [signal] /'
-    fi
-    echo "[TUI] 依赖服务已就绪，正在启动看板..."
-    run_tui_single "$@"
+run_tui_single() {
+    monolith_run_tradecat_tui "$ROOT" "$@"
 }
 
 run_tui_dev() {
-    local tui_dir="$ROOT/services-preview/tui-service"
-    if [ ! -d "$tui_dir" ]; then
-        echo "✗ tui-service 目录不存在: $tui_dir"
-        return 1
-    fi
-    cd "$tui_dir"
-    ./scripts/start.sh run-dev "$@"
+    monolith_run_tui_module "$ROOT" "$@"
 }
 
 run_tui_equity() {
-    local tui_dir="$ROOT/services-preview/tui-service"
-    if [ ! -d "$tui_dir" ]; then
-        echo "✗ tui-service 目录不存在: $tui_dir"
-        return 1
-    fi
-    cd "$tui_dir"
-    ./scripts/start.sh run-equity "$@"
+    monolith_run_tui_module "$ROOT" --quote-market us_stock "$@"
 }
 
 
@@ -555,9 +533,9 @@ case "${1:-status}" in
         echo "  daemon-stop - 停止守护进程和所有服务"
         echo "  start-collector  - 显式运行 collector-service，并透传 --only/--exclude"
         echo "  status-collector - 查看当前 collector-service 启用模块（透传选择器）"
-        echo "  run         - 从根目录启动 TradeCat TUI"
-        echo "  run-dev     - 从根目录启动 TUI 开发模式（强制热重载）"
-        echo "  run-equity  - 从根目录启动 TUI + collector equity 采集"
+        echo "  run         - 启动 tradeagnt TUI（tradecat tui，默认 tui_dual 剖面）"
+        echo "  run-dev     - 启动 TUI（python -m tradecat.tui，完整参数）"
+        echo "  run-equity  - 启动 TUI 并聚焦美股报价（--quote-market us_stock）"
         echo ""
         echo "兼容别名（逐步收敛，后续可能移除）:"
         echo "  run-single  -> run"

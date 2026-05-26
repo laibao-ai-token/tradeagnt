@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# tradecat Pro 初始化脚本
-# 用法: ./scripts/init.sh [service-name]
-# 示例: ./scripts/init.sh                   # 初始化全部核心服务
-#       ./scripts/init.sh collector-service # 初始化单个服务
-#       ./scripts/init.sh --all            # 初始化全部（含 preview）
+# tradeagnt 初始化（默认：根目录 .venv + pip install -e .）
+# 用法: ./scripts/init.sh              # 单体（推荐）
+#       ./scripts/init.sh --legacy-services  # 旧微服务目录（本仓通常不存在）
+#       ./scripts/init.sh collector-service    # 单服务（仅当 services/ 存在时）
 
 set -e
 
@@ -208,10 +207,44 @@ check_system() {
 init_global() {
     echo ""
     echo "=== 创建全局目录 ==="
-    mkdir -p "$ROOT/run" "$ROOT/logs" "$ROOT/backups"
+    mkdir -p "$ROOT/run" "$ROOT/logs" "$ROOT/backups" "$ROOT/data"
     mkdir -p "$ROOT/libs/database/services/telegram-service"
+    mkdir -p "$ROOT/libs/database/services/signal-service"
     chmod +x "$ROOT/scripts/"*.sh 2>/dev/null || true
     success "全局目录已创建"
+}
+
+# ==================== 单体根目录 .venv ====================
+init_monolith() {
+    echo ""
+    echo "=== 初始化 tradeagnt 单体 ==="
+    local base_python=""
+    local venv_python="$ROOT/.venv/bin/python"
+
+    base_python="$(tc_pick_python 2>/dev/null || true)"
+    if [[ -z "$base_python" ]]; then
+        fail "未找到 Python 3.12+（可设置 TRADECAT_PYTHON）"
+    fi
+
+    if [[ -x "$venv_python" ]] && tc_python_is_compatible "$venv_python"; then
+        info "根目录 .venv 已存在"
+    else
+        info "创建 $ROOT/.venv ..."
+        rm -rf "$ROOT/.venv"
+        "$base_python" -m venv "$ROOT/.venv"
+    fi
+
+    if [[ ! -x "$venv_python" ]]; then
+        fail "虚拟环境创建失败"
+    fi
+
+    info "安装依赖 (pip install -e .[dev])..."
+    "$venv_python" -m pip install -q --upgrade pip
+    (
+        cd "$ROOT"
+        "$venv_python" -m pip install -q -e ".[dev]" 2>/dev/null || "$venv_python" -m pip install -q -e .
+    )
+    success "tradecat CLI 就绪（激活 .venv 后执行: tradecat --help）"
 }
 
 # ==================== 配置文件检查 ====================
@@ -308,12 +341,26 @@ print_summary() {
     fi
     echo "     ./scripts/start.sh start"
     echo ""
-    echo "  查看状态: ./scripts/start.sh status"
-    echo "  停止服务: ./scripts/start.sh stop"
+    echo "  TUI:       TRADECAT_PIPELINE_PROFILE=tui_dual tradecat tui"
+    echo "  或:        ./scripts/start.sh run"
+    echo "  验收:      ./scripts/freeze_verify.sh"
 }
 
 # ==================== 入口 ====================
 case "${1:-}" in
+    --legacy-services)
+        check_system
+        init_global
+        for svc in "${CORE_SERVICES[@]}"; do
+            init_service "$svc"
+        done
+        for svc in "${PREVIEW_SERVICES[@]}"; do
+            init_service "$svc"
+        done
+        check_config
+        check_database
+        print_summary
+        ;;
     --all)
         # 初始化全部（含 preview）
         check_system
@@ -340,14 +387,9 @@ case "${1:-}" in
         print_summary
         ;;
     "")
-        # 默认：仅初始化核心服务
         check_system
         init_global
-        
-        for svc in "${CORE_SERVICES[@]}"; do
-            init_service "$svc"
-        done
-        
+        init_monolith
         check_config
         check_database
         print_summary

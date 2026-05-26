@@ -2,48 +2,48 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, tradecat]
   pull_request:
-    branches: [main]
+    branches: [main, tradecat]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      
+          python-version: "3.12"
+
       - name: Install ruff
         run: pip install ruff
-      
-      - name: Lint with ruff
-        run: ruff check services/ services-preview/ libs/ scripts/ --ignore E501,E402
 
-      - name: Guard print in services source
-        run: python scripts/check_no_print_services.py
+      - name: Lint monolith (ruff)
+        run: ruff check src/tradecat scripts tests --ignore E501,E402
+
+      - name: Guard print in src/tradecat
+        run: python scripts/quality/check_no_print_services.py
 
   syntax-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      
-      - name: Syntax check
+          python-version: "3.12"
+
+      - name: Syntax check (src + scripts + tests)
         run: |
           python - <<'PY'
           import py_compile
           import subprocess
           import sys
 
-          roots = ("services", "services-preview", "libs", "scripts")
+          roots = ("src", "scripts", "tests")
           out = subprocess.check_output(["git", "ls-files", "-z", "--", *roots], text=False)
           files = [p for p in out.decode("utf-8", errors="surrogateescape").split("\0") if p.endswith(".py")]
 
@@ -59,3 +59,19 @@ jobs:
           if failed:
               sys.exit(1)
           PY
+
+  freeze-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Freeze verify (v0.8 subset)
+        run: ./scripts/freeze_verify.sh

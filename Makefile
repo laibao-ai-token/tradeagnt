@@ -1,72 +1,38 @@
-# ==============================================================================
-# TradeCat Makefile
-# ==============================================================================
+# tradeagnt — monolith tradecat package
 
-.PHONY: help init install start stop status daemon daemon-stop verify clean export-db backtest
+.PHONY: help init install run verify clean status backtest
 
-# 默认目标
 help:
-	@echo "TradeCat - 加密货币量化交易数据平台"
+	@echo "tradeagnt — standalone terminal assistant"
 	@echo ""
-	@echo "Usage:"
-	@echo "    make init        - 初始化所有服务（虚拟环境 + 依赖）"
-	@echo "    make install     - 一键安装"
-	@echo "    make start       - 启动所有服务"
-	@echo "    make stop        - 停止所有服务"
-	@echo "    make status      - 查看服务状态"
-	@echo "    make daemon      - 启动守护进程（自动重启）"
-	@echo "    make daemon-stop - 停止守护进程"
-	@echo "    make verify      - 运行代码验证"
-	@echo "    make clean       - 清理缓存文件"
-	@echo "    make export-db   - 导出 TimescaleDB 数据"
-	@echo "    make backtest    - 运行 signal-service 回测（M1）"
-	@echo ""
+	@echo "  make init     - ./scripts/init.sh (root .venv + pip install -e .)"
+	@echo "  make install  - ./scripts/install.sh"
+	@echo "  make run      - ./scripts/start.sh run (TUI)"
+	@echo "  make verify   - ./scripts/verify.sh"
+	@echo "  make status   - ./scripts/start.sh status-collector (JSON)"
+	@echo "  make backtest - ./scripts/backtest.sh --help"
+	@echo "  make clean    - remove caches"
 
-# 初始化
 init:
 	@./scripts/init.sh
 
-# 一键安装
 install:
 	@./scripts/install.sh
 
-# 启动服务
-start:
-	@./scripts/start.sh start
+run:
+	@./scripts/start.sh run
 
-# 停止服务
-stop:
-	@./scripts/start.sh stop
-
-# 查看状态
-status:
-	@./scripts/start.sh status
-
-# 守护进程模式
-daemon:
-	@./scripts/start.sh daemon
-
-# 停止守护进程
-daemon-stop:
-	@./scripts/start.sh daemon-stop
-
-# 代码验证
 verify:
 	@./scripts/verify.sh
 
-# 清理缓存
+status:
+	@./scripts/start.sh status-collector
+
+backtest:
+	@./scripts/backtest.sh --help
+
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	find . -type f -name "*.pyo" -delete 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	rm -rf cache/pytest cache/ruff artifacts/coverage artifacts/dist artifacts/i18n 2>/dev/null || true
-	@echo "✓ 缓存已清理"
-
-# 数据库导出
-export-db:
-	@./scripts/data/export_timescaledb.sh
-
-# 回测（M1）
-backtest:
-	@./scripts/backtest.sh
+	rm -rf cache/pytest cache/ruff 2>/dev/null || true
+	@echo "ok: cache cleaned"

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Guard against print call usage in service source modules.
+"""Guard against print call usage in application source modules.
 
 Policy:
-- scan tracked `.py` files under `services/` and `services-preview/`
-- ignore `tests/` and service-level `scripts/` subtrees
+- scan tracked `.py` files under `src/tradecat/`
+- ignore `tests/` subtrees
 - fail on runtime print calls (AST-based)
 """
 
@@ -14,7 +14,7 @@ import logging
 import subprocess
 
 
-ROOTS = ("services", "services-preview")
+ROOTS = ("src/tradecat",)
 logger = logging.getLogger(__name__)
 
 
@@ -29,8 +29,7 @@ def _is_excluded_path(path: str) -> bool:
         return True
 
     parts = norm.strip("/").split("/")
-    # Match: services/<service>/scripts/... and services-preview/<service>/scripts/...
-    if len(parts) >= 4 and parts[0] in ROOTS and parts[2] == "scripts":
+    if norm.endswith("/scripts/") or "/scripts/" in norm:
         return True
 
     return False
@@ -73,7 +72,7 @@ def main() -> int:
             violations.append((path, line))
 
     if not violations:
-        logger.info("OK: services source has no print calls")
+        logger.info("OK: src/tradecat has no print calls")
         return 0
 
     logger.error("发现 services 源码中的 print 调用（请改为 logger）:")
