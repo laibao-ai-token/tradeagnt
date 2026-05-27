@@ -24,8 +24,8 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 | 6 | 示例 thesis JSON 在 `examples/agent_trade_thesis.example.json`（给以后 submit 用） |
 | 7 | **代码还没做**：`tradecat agent submit-thesis` 等是 PRD 目标，当前是 **M0 文档阶段** |
 | 8 | 等你拍板 PRD 里 5 个开放问题（见下「等你」）后，才能标 M0 Approved、开 M1 写码 |
-| 9 | 主 Agent 以后只向你更新 **本文件** + CEO 式短回复 |
-| 10 | 子 Agent 只干活，不直接对你输出长文 |
+| 9 | **你我每一轮对话**都走 [CONTROL_PLANE](../CONTROL_PLANE.md) CEO 摘要，不只子任务结束后 |
+| 10 | 子 Agent 只干活；**你永远只和主 Agent 一个人对齐** |
 
 ---
 
