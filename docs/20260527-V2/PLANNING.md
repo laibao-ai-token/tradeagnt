@@ -21,7 +21,7 @@
 
 | 序号 | 主题 | 要拍板什么 | 状态 | 决策（拍板后填写） | 备注 |
 |:---|:---|:---|:---:|:---|:---|
-| **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | 🟡 | | 建议：Agent Harness + 仅纸面 |
+| **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | 🟡 | **Agent 原生交易研究 Harness**（彭博交易员式工具链 + Codex 式 Agent 调用；纸面非实盘） | 待你回「P1 锁定」 |
 | **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | ⬜ | | |
 | **P3** | [最小闭环](./planning/P3-min-loop.md) | 从读数据到 paper 最少几步 | ⬜ | | |
 | **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 本地策略 vs 公开表 vs Agent 自备 | ⬜ | | |

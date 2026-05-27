@@ -7,7 +7,7 @@
 
 ## 一句话
 
-**V2 = 让 Agent（不是人点 TUI）通过 Harness 完成「读行情/信号 → 交 thesis → 纸面成交或拒绝 → 可查审计」。**  
+**V2 = Agent 原生的交易研究与纸面 Harness**（彭博交易员式：上下文 + 行情/资讯/回测工具 → Agent 分析决策 → 系统闸门与模拟成交；类似 Codex 工具链，落在 Trade Agent 上）。  
 V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ---
@@ -31,7 +31,7 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ## V2 规划进度（逐点填充）
 
-→ 主表：[PLANNING.md](./PLANNING.md)（**一次只填一行**，当前 0/9 已锁定）
+→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**当前讨论 P1**，0/9 已锁定）
 
 ---
 
