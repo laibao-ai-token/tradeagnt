@@ -4,6 +4,8 @@
 
 | 文档 | 用途 |
 |:---|:---|
+| **[CONTROL_PLANE.md](CONTROL_PLANE.md)** | **你与主 Agent 协作入口（决策者先读）** |
+| [20260527-V2/EXEC_SUMMARY.md](20260527-V2/EXEC_SUMMARY.md) | **V2 一页现状（每次会话先看）** |
 | **[20260527-V2/](20260527-V2/)** | **V2 文档包（时间戳目录，文本驱动研发）** |
 | ↳ [PRD.md](20260527-V2/PRD.md) | V2 产品需求 |
 | ↳ [ACCEPTANCE.md](20260527-V2/ACCEPTANCE.md) | V2 验收标准 |
