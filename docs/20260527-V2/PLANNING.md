@@ -22,7 +22,7 @@
 | 序号 | 主题 | 要拍板什么 | 状态 | 决策（拍板后填写） | 备注 |
 |:---|:---|:---|:---:|:---|:---|
 | **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | ✅ | **Trade-layer Claude Code / Codex**（交易垂直 Agent 工具链 + 上下文；纸面非实盘） | 2026-05-27 锁定 |
-| **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | 🟡 | | 当前讨论 |
+| **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | 🟡 | **人引导 40/60**；默认 **TUI**；人看 KPI+步骤摘要；非 autopilot | 待 `P2 锁定`；Pi 框架→P8 |
 | **P3** | [最小闭环](./planning/P3-min-loop.md) | 从读数据到 paper 最少几步 | ⬜ | | |
 | **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 本地策略 vs 公开表 vs Agent 自备 | ⬜ | | |
 | **P5** | [写入与闸门](./planning/P5-gates.md) | 仅 thesis？要不要 context-audit？ | ⬜ | | |
