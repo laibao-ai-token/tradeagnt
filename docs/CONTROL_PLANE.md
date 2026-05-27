@@ -38,6 +38,7 @@
 |:---|:---|:---|
 | **P0** | [CONTROL_PLANE.md](./CONTROL_PLANE.md) | 本文，协作规则（很少变） |
 | **P0** | [20260527-V2/EXEC_SUMMARY.md](./20260527-V2/EXEC_SUMMARY.md) | **每次会话先看**：V2 现在在干什么 |
+| **P0** | [20260527-V2/PLANNING.md](./20260527-V2/PLANNING.md) | **规划 V2 时**：逐点拍板表（一次填一行） |
 | P1 | [20260527-V2/PRD.md](./20260527-V2/PRD.md) | 仅当你要改范围/拍板 Q1～Q5 |
 | — | ACCEPTANCE / MILESTONES | **不用读**；主 Agent 用 AC 编号向你汇报即可 |
 

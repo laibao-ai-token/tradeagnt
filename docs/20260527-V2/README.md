@@ -8,7 +8,8 @@
 
 | 文件 | 说明 |
 |:---|:---|
-| [PRD.md](./PRD.md) | 产品需求（主文档） |
+| **[PLANNING.md](./PLANNING.md)** | **逐点规划表（你与主 Agent 一行一行填）** |
+| [PRD.md](./PRD.md) | 产品需求（拍板后汇总写入） |
 | [ACCEPTANCE.md](./ACCEPTANCE.md) | 验收标准（AC） |
 | [MILESTONES.md](./MILESTONES.md) | 工程里程碑 checklist |
 | [examples/](./examples/) | 示例 JSON（如 `agent_trade_thesis`） |
