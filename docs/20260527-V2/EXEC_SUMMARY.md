@@ -7,7 +7,7 @@
 
 ## 一句话
 
-**V2 = Agent 原生的交易研究与纸面 Harness**（彭博交易员式：上下文 + 行情/资讯/回测工具 → Agent 分析决策 → 系统闸门与模拟成交；类似 Codex 工具链，落在 Trade Agent 上）。  
+**V2 = Trade-layer Claude Code / Codex**（在 trade 域复刻「上下文 + 工具 + 多步 Agent」；行情/信号/资讯/回测 → 分析 → 纸面闸门；人监督，非实盘）。  
 V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ---
