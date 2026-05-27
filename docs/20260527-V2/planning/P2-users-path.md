@@ -2,13 +2,23 @@
 
 | 字段 | 值 |
 |:---|:---|
-| 状态 | ⬜ 未讨论（依赖 P1 ✅） |
+| 状态 | 🟡 讨论中 |
 | 总表 | [PLANNING.md](../PLANNING.md) § P2 |
 
 ## 要拍板什么
 
-- 主用户：Agent / 人 / 各占多少？
-- 默认启动路径：manifest → `tradecat_get_*` → `submit-thesis` 还是仍先 TUI？
+1. **主用户**：Agent 占多少？人还扮演什么角色？
+2. **默认入口**：新用户/新会话应从 manifest + 工具开始，还是仍推荐 `tradecat tui`？
+3. **人的界面**：仅 Cursor/CLI 对话 + JSON 报告，还是保留 TUI 作监控？
+
+## 选项（建议）
+
+| 维度 | 建议 **B** |
+|:---|:---|
+| 主路径 | **Agent 100% 主路径**；人 = 产品/风控监督 + 例外处理 |
+| 默认入口 | `skills/tradeagnt/agents/manifest.json` → `tradecat_get_context_pack` |
+| 人用的 UI | TUI **可选**（看持仓/信号），不作为 V2 文档里的「第一步」 |
+| 开发/调试 | 人可用 CLI；不算 V2 对外的主用户故事 |
 
 ## 决策（拍板后填写）
 

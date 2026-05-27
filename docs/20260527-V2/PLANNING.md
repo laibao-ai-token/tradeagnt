@@ -11,7 +11,7 @@
 
 | 已锁定 | 讨论中 | 未讨论 |
 |:---:|:---:|:---:|
-| 0 / 9 | 1 / 9（P1） | 8 / 9 |
+| 1 / 9 | 0 / 9 | 8 / 9 |
 
 分点讨论页：`planning/` 目录（[索引](./planning/README.md)）。
 
@@ -21,8 +21,8 @@
 
 | 序号 | 主题 | 要拍板什么 | 状态 | 决策（拍板后填写） | 备注 |
 |:---|:---|:---|:---:|:---|:---|
-| **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | 🟡 | **Trade-layer Claude Code / Codex**（交易垂直 Agent 工具链 + 上下文；纸面非实盘） | 待你回「P1 锁定」 |
-| **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | ⬜ | | |
+| **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | ✅ | **Trade-layer Claude Code / Codex**（交易垂直 Agent 工具链 + 上下文；纸面非实盘） | 2026-05-27 锁定 |
+| **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | 🟡 | | 当前讨论 |
 | **P3** | [最小闭环](./planning/P3-min-loop.md) | 从读数据到 paper 最少几步 | ⬜ | | |
 | **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 本地策略 vs 公开表 vs Agent 自备 | ⬜ | | |
 | **P5** | [写入与闸门](./planning/P5-gates.md) | 仅 thesis？要不要 context-audit？ | ⬜ | | |
