@@ -11,7 +11,7 @@
 
 ---
 
-## 能力范围（v0.8 封板）
+## 能力范围（v1.0 封板）
 
 | 包含 | 不包含 |
 |:---|:---|
@@ -19,7 +19,7 @@
 | 双策略包 `20260523_v08_dual` | 与上游 TradeCat 功能对齐 / 自动同步 |
 | 按需行情、只读桥接脚本 | 生产级美股 RTH、全量 pytest 全绿 |
 
-详见 [`docs/FREEZE_SCOPE.md`](docs/FREEZE_SCOPE.md)、[`docs/STANDALONE.md`](docs/STANDALONE.md)。
+详见 [`docs/FREEZE_SCOPE.md`](docs/FREEZE_SCOPE.md)、[`docs/V1_AGENT_HARNESS.md`](docs/V1_AGENT_HARNESS.md)、[`skills/tradeagnt/agents/manifest.json`](skills/tradeagnt/agents/manifest.json)。
 
 ---
 
@@ -110,7 +110,8 @@ tradeagnt/
 | [docs/README.md](docs/README.md) | 文档总索引 |
 | [docs/STANDALONE.md](docs/STANDALONE.md) | 独立版定位 |
 | [docs/DETACH_CHECKLIST.md](docs/DETACH_CHECKLIST.md) | 脱离上游清单 |
-| [docs/FREEZE_SCOPE.md](docs/FREEZE_SCOPE.md) | v0.8 封板承诺 |
+| [docs/FREEZE_SCOPE.md](docs/FREEZE_SCOPE.md) | v1.0 封板承诺 |
+| [docs/V1_AGENT_HARNESS.md](docs/V1_AGENT_HARNESS.md) | Agent Harness / 对齐官方路线图 |
 | [docs/MIGRATE_v0.8_to_v1.0.md](docs/MIGRATE_v0.8_to_v1.0.md) | 路径与配置迁移 |
 | [docs/pipeline/DATA_COLLECTION.md](docs/pipeline/DATA_COLLECTION.md) | on-demand 采集 |
 | [AGENTS.md](AGENTS.md) | AI / 开发约束 |

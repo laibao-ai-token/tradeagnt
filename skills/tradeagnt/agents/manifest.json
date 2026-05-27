@@ -1,0 +1,57 @@
+{
+  "schema": "tradeagnt.agent_manifest.v1",
+  "schema_version": "1.0.0",
+  "name": "tradeagnt",
+  "display_name": "tradeagnt Agent Research Runtime",
+  "repo_role": "Standalone monolith: local strategies + TUI demo + read-only JSON tools for Agent/Hermes. Paper write path planned v1.1.",
+  "skill_root": "skills/tradeagnt",
+  "human_docs": ["README.md", "AGENTS.md", "docs/FREEZE_SCOPE.md"],
+  "agent_docs": [
+    "skills/tradeagnt/SKILL.md",
+    "skills/tradeagnt/agents/manifest.json",
+    "docs/V1_AGENT_HARNESS.md"
+  ],
+  "command_risk_classes": {
+    "local_readonly": "Reads local DB/SQLite and in-process providers only.",
+    "network_readonly": "Fetches public market data via configured providers."
+  },
+  "preferred_readonly_entrypoints": [
+    {
+      "id": "context_pack",
+      "command": "python scripts/tradecat_get_context_pack.py --symbol {symbol}",
+      "risk_class": "local_readonly",
+      "description": "Bundle quotes, signals, news, backtest health for one symbol."
+    },
+    {
+      "id": "quotes",
+      "command": "python scripts/tradecat_get_quotes.py {symbol}",
+      "risk_class": "network_readonly"
+    },
+    {
+      "id": "signals",
+      "command": "python scripts/tradecat_get_signals.py --symbol {symbol} --timeframe 1m --limit 10",
+      "risk_class": "local_readonly"
+    },
+    {
+      "id": "news",
+      "command": "python scripts/tradecat_get_news.py --symbol {symbol} --limit 5 --since-minutes 120",
+      "risk_class": "network_readonly"
+    },
+    {
+      "id": "market_state",
+      "command": "python scripts/tradecat_get_market_state.py --symbol {symbol}",
+      "risk_class": "local_readonly"
+    },
+    {
+      "id": "signal_context",
+      "command": "python scripts/tradecat_get_signal_context.py --symbol {symbol}",
+      "risk_class": "local_readonly"
+    },
+    {
+      "id": "backtest_summary",
+      "command": "python3 scripts/tradecat_get_backtest_summary.py --run-id {run_id}",
+      "risk_class": "local_readonly"
+    }
+  ],
+  "safety_boundary": "v1.0: read-only tools unless operator explicitly runs tradecat paper CLI. No Binance signed requests in manifest commands."
+}

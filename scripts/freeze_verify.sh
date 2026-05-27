@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v0.8 封板门禁：只跑与演示闭环相关的测试 + 只读桥接冒烟
+# v1.0 封板门禁：演示闭环 + Agent 只读桥接冒烟
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,7 +29,7 @@ FREEZE_TESTS=(
   tests/test_data_paths.py
 )
 
-echo "=== TradeCat freeze gate (v0.8) ==="
+echo "=== tradeagnt freeze gate (v1.0) ==="
 
 echo ""
 echo "1) pytest freeze subset..."
