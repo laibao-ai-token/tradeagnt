@@ -1,16 +1,21 @@
 # tradeagnt Agent Skill
 
-tradeagnt 为 **Agent-first 数据与纸面研究** 提供只读 JSON 工具；人类可选使用 `tradecat tui`。
+tradeagnt **V2 以 Agent 为主用户**：Harness = manifest + 只读研究 + thesis 闸门 + 纸面 + 审计。人类可用 `tradecat tui` 监控。
 
-机器主契约：`agents/manifest.json`。
+- 产品需求：[docs/20260527-V2/PRD.md](../../docs/20260527-V2/PRD.md)
+- 机器契约：`agents/manifest.json`（v2 起含写路径）
+- 验收：[docs/20260527-V2/ACCEPTANCE.md](../../docs/20260527-V2/ACCEPTANCE.md)
 
-## 推荐流程
+## V2 推荐流程（目标态）
 
-1. 读 `agents/manifest.json` 中 `preferred_readonly_entrypoints`
-2. `python scripts/tradecat_get_context_pack.py --symbol BTC_USDT`（或美股 `NVDA`）
-3. 按需调用 `tradecat_get_signals` / `tradecat_get_quotes` / `tradecat_get_news`
-4. 需要回测摘要时用 `tradecat_get_backtest_summary.py`
-5. **v1.0**：勿假设可写 thesis；写入闭环见 `docs/V1_AGENT_HARNESS.md` v1.1
+1. 读 `agents/manifest.json`（风险类 + 命令表）
+2. `python scripts/tradecat_get_context_pack.py --symbol BTC_USDT`（或 `NVDA`）
+3. 按需 `tradecat_get_signals` / `quotes` / `news`
+4. 生成 `agent_trade_thesis.v1` JSON（见 `docs/20260527-V2/examples/agent_trade_thesis.example.json`）
+5. `tradecat agent submit-thesis --input thesis.json`（M2 实现后）
+6. `tradecat agent paper-report --json`
+
+**v1.0 封板期**：步骤 5～6 可能尚未实现；以 manifest 与 PRD 里程碑为准。
 
 ## 环境
 

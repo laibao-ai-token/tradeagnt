@@ -115,7 +115,9 @@ def main() -> int:
     elif pipeline_profile and pipeline_profile.signal_db_path:
         db_path = Path(pipeline_profile.signal_db_path)
     else:
-        db_path = repo_root / "libs" / "database" / "services" / "signal-service" / "signal_history.db"
+        from tradecat.core.paper_trading.paths import default_signal_db_path
+
+        db_path = default_signal_db_path(repo_root)
 
     service_root = Path(__file__).resolve().parents[1]
     watchlists_path = service_root / "watchlists.json"

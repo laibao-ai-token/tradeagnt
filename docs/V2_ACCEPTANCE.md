@@ -1,0 +1,3 @@
+# 已迁移
+
+V2 验收见 **[20260527-V2/ACCEPTANCE.md](./20260527-V2/ACCEPTANCE.md)**。

@@ -5,7 +5,7 @@
 | 版本 | 含义 |
 |:---|:---|
 | **v1.0** | 封板：独立单体 + TUI 演示 + Agent 只读工具（`tradecat_get_*` + manifest） |
-| **v1.1+** | Agent Harness：thesis 写入、schema 闸门（对齐官方 Public，见 V1_AGENT_HARNESS） |
+| **v2.0** | **Agent Harness 主路径**：PRD 驱动（见 [20260527-V2/PRD.md](./20260527-V2/PRD.md)） |
 
 快速开始见根目录 [README.md](../README.md)；文档索引 [docs/README.md](./README.md)；迁移见 [MIGRATE_v0.8_to_v1.0.md](./MIGRATE_v0.8_to_v1.0.md)。
 

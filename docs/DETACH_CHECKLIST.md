@@ -19,7 +19,8 @@
 
 ## v1.0 封板后（非阻塞）
 
-- [ ] `git push origin v1.0.0`
+- [x] `git push origin v1.0.0`
+- [x] `git remote` fetch 指向 `refs/heads/*`（勿再仅跟踪已删的 `tradecat`）
 - [ ] v1.1：`agent_trade_thesis` + paper 闸门
 - [ ] 全量 pytest 与 freeze 对齐
 - [ ] `tui.py` 拆分（CLEANUP_ROADMAP）

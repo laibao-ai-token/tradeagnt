@@ -25,6 +25,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from tradecat.common.utils.scheduler import wait_seconds
+from tradecat.core.paper_trading.paths import default_signal_db_path, find_tradeagnt_repo_root
 
 from .db import SignalRow, fetch_recent, fetch_recent_with_unfiltered, parse_ts, probe
 from .etf_profiles import (
@@ -347,26 +348,9 @@ def _default_tui_news_rss_feeds_value() -> str:
     preset = (os.getenv("TUI_NEWS_RSS_PRESET", "") or os.getenv("NEWS_RSS_PRESET", "")).strip()
     return default_tui_news_rss_feeds_value(preset)
 
-def _find_repo_root(start: Path) -> Path:
-    cur = start.resolve()
-    for _ in range(8):
-        if (cur / "services").exists() and (cur / "services-preview").exists() and (cur / "config").exists():
-            return cur
-        if cur.parent == cur:
-            break
-        cur = cur.parent
-    return start.resolve()
-
-_REPO_ROOT = _find_repo_root(Path(__file__).resolve().parent)
-_DATA_PID_FILES = [
-    _REPO_ROOT / "services" / "data-service" / "pids" / "daemon.pid",
-    _REPO_ROOT / "services" / "data-service" / "pids" / "backfill.pid",
-    _REPO_ROOT / "services" / "data-service" / "pids" / "metrics.pid",
-    _REPO_ROOT / "services" / "data-service" / "pids" / "ws.pid",
-]
-_SIGNAL_PID_FILE = _REPO_ROOT / "services" / "signal-service" / "logs" / "signal-service.pid"
-_TRADING_PID_FILE = _REPO_ROOT / "services" / "trading-service" / "pids" / "service.pid"
-_SIGNAL_HISTORY_DB_FILE = _REPO_ROOT / "libs" / "database" / "services" / "signal-service" / "signal_history.db"
+_REPO_ROOT = find_tradeagnt_repo_root(Path(__file__).resolve().parent)
+_COLLECTOR_PID_FILE = _REPO_ROOT / "run" / "collector-service.pid"
+_SIGNAL_HISTORY_DB_FILE = default_signal_db_path(_REPO_ROOT)
 _TRADING_SQLITE_DB_FILE = _REPO_ROOT / "libs" / "database" / "services" / "telegram-service" / "market_data.db"
 _SIGNAL_FRESH_MAX_AGE_S = max(300, int(float(os.environ.get("TUI_SIGNAL_FRESH_MAX_AGE_SECONDS", "43200"))))
 _TRADING_FRESH_MAX_AGE_S = max(60, int(float(os.environ.get("TUI_TRADING_FRESH_MAX_AGE_SECONDS", "900"))))
@@ -411,11 +395,12 @@ def _collect_service_status(now_ts: float | None = None) -> ServiceStatus:
     checked_at = float(now_ts if now_ts is not None else time.time())
     signal_age_s = _file_age_seconds(_SIGNAL_HISTORY_DB_FILE, checked_at)
     trading_age_s = _file_age_seconds(_TRADING_SQLITE_DB_FILE, checked_at)
-    signal_up = _is_pid_file_running(_SIGNAL_PID_FILE)
-    trading_up = _is_pid_file_running(_TRADING_PID_FILE)
+    collector_up = _is_pid_file_running(_COLLECTOR_PID_FILE)
+    signal_up = signal_age_s is not None
+    trading_up = trading_age_s is not None
     return ServiceStatus(
-        data_running=sum(1 for path in _DATA_PID_FILES if _is_pid_file_running(path)),
-        data_total=len(_DATA_PID_FILES),
+        data_running=1 if collector_up else 0,
+        data_total=1,
         signal_up=signal_up,
         trading_up=trading_up,
         signal_data_fresh=signal_age_s is not None and signal_age_s <= _SIGNAL_FRESH_MAX_AGE_S,

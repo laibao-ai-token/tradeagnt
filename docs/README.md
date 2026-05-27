@@ -4,8 +4,13 @@
 
 | 文档 | 用途 |
 |:---|:---|
+| **[20260527-V2/](20260527-V2/)** | **V2 文档包（时间戳目录，文本驱动研发）** |
+| ↳ [PRD.md](20260527-V2/PRD.md) | V2 产品需求 |
+| ↳ [ACCEPTANCE.md](20260527-V2/ACCEPTANCE.md) | V2 验收标准 |
+| ↳ [MILESTONES.md](20260527-V2/MILESTONES.md) | V2 工程 checklist |
 | [STANDALONE.md](STANDALONE.md) | 产品定位与版本代际 |
-| [FREEZE_SCOPE.md](FREEZE_SCOPE.md) | v0.8 封板能力边界 |
+| [FREEZE_SCOPE.md](FREEZE_SCOPE.md) | v1.0 封板能力边界 |
+| [V1_AGENT_HARNESS.md](V1_AGENT_HARNESS.md) | v1→v2 路线图摘要（实现以 V2_PRD 为准） |
 | [MIGRATE_v0.8_to_v1.0.md](MIGRATE_v0.8_to_v1.0.md) | 路径 / 配置迁移 |
 | [CLEANUP_ROADMAP.md](CLEANUP_ROADMAP.md) | 后续清理路线图 |
 | [pipeline/README.md](pipeline/README.md) | Pipeline 剖面 |

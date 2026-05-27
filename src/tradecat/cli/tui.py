@@ -33,26 +33,6 @@ def _ensure_services(repo_root: Path) -> None:
                 check=False,
             )
 
-    if not _truthy_env("TUI_AUTO_START_SIGNAL", "0"):
-        return
-
-    signal_dir = repo_root / "services" / "signal-service"
-    if not signal_dir.exists():
-        return
-
-    signal_pid = signal_dir / "run" / "signal-service.pid"
-    signal_running = signal_pid.exists() and subprocess.run(
-        ["kill", "-0", signal_pid.read_text().strip()],
-        check=False,
-        capture_output=True,
-    ).returncode == 0
-    if not signal_running:
-        click.echo("[TUI] 正在启动 signal-service...")
-        subprocess.run(
-            ["/bin/bash", str(signal_dir / "scripts" / "start.sh"), "start"],
-            check=False,
-        )
-
 
 @click.command()
 @click.option("--refresh", type=float, default=2.0, help="刷新间隔秒数")

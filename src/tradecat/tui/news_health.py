@@ -15,7 +15,7 @@ _HEALTH_RE = re.compile(
 _SAMPLE_RE = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}).*collect-news unhealthy sample: (?P<sample>.+)$"
 )
-_DEFAULT_RELATIVE_LOG_PATH = Path("services-preview/markets-service/logs/news_collect.log")
+_DEFAULT_RELATIVE_LOG_PATH = Path("logs/news-sync.log")
 
 
 @dataclass(frozen=True)
