@@ -9,7 +9,7 @@
 
 - M1～M4 哪些必须进 `v2.0.0` tag？
 - 什么明确推迟到 V2.1？
-- **（来自 P2）** Agent 运行时：自研 manifest+CLI vs 轻量框架（如 **Pi**）？
+- **（来自 P2/P3）** 左侧 **Pi** 与 Python `tradecat` 嵌入方式（CLI 旁路 / pi-web-ui / Extension 调脚本）？
 
 ## 决策（拍板后填写）
 
