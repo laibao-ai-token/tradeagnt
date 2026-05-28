@@ -7,7 +7,7 @@
 | [P1-positioning.md](./P1-positioning.md) | 产品定位与边界 | ✅ |
 | [P2-users-path.md](./P2-users-path.md) | 主用户与主路径 | ✅ |
 | [P3-min-loop.md](./P3-min-loop.md) | 最小闭环 | ✅ |
-| [P4-signals-quotes.md](./P4-signals-quotes.md) | 信号与行情 | ⬜ |
+| [P4-signals-quotes.md](./P4-signals-quotes.md) | 信号与行情 | ✅ |
 | [P5-gates.md](./P5-gates.md) | 写入与闸门 | ⬜ |
 | [P6-v1-coexist.md](./P6-v1-coexist.md) | 与 V1 共存 | ⬜ |
 | [P7-safety.md](./P7-safety.md) | 安全与 fail-closed | ⬜ |

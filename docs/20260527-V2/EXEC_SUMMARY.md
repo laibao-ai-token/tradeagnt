@@ -31,9 +31,9 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ## V2 规划进度（逐点填充）
 
-→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1✅ P2✅ P3✅ · 下一步 P4**，3/9 已锁定）
+→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P4 ✅ · 下一步 P5**，4/9 已锁定）
 
-**P3 已锁定**：左 **Pi**（非自研）+ 右 **TUI 看板**；Pi 可读 TUI（symbol/价/盈亏/信号等）；V2 先只研究工具、不模拟下单、不自动下一轮。
+**P4 已锁定**：行情/信号/资讯/回测 **一律用现有基建**（`tradecat_get_*`、本地 signal、Provider）；新数据源 **有需求再补**。
 
 ---
 

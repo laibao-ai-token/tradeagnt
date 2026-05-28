@@ -11,7 +11,7 @@
 
 | 已锁定 | 讨论中 | 未讨论 |
 |:---:|:---:|:---:|
-| 3 / 9 | 0 / 9 | 6 / 9 |
+| 4 / 9 | 0 / 9 | 5 / 9 |
 
 分点讨论页：`planning/` 目录（[索引](./planning/README.md)）。
 
@@ -24,7 +24,7 @@
 | **P1** | [产品定位与边界](./planning/P1-positioning.md) | V2 是什么 / 明确不做啥 | ✅ | **Trade-layer Claude Code / Codex**（交易垂直 Agent 工具链 + 上下文；纸面非实盘） | 2026-05-27 锁定 |
 | **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | ✅ | **左 Agent / 右 TUI**；人 40/AI 60；KPI+步骤摘要；R 档位搁置 | 2026-05-27 锁定 |
 | **P3** | [最小闭环](./planning/P3-min-loop.md) | 双栏交互 + Pi/TUI 分工 | ✅ | **左 Pi / 右 TUI**；TUI→Pi 最小字段；V2 先不模拟下单 | 2026-05-28 锁定 |
-| **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 本地策略 vs 公开表 vs Agent 自备 | ⬜ | | |
+| **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 数据从哪来 | ✅ | **沿用现有基建**（Provider/signal_history/news/回测）；新源有需求再加 | 2026-05-28 |
 | **P5** | [写入与闸门](./planning/P5-gates.md) | 仅 thesis？要不要 context-audit？ | ⬜ | | |
 | **P6** | [与 V1 共存](./planning/P6-v1-coexist.md) | TUI、daemon、双分支怎么并存 | ⬜ | | |
 | **P7** | [安全与 fail-closed](./planning/P7-safety.md) | 缺字段、非 RTH、反向信号 | ⬜ | | |
