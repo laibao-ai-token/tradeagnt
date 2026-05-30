@@ -31,9 +31,9 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ## V2 规划进度（逐点填充）
 
-→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P4 ✅ · 下一步 P5**，4/9 已锁定）
+→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P5 ✅ · 下一步 P6**，5/9 已锁定）
 
-**P4 已锁定**：行情/信号/资讯/回测 **一律用现有基建**（`tradecat_get_*`、本地 signal、Provider）；新数据源 **有需求再补**。
+**P5 已锁定**：R2/R3/R4 **可切换**；R3/R4 **先评估再 submit**；R0/R1 保留；fail-closed；与 daemon 互斥。
 
 ---
 

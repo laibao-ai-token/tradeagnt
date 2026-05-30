@@ -11,7 +11,7 @@
 
 | 已锁定 | 讨论中 | 未讨论 |
 |:---:|:---:|:---:|
-| 4 / 9 | 0 / 9 | 5 / 9 |
+| 5 / 9 | 0 / 9 | 4 / 9 |
 
 分点讨论页：`planning/` 目录（[索引](./planning/README.md)）。
 
@@ -25,8 +25,8 @@
 | **P2** | [主用户与主路径](./planning/P2-users-path.md) | Agent 主、人辅到什么程度 | ✅ | **左 Agent / 右 TUI**；人 40/AI 60；KPI+步骤摘要；R 档位搁置 | 2026-05-27 锁定 |
 | **P3** | [最小闭环](./planning/P3-min-loop.md) | 双栏交互 + Pi/TUI 分工 | ✅ | **左 Pi / 右 TUI**；TUI→Pi 最小字段；V2 先不模拟下单 | 2026-05-28 锁定 |
 | **P4** | [信号与行情](./planning/P4-signals-quotes.md) | 数据从哪来 | ✅ | **沿用现有基建**（Provider/signal_history/news/回测）；新源有需求再加 | 2026-05-28 |
-| **P5** | [写入与闸门](./planning/P5-gates.md) | 仅 thesis？要不要 context-audit？ | ⬜ | | |
-| **P6** | [与 V1 共存](./planning/P6-v1-coexist.md) | TUI、daemon、双分支怎么并存 | ⬜ | | |
+| **P5** | [写入与闸门](./planning/P5-gates.md) | R 模式 / 闸门 / submit | ✅ | R0–R4；**R2+R3+R4 必做可切换**；评估后自动；fail-closed | 2026-05-28 |
+| **P6** | [与 V1 共存](./planning/P6-v1-coexist.md) | TUI、daemon、双分支 | 🟡 | | **下一步** |
 | **P7** | [安全与 fail-closed](./planning/P7-safety.md) | 缺字段、非 RTH、反向信号 | ⬜ | | |
 | **P8** | [V2.0 范围](./planning/P8-scope-v20.md) | 首版 tag vs V2.1 | ⬜ | | |
 | **P9** | [验收与协作](./planning/P9-acceptance.md) | AC 汇报、何时封 v2.0.0 | ⬜ | | |
