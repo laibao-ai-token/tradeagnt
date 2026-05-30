@@ -17,6 +17,22 @@
 | `pi-tui` / `pi-web-ui` | 终端/ Web UI 组件 |
 | **Extensions / Skills** | 挂 **trade 工具**（我们的主扩展面） |
 
+## 产品意图（用户原话对齐）
+
+> **基于 Pi 框架，接入本仓（tradeagnt）唯一版本的能力**，让 **Pi 具备交易场景的 Chat Agent 能力** —— 用户跟 Pi 聊；Pi 通过工具调用使用 tradeagnt 的行情、信号、评估、纸面与闭环，而不是在 Python 里再做一个聊天 Agent。
+
+```text
+  用户 ◄──chat──►  Pi（Chat Agent 外壳）
+                      │
+                      │ Extensions / Skills
+                      ▼
+              tradeagnt 能力层（Python 单体 v1 基建 + V2 硬闸门）
+                      │
+                      ├── tradecat_get_*（观察）
+                      ├── 评估 / submit-thesis / audit（闭环）
+                      └── 右栏 TUI 数据（KPI 快照）
+```
+
 ## 在 tradeagnt 里的分工
 
 | 层 | 技术 | 做什么 |

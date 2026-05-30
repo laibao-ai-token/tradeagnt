@@ -34,8 +34,8 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 → 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P5 ✅ · 当前 P6**，5/9 已锁定）
 
 **P6 ✅**：分支 + 一套 TUI 双壳 + daemon 互斥（布局次要）。  
-**Agent 框架**：**[Pi](https://github.com/earendil-works/pi)**（左栏 harness；trade 工具用 Extension 调 Python）。  
-**当前重心**：[CLOSED_LOOP.md](./planning/CLOSED_LOOP.md) — 硬层闭环；Pi 做编排，不替代闸门。
+**Agent 框架**：**Pi = Chat Agent 外壳**；**tradeagnt = 能力插件**（行情/信号/闸门/纸面/闭环），用 Extension 接入，不在 Python 再造聊天 Agent。  
+**当前重心**：[CLOSED_LOOP.md](./planning/CLOSED_LOOP.md) — Python 硬层可持续闭环；Pi 负责对话与调工具。
 
 ---
 
