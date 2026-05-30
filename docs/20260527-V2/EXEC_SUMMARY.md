@@ -7,7 +7,7 @@
 
 ## 一句话
 
-**V2 = Pi 作 Chat Agent 壳 + tradeagnt 能力接入 + 可持续模拟闭环**；**先 v2-base，再持续迭代**（不一次性大 bang 发版）。
+**V2 = vendor/pi（Pi 外壳）+ pi-extensions/tradeagnt（能力接入 Pi）+ Python 闭环**；见 [ARCHITECTURE.md](./ARCHITECTURE.md)。先 v2-base，再迭代。
 
 ---
 

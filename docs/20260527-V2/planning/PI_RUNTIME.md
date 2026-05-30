@@ -19,19 +19,17 @@
 
 ## 产品意图（用户原话对齐）
 
-> **基于 Pi 框架，接入本仓（tradeagnt）唯一版本的能力**，让 **Pi 具备交易场景的 Chat Agent 能力** —— 用户跟 Pi 聊；Pi 通过工具调用使用 tradeagnt 的行情、信号、评估、纸面与闭环，而不是在 Python 里再做一个聊天 Agent。
+> 仓库仍是 **tradeagnt**（垂类产品 + 唯一版本 Python 能力）。  
+> **拉 Pi 源码到 `vendor/pi/`**，在 **`pi-extensions/tradeagnt/`** 把能力 **接到 Pi 里面**，使 **Pi 具备 Trade Agent 垂类能力**。
 
 ```text
-  用户 ◄──chat──►  Pi（Chat Agent 外壳）
-                      │
-                      │ Extensions / Skills
-                      ▼
-              tradeagnt 能力层（Python 单体 v1 基建 + V2 硬闸门）
-                      │
-                      ├── tradecat_get_*（观察）
-                      ├── 评估 / submit-thesis / audit（闭环）
-                      └── 右栏 TUI 数据（KPI 快照）
+tradeagnt 仓库
+  vendor/pi/                 ← Pi 框架（外壳）
+  pi-extensions/tradeagnt/   ← 接入层（Extension）
+  src/tradecat/ + scripts/   ← 已有能力（被 Extension 调用）
 ```
+
+详见 [ARCHITECTURE.md](../ARCHITECTURE.md)。
 
 ## 在 tradeagnt 里的分工
 
@@ -55,9 +53,9 @@
 
 | 路径 | 说明 |
 |:---|:---|
-| **`vendor/pi/`** | Pi 源码浅克隆（**gitignore**，换机见 `vendor/README.md`） |
-| **`integrations/pi-extension/`** | tradeagnt 的 Pi Extension（v2-base 实现位） |
-| `src/tradecat/` | Python 能力层（不变） |
+| **`vendor/pi/`** | Pi 源码（gitignore） |
+| **`pi-extensions/tradeagnt/`** | **能力接入 Pi**（v2-base 实现） |
+| `src/tradecat/` | 垂类能力实现（Python，不变） |
 
 ## 待实现
 

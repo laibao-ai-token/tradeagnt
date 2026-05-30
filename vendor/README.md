@@ -1,17 +1,10 @@
-# vendor/
+# vendor/pi — Agent 框架源码
 
-第三方源码，**不提交**到 tradeagnt 主仓（见根 `.gitignore`）。
+本目录放 **[Pi](https://github.com/earendil-works/pi)** 上游（浅克隆，**不提交** Git）。
 
-## Pi Agent 框架
+**架构**：Pi = 外壳；**tradeagnt 垂类能力**通过 `pi-extensions/tradeagnt/` **接入 Pi**。  
+见图：[docs/20260527-V2/ARCHITECTURE.md](../docs/20260527-V2/ARCHITECTURE.md)
 
 ```bash
-# 首次 / 换机后（在仓库根目录）
 git clone --depth 1 https://github.com/earendil-works/pi.git vendor/pi
 ```
-
-| 路径 | 说明 |
-|:---|:---|
-| `vendor/pi/` | [earendil-works/pi](https://github.com/earendil-works/pi) 浅克隆 |
-| `integrations/pi-extension/` | tradeagnt 侧 Extension（调 Python `tradecat_get_*`，v2-base 待建） |
-
-tradeagnt 仍为 **唯一开发目录**；Pi 为左栏 harness，交易能力仍在 `src/tradecat/`。
