@@ -31,9 +31,10 @@ V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
 
 ## V2 规划进度（逐点填充）
 
-→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P5 ✅ · 下一步 P6**，5/9 已锁定）
+→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P5 ✅ · 当前 P6**，5/9 已锁定）
 
-**P5 已锁定**：R2/R3/R4 **可切换**；R3/R4 **先评估再 submit**；R0/R1 保留；fail-closed；与 daemon 互斥。
+**P6 ✅**：分支 + 一套 TUI 双壳 + daemon 互斥（布局次要）。  
+**当前重心**：[CLOSED_LOOP.md](./planning/CLOSED_LOOP.md) — 评估→闸门→纸面→audit→**Feedback 驱动下一轮**（R3/R4 可持续自动）。
 
 ---
 

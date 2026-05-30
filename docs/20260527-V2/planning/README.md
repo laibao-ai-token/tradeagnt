@@ -9,7 +9,8 @@
 | [P3-min-loop.md](./P3-min-loop.md) | 最小闭环 | ✅ |
 | [P4-signals-quotes.md](./P4-signals-quotes.md) | 信号与行情 | ✅ |
 | [P5-gates.md](./P5-gates.md) | 写入与闸门 | ✅ |
-| [P6-v1-coexist.md](./P6-v1-coexist.md) | 与 V1 共存 | 🟡 |
+| [P6-v1-coexist.md](./P6-v1-coexist.md) | 与 V1 共存（分支/TUI/env） | ✅ |
+| **[CLOSED_LOOP.md](./CLOSED_LOOP.md)** | **交易闭环与正反馈（硬工程重心）** | 🟡 |
 | [P7-safety.md](./P7-safety.md) | 安全与 fail-closed | ⬜ |
 | [P8-scope-v20.md](./P8-scope-v20.md) | V2.0 范围 | ⬜ |
 | [P9-acceptance.md](./P9-acceptance.md) | 验收与协作 | ⬜ |
