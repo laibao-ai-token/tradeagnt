@@ -51,10 +51,17 @@
 3. **R3/R4 评估/调度** — Python 服务；Pi 可读 Feedback pack（短文本）。  
 4. **TS + Python** — 首版用 **子进程调脚本**（与现有 `tradecat_get_*` 一致），避免双栈重写。
 
-## 待 P8 拍板
+## 仓库内路径（2026-05-28）
+
+| 路径 | 说明 |
+|:---|:---|
+| **`vendor/pi/`** | Pi 源码浅克隆（**gitignore**，换机见 `vendor/README.md`） |
+| **`integrations/pi-extension/`** | tradeagnt 的 Pi Extension（v2-base 实现位） |
+| `src/tradecat/` | Python 能力层（不变） |
+
+## 待实现
 
 - 左栏：嵌入式 `pi-tui` vs 旁路 `pi` CLI + IPC  
-- Skills 放 `skills/tradeagnt/pi/` 还是 repo 根 `.pi/` 约定  
 
 ## 变更
 

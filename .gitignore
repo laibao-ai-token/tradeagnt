@@ -37,6 +37,9 @@ services/aws-service/
 # ====================
 node_modules/
 
+# Pi upstream（本地 clone，见 vendor/README.md）
+vendor/pi/
+
 # ====================
 # 运行时
 # ====================
