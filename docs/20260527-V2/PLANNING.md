@@ -11,7 +11,7 @@
 
 | 已锁定 | 讨论中 | 未讨论 |
 |:---:|:---:|:---:|
-| 6 / 9 | 1 / 9（闭环） | 3 / 9 |
+| 9 / 9 议程 | 1 / 9（闭环 L1～L4） | 0 / 9 |
 
 分点讨论页：`planning/` 目录（[索引](./planning/README.md)）。
 
@@ -28,9 +28,9 @@
 | **P5** | [写入与闸门](./planning/P5-gates.md) | R 模式 / 闸门 / submit | ✅ | R0–R4；**R2+R3+R4 必做可切换**；评估后自动；fail-closed | 2026-05-28 |
 | **P6** | [与 V1 共存](./planning/P6-v1-coexist.md) | 分支/TUI/env | ✅ | 一套 TUI 双壳；V2 关 auto_consumer | 2026-05-28 |
 | **—** | [**交易闭环**](./planning/CLOSED_LOOP.md) | 硬工程/正反馈 | 🟡 | Observe→Act→Measure→Learn | **当前重心** |
-| **P7** | [安全与 fail-closed](./planning/P7-safety.md) | 缺字段、非 RTH、反向信号 | ⬜ | | |
-| **P8** | [V2.0 范围](./planning/P8-scope-v20.md) | 首版 tag vs V2.1 | ⬜ | | |
-| **P9** | [验收与协作](./planning/P9-acceptance.md) | AC 汇报、何时封 v2.0.0 | ⬜ | | |
+| **P7** | [安全与 fail-closed](./planning/P7-safety.md) | 安全默认 | ✅ | **全部采用默认**，不扩特别配置 | 2026-05-28 |
+| **P8** | [发版与迭代](./planning/P8-scope-v20.md) | 迭代策略 / v2-base | ✅ | **持续迭代**；先 **v2-base**，R3/R4 后续小版本 | 2026-05-28 |
+| **P9** | [验收与协作](./planning/P9-acceptance.md) | 分段验收 | ✅ | **按每段 tag 验收**；CEO 摘要；先 v2-base AC | 2026-05-28 |
 
 ---
 

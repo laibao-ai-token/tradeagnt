@@ -1,93 +1,58 @@
 # V2 执行摘要（决策者只看这一页）
 
-> 最后更新：2026-05-27 · 维护者：主 Agent · 分支：`v2/agent-harness`  
-> 协作规则：[../CONTROL_PLANE.md](../CONTROL_PLANE.md)
+> 最后更新：2026-05-28 · 分支：`v2/agent-harness`  
+> 协作：[CONTROL_PLANE.md](../CONTROL_PLANE.md) · 规划总表：[PLANNING.md](./PLANNING.md)
 
 ---
 
 ## 一句话
 
-**V2 = Trade-layer Claude Code / Codex**（在 trade 域复刻「上下文 + 工具 + 多步 Agent」；行情/信号/资讯/回测 → 分析 → 纸面闸门；人监督，非实盘）。  
-V1 已封板在 `tradeagnt`；V2 在独立分支上按 PRD 文本推进。
+**V2 = Pi 作 Chat Agent 壳 + tradeagnt 能力接入 + 可持续模拟闭环**；**先 v2-base，再持续迭代**（不一次性大 bang 发版）。
 
 ---
 
-## 你现在需要知道的（≤10 条）
+## 规划进度
 
-| # | 事实 |
+| 块 | 状态 |
+|:---|:---:|
+| P1～P6、P7、P8、P9 | ✅ |
+| Pi 选型 | ✅ |
+| **CLOSED_LOOP**（L1～L4） | 🟡 可选再拍；不挡 v2-base 开工 |
+
+---
+
+## 已锁定要点（极简）
+
+| 主题 | 结论 |
 |:---|:---|
-| 1 | v1.0 已 tag，人类主路径仍是 TUI + 只读 `tradecat_get_*` |
-| 2 | V2 文档在 **`docs/20260527-V2/`**（时间戳目录，本轮需求包） |
-| 3 | **你不必读** `PRD.md` 全文，除非要改范围；细节问我或看本页 |
-| 4 | 开发分支：**`v2/agent-harness`**（已从 v1.0 拉出并推送） |
-| 5 | 文档包内三件套：`PRD`（要什么）、`ACCEPTANCE`（怎么算做完）、`MILESTONES`（工程 checklist） |
-| 6 | 示例 thesis JSON 在 `examples/agent_trade_thesis.example.json`（给以后 submit 用） |
-| 7 | **代码还没做**：`tradecat agent submit-thesis` 等是 PRD 目标，当前是 **M0 文档阶段** |
-| 8 | 等你拍板 PRD 里 5 个开放问题（见下「等你」）后，才能标 M0 Approved、开 M1 写码 |
-| 9 | **你我每一轮对话**都走 [CONTROL_PLANE](../CONTROL_PLANE.md) CEO 摘要，不只子任务结束后 |
-| 10 | 子 Agent 只干活；**你永远只和主 Agent 一个人对齐** |
+| 定位 | Trade-layer Claude Code；非实盘 |
+| 界面 | 左 **Pi** / 右 **TUI**；人引导 40/60 |
+| 数据 | 现有 `tradecat_get_*`、signal_history |
+| 写入 | **R2+R3+R4 都要**；可切换；R3/R4 先评估再 submit |
+| v1 共存 | 一套 TUI；V2 关 auto_consumer 抢写 |
+| 安全 P7 | **全默认**，不加特别配置 |
+| 发版 P8 | **迭代**；当前目标 **v2-base** → 再 v2.0.1（R3）… |
+| 验收 P9 | **每小版本一段 AC**；v2-base 绿了就打 tag |
 
 ---
 
-## V2 规划进度（逐点填充）
+## v2-base 要交付什么（当前工程目标）
 
-→ 总表：[PLANNING.md](./PLANNING.md) · 分点页：[planning/](./planning/)（**P1～P5 ✅ · 当前 P6**，5/9 已锁定）
-
-**P6 ✅**：分支 + 一套 TUI 双壳 + daemon 互斥（布局次要）。  
-**Agent 框架**：**Pi = Chat Agent 外壳**；**tradeagnt = 能力插件**（行情/信号/闸门/纸面/闭环），用 Extension 接入，不在 Python 再造聊天 Agent。  
-**当前重心**：[CLOSED_LOOP.md](./planning/CLOSED_LOOP.md) — Python 硬层可持续闭环；Pi 负责对话与调工具。
-
----
-
-## 里程碑状态
-
-| 阶段 | 状态 | 对你意味着什么 |
-|:---|:---|:---|
-| M0 PRD/AC/分支 | ✅ 文档与分支已就绪 | 可开始「V2 研发」，但范围需你点头 |
-| M1 契约（schema、manifest v2） | ⬜ 未开始 | 做完后 Agent 工具表会变，仍不影响 v1 分支 |
-| M2 submit-thesis + 审计 | ⬜ 未开始 | **V2 核心能力**，Agent 才能「驱动 trade」 |
-| M3 封 v2.0.0 | ⬜ 未开始 | 全 P0 验收绿 |
+1. Pi Extension 能调研究工具（至少 `context_pack`）。  
+2. **R2**：submit-thesis + audit + paper-report。  
+3. 右 TUI 可跑；`TRADEAGNT_AGENT_MODE` 互斥。  
+4. **不含**（放到下一迭代）：R3 调度、R4、24h 自动循环、完整双栏嵌入 polish。
 
 ---
 
-## 等你拍板（回复一句即可）
+## 唯一可选规划尾项
 
-PRD 建议默认——你可回「全部默认」或逐条改：
-
-| 问题 | 建议 |
-|:---|:---|
-| Q1 是否必须先 context-audit？ | **否**，先 thesis |
-| Q2 一次是否多 symbol？ | **否**，V2.1 再做 |
-| Q3 thesis 与本地信号反向？ | warn，可配置 reject |
-| Q4 美股非交易时段 paper？ | **允许** |
-| Q5 版本号 | **v2.0.0** |
+[CLOSED_LOOP.md](./planning/CLOSED_LOOP.md) 的 **L1～L4**（R3 触发器、收手规则）— 可边做 v2-base 边定。
 
 ---
 
-## 文件地图（防迷路）
+## 下一步（实现）
 
-```text
-docs/CONTROL_PLANE.md          ← 你与主 Agent 怎么协作（读一次即可）
-docs/20260527-V2/
-  EXEC_SUMMARY.md              ← 本文件（每次会话先看）
-  PRD.md                       ← 完整需求（主 Agent / 子 Agent 用）
-  ACCEPTANCE.md                ← 验收编号 AC-xx（你只听摘要）
-  MILESTONES.md                ← 工程勾选（你只听摘要）
-  examples/*.json              ← 示例数据
-```
+**开始 v2-base 工程**：Pi Extension 骨架 + `tradecat agent submit-thesis` + audit.jsonl。
 
----
-
-## 最近交付（changelog 极简）
-
-- 建立 `docs/20260527-V2/` 文档包
-- 创建并推送分支 `v2/agent-harness`
-- v1 线 `tradeagnt` 保持 v1.0 封板点不动
-
----
-
-## 下一步（主 Agent 建议）
-
-1. 你确认 Q1～Q5 → 我把 PRD 标为 Approved。  
-2. 在 `v2/agent-harness` 开 **M1**（只契约，不改交易逻辑）。  
-3. 用子 Agent 做实现时，我只向你更新本页 + 短汇报。
+回 **`开工 v2-base`** 我从 M1/M2a 任务列表开干（仍 CEO 摘要汇报）。

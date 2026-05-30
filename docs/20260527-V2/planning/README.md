@@ -12,8 +12,8 @@
 | [P6-v1-coexist.md](./P6-v1-coexist.md) | 与 V1 共存（分支/TUI/env） | ✅ |
 | **[CLOSED_LOOP.md](./CLOSED_LOOP.md)** | **交易闭环与正反馈（硬工程重心）** | 🟡 |
 | [PI_RUNTIME.md](./PI_RUNTIME.md) | **Agent 框架 = Pi** | ✅ |
-| [P7-safety.md](./P7-safety.md) | 安全与 fail-closed | ⬜ |
-| [P8-scope-v20.md](./P8-scope-v20.md) | V2.0 范围 | ⬜ |
-| [P9-acceptance.md](./P9-acceptance.md) | 验收与协作 | ⬜ |
+| [P7-safety.md](./P7-safety.md) | 安全（默认） | ✅ |
+| [P8-scope-v20.md](./P8-scope-v20.md) | 迭代发版 / v2-base | ✅ |
+| [P9-acceptance.md](./P9-acceptance.md) | 分段验收 | ✅ |
 
 拍板后：主 Agent 更新本文件状态 + 总表 `PLANNING.md`「决策」列 +（全部完成后）汇总进 `PRD.md`。
