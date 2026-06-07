@@ -1,3 +1,3 @@
-# 已迁移
+# 已迁至 Pi
 
-V2 PRD 见 **[20260527-V2/PRD.md](./20260527-V2/PRD.md)**（目录 `docs/20260527-V2/`）。
+V2 PRD：**[pi/docs/trade-agent/20260527-V2/PRD.md](../../pi/docs/trade-agent/20260527-V2/PRD.md)**

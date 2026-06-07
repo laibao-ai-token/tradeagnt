@@ -1,10 +1,10 @@
 # tradeagnt v1 — Agent Harness 路线图（摘要）
 
-> **V2 实现以 [20260527-V2/PRD.md](./20260527-V2/PRD.md) 为唯一需求源**；本文档保留 v1.0 基线与官方对照索引。
+> **V2 实现以 [pi/docs/trade-agent/20260527-V2/PRD.md](../../pi/docs/trade-agent/20260527-V2/PRD.md) 为唯一需求源**；本文档保留 v1.0 基线与官方对照索引。
 
 v1.0 **已封板**的是：独立仓库 + 单体运行 + **Agent 只读工具层**（`tradecat_get_*` + `manifest.json`）。
 
-v2.0 起按 [20260527-V2/PRD.md](./20260527-V2/PRD.md) 文本驱动研发；可参考官方 TradeCat Public（外部仓库，**非本仓子模块/远程**）**逐特性引入**，不整仓 merge。
+v2.0 起按 [pi V2 PRD](../../pi/docs/trade-agent/20260527-V2/PRD.md) 文本驱动研发；可参考官方 TradeCat Public（外部仓库，**非本仓子模块/远程**）**逐特性引入**，不整仓 merge。
 
 ## 已对齐官方（v1.0）
 
