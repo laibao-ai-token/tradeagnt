@@ -33,16 +33,27 @@ from tradecat.core.paper_trading.paths import find_tradeagnt_repo_root
 DEFAULT_TTL_MS = 60 * 60 * 1000
 DEFAULT_DB_NAME = ".agent_thesis_lock.db"
 
+_schema_ensured = False
+_cached_db_path: Path | None = None
+
 
 def _db_path() -> Path:
+    global _cached_db_path
+    if _cached_db_path is not None:
+        return _cached_db_path
     env = os.getenv("TRADEAGNT_AGENT_LOCK_PATH", "").strip()
     if env:
-        return Path(env).expanduser().resolve()
-    root = find_tradeagnt_repo_root()
-    return root / "libs" / "database" / "services" / "signal-service" / DEFAULT_DB_NAME
+        _cached_db_path = Path(env).expanduser().resolve()
+    else:
+        root = find_tradeagnt_repo_root()
+        _cached_db_path = root / "libs" / "database" / "services" / "signal-service" / DEFAULT_DB_NAME
+    return _cached_db_path
 
 
 def _ensure_schema(path: Path) -> None:
+    global _schema_ensured
+    if _schema_ensured:
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as conn:
         conn.execute(
@@ -52,6 +63,7 @@ def _ensure_schema(path: Path) -> None:
             "claimed_at INTEGER NOT NULL)"
         )
         conn.commit()
+    _schema_ensured = True
 
 
 def _get_conn() -> sqlite3.Connection:

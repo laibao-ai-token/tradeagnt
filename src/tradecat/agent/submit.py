@@ -65,6 +65,31 @@ def _write_audit(**kwargs: Any) -> None:
     append_audit(kwargs)
 
 
+def _audit_reject(
+    *,
+    tid: str,
+    thesis: dict[str, Any],
+    gates: dict[str, str],
+    err: Envelope,
+    thash: str,
+    agent_mode: bool,
+    warnings: list[str] | None = None,
+    **extra: Any,
+) -> None:
+    _write_audit(
+        thesis_id=tid,
+        symbol=thesis.get("symbol"),
+        direction=thesis.get("direction"),
+        outcome="reject",
+        error_code=err.error["code"] if err.error else "reject",
+        gates=gates,
+        thesis_hash=thash,
+        agent_mode=agent_mode,
+        warnings=warnings,
+        **extra,
+    )
+
+
 def submit_thesis(
     *,
     input_path: Path | str | None = None,
@@ -134,21 +159,13 @@ def _submit_after_claim(
     """Gate + engine + audit pipeline. Caller must already hold the claim lock."""
     gates = gate_snapshot()
     warnings: list[str] = []
+    thash = thesis_hash(thesis)  # 计算一次，复用
 
     err = validate_schema(thesis)
     if err:
         gates["schema"] = "fail"
         if not dry_run:
-            _write_audit(
-                thesis_id=tid,
-                symbol=thesis.get("symbol"),
-                direction=thesis.get("direction"),
-                outcome="reject",
-                error_code=err.error["code"] if err.error else "reject",
-                gates=gates,
-                thesis_hash=thesis_hash(thesis),
-                agent_mode=agent_mode,
-            )
+            _audit_reject(tid=tid, thesis=thesis, gates=gates, err=err, thash=thash, agent_mode=agent_mode)
         return err
     gates["schema"] = "pass"
 
@@ -156,16 +173,7 @@ def _submit_after_claim(
     if err:
         gates["risk"] = "fail"
         if not dry_run:
-            _write_audit(
-                thesis_id=tid,
-                symbol=thesis.get("symbol"),
-                direction=thesis.get("direction"),
-                outcome="reject",
-                error_code=err.error["code"] if err.error else "reject",
-                gates=gates,
-                thesis_hash=thesis_hash(thesis),
-                agent_mode=agent_mode,
-            )
+            _audit_reject(tid=tid, thesis=thesis, gates=gates, err=err, thash=thash, agent_mode=agent_mode)
         return err
     gates["risk"] = "pass"
 
@@ -173,16 +181,7 @@ def _submit_after_claim(
     if sym_err:
         gates["symbol"] = "fail"
         if not dry_run:
-            _write_audit(
-                thesis_id=tid,
-                symbol=thesis.get("symbol"),
-                direction=thesis.get("direction"),
-                outcome="reject",
-                error_code=sym_err.error["code"] if sym_err.error else "reject",
-                gates=gates,
-                thesis_hash=thesis_hash(thesis),
-                agent_mode=agent_mode,
-            )
+            _audit_reject(tid=tid, thesis=thesis, gates=gates, err=sym_err, thash=thash, agent_mode=agent_mode)
         return sym_err
     gates["symbol"] = "pass"
 
@@ -197,21 +196,11 @@ def _submit_after_claim(
         gates["conflict"] = "pass"
         gates["freshness"] = "pass"
         _write_audit(
-            thesis_id=tid,
-            symbol=symbol,
-            market=market,
-            direction=direction,
-            outcome="watch_only",
-            error_code=None,
-            gates=gates,
-            thesis_hash=thesis_hash(thesis),
-            agent_mode=agent_mode,
+            thesis_id=tid, symbol=symbol, market=market, direction=direction,
+            outcome="watch_only", error_code=None, gates=gates,
+            thesis_hash=thash, agent_mode=agent_mode,
         )
-        return Envelope(
-            ok=True,
-            data={"action": "watch_only", "reason": thesis.get("rationale")},
-            audit_ref=tid,
-        )
+        return Envelope(ok=True, data={"action": "watch_only", "reason": thesis.get("rationale")}, audit_ref=tid)
 
     engine = _paper_engine()
     account = _resolve_account(engine, thesis)
@@ -221,18 +210,7 @@ def _submit_after_claim(
     warnings.extend(conf_warnings)
     if conf_err:
         if not dry_run:
-            _write_audit(
-                thesis_id=tid,
-                symbol=symbol,
-                market=market,
-                direction=direction,
-                outcome="reject",
-                error_code=conf_err.error["code"] if conf_err.error else "reject",
-                gates=gates,
-                thesis_hash=thesis_hash(thesis),
-                warnings=warnings,
-                agent_mode=agent_mode,
-            )
+            _audit_reject(tid=tid, thesis=thesis, gates=gates, err=conf_err, thash=thash, agent_mode=agent_mode, warnings=warnings)
         return conf_err
 
     price, quote_age_ms, quote_warnings = fetch_quote_price(symbol, market)
@@ -244,37 +222,14 @@ def _submit_after_claim(
             gates["freshness"] = "fail"
             err = fail("agent_data_stale", f"quote age {quote_age_ms}ms > {freshness_sec}s", gate="freshness", warnings=warnings)
             if not dry_run:
-                _write_audit(
-                    thesis_id=tid,
-                    symbol=symbol,
-                    market=market,
-                    direction=direction,
-                    outcome="reject",
-                    error_code="agent_data_stale",
-                    gates=gates,
-                    quote_ts_delta_ms=quote_age_ms,
-                    thesis_hash=thesis_hash(thesis),
-                    warnings=warnings,
-                    agent_mode=agent_mode,
-                )
+                _audit_reject(tid=tid, thesis=thesis, gates=gates, err=err, thash=thash, agent_mode=agent_mode, warnings=warnings, quote_ts_delta_ms=quote_age_ms)
             return err
     gates["freshness"] = "warn" if "freshness_warn" in warnings else "pass"
 
     if price is None or price <= 0:
         gates["freshness"] = "fail"
         err = fail("agent_quote_unavailable", "cannot fetch public quote for fill price", gate="freshness", warnings=warnings)
-        _write_audit(
-            thesis_id=tid,
-            symbol=symbol,
-            market=market,
-            direction=direction,
-            outcome="reject",
-            error_code="agent_quote_unavailable",
-            gates=gates,
-            thesis_hash=thesis_hash(thesis),
-            warnings=warnings,
-            agent_mode=agent_mode,
-        )
+        _audit_reject(tid=tid, thesis=thesis, gates=gates, err=err, thash=thash, agent_mode=agent_mode, warnings=warnings)
         return err
 
     intent = thesis["paper_intent"]
@@ -291,19 +246,7 @@ def _submit_after_claim(
 
     if not result.get("ok"):
         msg = str(result.get("error") or "engine rejected order")
-        _write_audit(
-            thesis_id=tid,
-            symbol=symbol,
-            market=market,
-            direction=direction,
-            outcome="reject",
-            error_code="agent_engine_reject",
-            gates=gates,
-            thesis_hash=thesis_hash(thesis),
-            warnings=warnings + [msg],
-            agent_mode=agent_mode,
-            engine_tx_note="partial",
-        )
+        _audit_reject(tid=tid, thesis=thesis, gates=gates, err=fail("agent_engine_reject", msg), thash=thash, agent_mode=agent_mode, warnings=warnings + [msg], engine_tx_note="partial")
         return fail("agent_engine_reject", msg, gate="paper", warnings=warnings)
 
     order = result.get("order")
@@ -316,25 +259,12 @@ def _submit_after_claim(
         "account_id": str(account_id),
     }
     _write_audit(
-        thesis_id=tid,
-        symbol=symbol,
-        market=market,
-        direction=direction,
-        outcome="accept",
-        error_code=None,
-        gates=gates,
-        thesis_hash=thesis_hash(thesis),
-        quote_ts_delta_ms=quote_age_ms,
-        fill=fill_payload,
-        warnings=warnings,
-        agent_mode=agent_mode,
+        thesis_id=tid, symbol=symbol, market=market, direction=direction,
+        outcome="accept", error_code=None, gates=gates,
+        thesis_hash=thash, quote_ts_delta_ms=quote_age_ms,
+        fill=fill_payload, warnings=warnings, agent_mode=agent_mode,
     )
-    return Envelope(
-        ok=True,
-        data={"action": "filled", "fill": fill_payload},
-        warnings=warnings,
-        audit_ref=tid,
-    )
+    return Envelope(ok=True, data={"action": "filled", "fill": fill_payload}, warnings=warnings, audit_ref=tid)
 
 
 def validate_thesis_only(*, input_path: Path | str | None = None, use_stdin: bool = False) -> Envelope:

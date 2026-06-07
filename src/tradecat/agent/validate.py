@@ -11,8 +11,14 @@ from tradecat.agent.envelope import Envelope, fail
 from tradecat.agent.thesis import schema_path
 
 
+_cached_schema: dict[str, Any] | None = None
+
+
 def _load_schema() -> dict[str, Any]:
-    return json.loads(schema_path().read_text(encoding="utf-8"))
+    global _cached_schema
+    if _cached_schema is None:
+        _cached_schema = json.loads(schema_path().read_text(encoding="utf-8"))
+    return _cached_schema
 
 
 def validate_schema(thesis: dict[str, Any]) -> Envelope | None:
