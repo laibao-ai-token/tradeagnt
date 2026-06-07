@@ -31,7 +31,7 @@ class JsonArgumentParser(argparse.ArgumentParser):
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _error_payload(code: str, message: str) -> dict[str, str]:

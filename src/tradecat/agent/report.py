@@ -5,8 +5,8 @@ import json
 from typing import Any
 
 from tradecat.agent.audit import tail_audit
+from tradecat.agent.engine import get_paper_engine
 from tradecat.agent.envelope import Envelope
-from tradecat.agent.submit import _paper_engine
 
 
 def _to_json_safe(obj: Any) -> Any:
@@ -19,7 +19,7 @@ def _to_json_safe(obj: Any) -> Any:
 
 
 def build_paper_report(*, symbol: str | None = None, include_rejects: int = 5) -> Envelope:
-    engine = _paper_engine()
+    engine = get_paper_engine()
     accounts = engine.list_accounts()
     if not accounts:
         accounts = [engine.create_account("default")]

@@ -23,26 +23,14 @@ from tradecat.agent.thesis import (
     thesis_hash,
     thesis_id,
 )
+from tradecat.agent.engine import get_paper_engine
 from tradecat.agent.validate import validate_schema
-from tradecat.core.paper_trading import PaperTradingEngine
 
 
 def _harness_disabled() -> Envelope | None:
     if (os.getenv("TRADEAGNT_HARNESS_V1") or "").strip() in ("1", "true", "yes", "on"):
         return fail("agent_harness_v1_disabled", "TRADEAGNT_HARNESS_V1=1 disables submit-thesis")
     return None
-
-
-def _paper_engine() -> PaperTradingEngine:
-    repo_type = os.getenv("PAPER_REPO_TYPE", "sqlite")
-    if repo_type == "memory":
-        from tradecat.core.paper_trading import InMemoryRepository
-
-        return PaperTradingEngine(InMemoryRepository())
-    from tradecat.core.paper_trading.paths import default_paper_db_path
-    from tradecat.core.paper_trading.repository import SqliteRepository
-
-    return PaperTradingEngine(SqliteRepository(db_path=default_paper_db_path()))
 
 
 def _resolve_account(engine: PaperTradingEngine, thesis: dict[str, Any]) -> Any:
@@ -202,7 +190,7 @@ def _submit_after_claim(
         )
         return Envelope(ok=True, data={"action": "watch_only", "reason": thesis.get("rationale")}, audit_ref=tid)
 
-    engine = _paper_engine()
+    engine = get_paper_engine()
     account = _resolve_account(engine, thesis)
     account_id = account.account_id
 
