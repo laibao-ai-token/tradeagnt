@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, tradecat]
+    branches: [main, tradecat, v2/agent-harness]
   pull_request:
-    branches: [main, tradecat]
+    branches: [main, tradecat, v2/agent-harness]
 
 jobs:
   lint:
@@ -75,3 +75,32 @@ jobs:
 
       - name: Freeze verify (v0.8 subset)
         run: ./scripts/freeze_verify.sh
+
+  agent-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Agent V2 tests
+        run: pytest tests/test_agent_e3.py tests/test_agent_submit_concurrent.py -q
+
+  pi-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Pi extension bridge tests
+        run: node --test --experimental-strip-types pi-extensions/tradeagnt/test/run-python.test.mts

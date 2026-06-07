@@ -1,20 +1,75 @@
 {
-  "schema": "tradeagnt.agent_manifest.v1",
-  "schema_version": "1.0.0",
+  "schema": "tradeagnt.agent_manifest.v2",
+  "schema_version": "2.0.0",
   "name": "tradeagnt",
   "display_name": "tradeagnt Agent Research Runtime",
-  "repo_role": "Standalone monolith: local strategies + TUI demo + read-only JSON tools for Agent/Hermes. Paper write path planned v1.1.",
+  "repo_role": "Modular monolith: local strategies + TUI + Pi Extension. v2-base: E2 read-only + E3 paper trading + E3 backtest, all fail-closed.",
   "skill_root": "skills/tradeagnt",
   "human_docs": ["README.md", "AGENTS.md", "docs/FREEZE_SCOPE.md"],
   "agent_docs": [
     "skills/tradeagnt/SKILL.md",
     "skills/tradeagnt/agents/manifest.json",
-    "docs/V1_AGENT_HARNESS.md"
+    "pi/docs/trade-agent/execution/E2-TOOLS.md",
+    "pi/docs/trade-agent/execution/E3-PAPER.md"
   ],
   "command_risk_classes": {
     "local_readonly": "Reads local DB/SQLite and in-process providers only.",
-    "network_readonly": "Fetches public market data via configured providers."
+    "network_readonly": "Fetches public market data via configured providers.",
+    "paper_runtime_write": "Local paper trading only via tradecat agent submit-thesis (fail-closed gates)."
   },
+  "extension_tools": [
+    {
+      "name": "trade_submit_thesis",
+      "stage": "E3",
+      "risk_class": "paper_runtime_write",
+      "maps_to": "scripts/tradecat_agent_submit_thesis.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/submit.ts",
+      "timeout_ms": 90000,
+      "description": "Submit agent_trade_thesis.v1 through 5 fail-closed gates to local paper engine."
+    },
+    {
+      "name": "trade_paper_report",
+      "stage": "E3",
+      "risk_class": "local_readonly",
+      "maps_to": "scripts/tradecat_agent_paper_report.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/paper-report.ts",
+      "timeout_ms": 60000,
+      "description": "Paper account NAV, positions, and recent agent thesis rejections."
+    },
+    {
+      "name": "trade_run_backtest",
+      "stage": "E3-BACKTEST",
+      "risk_class": "local_readonly",
+      "maps_to": "scripts/bridge_backtest.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/backtest.ts",
+      "timeout_ms": 120000,
+      "description": "Run a strategy backtest via tradecat backtest CLI; returns structured JSON summary."
+    },
+    {
+      "name": "trade_get_quotes",
+      "stage": "E2",
+      "risk_class": "network_readonly",
+      "maps_to": "scripts/tradecat_get_quotes.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/quotes.ts",
+      "timeout_ms": 60000
+    },
+    {
+      "name": "trade_get_indicators",
+      "stage": "E2",
+      "risk_class": "network_readonly",
+      "maps_to": "scripts/tradecat_get_indicators.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/indicators.ts",
+      "timeout_ms": 60000
+    },
+    {
+      "name": "trade_get_news",
+      "stage": "E2",
+      "risk_class": "network_readonly",
+      "maps_to": "scripts/tradecat_get_news.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/news.ts",
+      "timeout_ms": 30000
+    }
+  ],
   "preferred_readonly_entrypoints": [
     {
       "id": "context_pack",
@@ -53,5 +108,5 @@
       "risk_class": "local_readonly"
     }
   ],
-  "safety_boundary": "v1.0: read-only tools unless operator explicitly runs tradecat paper CLI. No Binance signed requests in manifest commands."
+  "safety_boundary": "E2 read-only observe tools; E3 paper via trade_submit_thesis only (local paper, fail-closed). E3-BACKTEST via trade_run_backtest (local, no live orders). No Binance signed requests."
 }

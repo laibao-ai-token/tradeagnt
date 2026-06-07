@@ -28,6 +28,7 @@ dependencies = [
     "tabulate>=0.9",
     "rich>=13.0",
     "asyncpg>=0.29",
+    "jsonschema>=4.22",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +53,12 @@ include = [
     "/config",
     "/Makefile",
     "/docker-compose.yml",
+]
+exclude = [
+    "/.env",
+    "/.env.*",
+    "/config/.env",
+    "/config/.env.*",
 ]
 
 [tool.ruff]

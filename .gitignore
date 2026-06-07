@@ -21,6 +21,10 @@ book/
 .ruff_cache/
 tmp_liuyao_repos_20260118/
 
+# Agent harness runtime (E3)
+data/agent_audit.jsonl
+data/_test_*.json
+
 # ====================
 # Python
 # ====================
@@ -36,9 +40,6 @@ services/aws-service/
 # Node
 # ====================
 node_modules/
-
-# Pi upstream（本地 clone，见 vendor/README.md）
-vendor/pi/
 
 # ====================
 # 运行时

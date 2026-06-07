@@ -58,11 +58,11 @@ Pipeline 固化（单一运行上下文）：`docs/pipeline/README.md`，剖面�
 
 ### 1.4 人机协作：单入口 CEO 模式（决策者上下文优先）
 
-> 人类协作文档：**`docs/CONTROL_PLANE.md`** · V2 现状一页：**`docs/20260527-V2/EXEC_SUMMARY.md`**
+> 人类协作 / V2 文档在 **Pi**：**`../pi/docs/trade-agent/CONTROL_PLANE.md`** · **`../pi/docs/trade-agent/20260527-V2/EXEC_SUMMARY.md`**（V2 主开发框架 = Pi）
 
 - **对人类只保留一个对话入口**：用户只与**主 Agent**对齐；子 Agent（Task）仅执行，**不得**向用户输出长文、多文档或大块 diff。
 - **主 Agent = CEO**：拆任务 → 派生子 Agent → 合并结果 → 用固定「执行摘要」模板汇报（见 `CONTROL_PLANE.md` §4，控制在 1～2 屏）。
-- **上下文不对称**：默认认为用户**未读** PRD/AC 全文。向用户说明进展时只更新 `EXEC_SUMMARY.md` + 摘要 bullets；细节留在 `docs/YYYYMMDD-V2/` 供主/子 Agent 使用。
+- **上下文不对称**：默认认为用户**未读** PRD/AC 全文。向用户说明进展时只更新 `pi/docs/trade-agent/.../EXEC_SUMMARY.md` + 摘要 bullets；细节留在 Pi 文档包供主/子 Agent 使用。
 - **先批范围再并行**：用户确认当前里程碑（如 M1）前，不并行开新主题、不批量新建 MD。
 - **Multi-Agent 执行层**：任务可安全拆分后，主 Agent 再派子 Agent（检索 / 实现 / 测试）；须写清路径归属与 AC 退出条件。
 - **禁止**：一次会话向用户推荐阅读 3 个以上新文档；禁止未摘要的 `git diff` 墙。
@@ -182,6 +182,9 @@ pytest tests/ -q --tb=no 2>&1 | tail -20
 | `tradecat backtest` | 策略回测（YAML，`--market` 支持 `us_stock`） |
 | `tradecat fetch` / `indicator` / `analyze` | 数据拉取与指标分析 |
 | `tradecat migrate` | 数据库迁移 |
+| `tradecat agent submit-thesis --input <thesis.json>` | **V2 写路径**：Agent 提交交易意向；5 道闸门 + 落本地纸面 + 写 `data/agent_audit.jsonl`（风险类：`paper_runtime_write`，详见 SKILL §5） |
+| `tradecat agent paper-report [--symbol X] [--limit N]` | **V2 读路径**：看 paper 账户/持仓/成交 + 最近 reject 摘要（`--json` 给 Agent；风险类：`local_readonly`） |
+| `tradecat agent thesis-validate --input <thesis.json>` | **V2 dry-run**：跑 G1～G4 闸门不落单、不写 audit（E3-P1；风险类：`local_readonly`） |
 
 安装：`pip install -e .` 后可直接调用；开发时 `PYTHONPATH=src` 亦可。
 

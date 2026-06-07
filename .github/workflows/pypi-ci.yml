@@ -2,16 +2,22 @@ name: PyPI Package CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2/agent-harness]
     paths:
       - "src/tradecat/**"
       - "tests/**"
+      - "scripts/**"
+      - "pi-extensions/**"
+      - "contracts/**"
       - "pyproject.toml"
   pull_request:
-    branches: [main]
+    branches: [main, v2/agent-harness]
     paths:
       - "src/tradecat/**"
       - "tests/**"
+      - "scripts/**"
+      - "pi-extensions/**"
+      - "contracts/**"
       - "pyproject.toml"
 
 concurrency:
@@ -48,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.12", "3.13"]
     
     steps:
       - uses: actions/checkout@v4
@@ -131,4 +137,4 @@ jobs:
       - name: Run integration tests
         run: |
           pip install pytest
-          pytest tests/ -v -m integration --tb=short || true
+          pytest tests/ -v -m integration --tb=short

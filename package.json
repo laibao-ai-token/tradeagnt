@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "oh-my-opencode-linux-x64": "^3.14.0"
   }
