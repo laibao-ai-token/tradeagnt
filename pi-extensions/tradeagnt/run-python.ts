@@ -19,8 +19,6 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const QUOTES_TIMEOUT_MS = 60_000;
-const INDICATORS_TIMEOUT_MS = 60_000;
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024; // 8 MB
 const MAX_JSON_CHARS = 48_000;
 const SIGKILL_GRACE_MS = 3_000;
@@ -71,15 +69,23 @@ const ENV_ALLOWLIST = new Set([
 	// 显式 NOT included: LINEAR_API_KEY, BOT_TOKEN, *_API_KEY, *_SECRET
 ]);
 
+// 缓存：进程生命周期内不变的值
+let _cachedRoot: string | null = null;
+let _cachedPython: string | null = null;
+let _cachedScriptsDir: string | null = null;
+let _cachedBaseEnv: NodeJS.ProcessEnv | null = null;
+
 function buildChildEnv(root: string): NodeJS.ProcessEnv {
-	const filtered: NodeJS.ProcessEnv = {};
-	for (const [k, v] of Object.entries(process.env)) {
-		if (ENV_ALLOWLIST.has(k)) {
-			filtered[k] = v;
+	if (!_cachedBaseEnv) {
+		const filtered: NodeJS.ProcessEnv = {};
+		for (const [k, v] of Object.entries(process.env)) {
+			if (ENV_ALLOWLIST.has(k)) {
+				filtered[k] = v;
+			}
 		}
+		_cachedBaseEnv = filtered;
 	}
-	filtered.TRADEAGNT_ROOT = root;
-	return filtered;
+	return { ..._cachedBaseEnv, TRADEAGNT_ROOT: root };
 }
 
 export type TradeScriptErrorKind =
@@ -102,15 +108,20 @@ export type TradeScriptResult = {
 };
 
 export function resolveTradeagntRoot(): string {
+	if (_cachedRoot) {
+		return _cachedRoot;
+	}
 	const fromEnv = (process.env.TRADEAGNT_ROOT || "").trim();
 	if (fromEnv) {
 		const r = resolve(fromEnv);
 		validateRepoRoot(r, "TRADEAGNT_ROOT");
+		_cachedRoot = r;
 		return r;
 	}
 	// pi-extensions/tradeagnt → tradeagnt repo root
 	const r = resolve(__dirname, "..", "..");
 	validateRepoRoot(r, "(inferred)");
+	_cachedRoot = r;
 	return r;
 }
 
@@ -123,15 +134,22 @@ function validateRepoRoot(r: string, source: string): void {
 }
 
 export function resolvePythonBin(root: string): string {
+	if (_cachedPython) {
+		return _cachedPython;
+	}
 	const venvPy = join(root, ".venv", "bin", "python");
 	if (existsSync(venvPy)) {
+		_cachedPython = venvPy;
 		return venvPy;
 	}
 	const venvPy3 = join(root, ".venv", "bin", "python3");
 	if (existsSync(venvPy3)) {
+		_cachedPython = venvPy3;
 		return venvPy3;
 	}
-	return process.env.TRADEAGNT_PYTHON || "python3";
+	const fallback = process.env.TRADEAGNT_PYTHON || "python3";
+	_cachedPython = fallback;
+	return fallback;
 }
 
 function truncateJsonText(text: string): string {
@@ -171,7 +189,6 @@ function extractLargestJsonBlock(text: string): string | null {
 export type RunScriptOpts = {
 	timeoutMs?: number;
 	root?: string;
-	kind?: "quotes" | "indicators" | "news" | "default";
 };
 
 export function runTradeScript(
@@ -197,23 +214,14 @@ export function runTradeScript(
 	const python = resolvePythonBin(root);
 	const scriptPath = join(root, "scripts", scriptRel);
 
-	if (!existsSync(scriptPath)) {
-		return Promise.resolve({
-			ok: false,
-			payload: null,
-			rawStdout: "",
-			rawStderr: "",
-			exitCode: null,
-			error: `script not found: ${scriptPath}`,
-			errorKind: "missing_script",
-		});
-	}
-
 	// realpath 校验 script 确实在 scripts/ 下（防路径遍历/软链绕过）
+	// realpathSync 不存在时会抛 ENOENT，替代 existsSync 的冗余检查
+	if (!_cachedScriptsDir) {
+		_cachedScriptsDir = realpathSync(join(root, "scripts"));
+	}
 	try {
 		const realScript = realpathSync(scriptPath);
-		const realScriptsDir = realpathSync(join(root, "scripts"));
-		if (!realScript.startsWith(realScriptsDir + sep)) {
+		if (!realScript.startsWith(_cachedScriptsDir + sep)) {
 			return Promise.resolve({
 				ok: false,
 				payload: null,
