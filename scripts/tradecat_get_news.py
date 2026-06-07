@@ -16,7 +16,7 @@ try:
         StoredNewsArticle,
         clamp_limit,
         clamp_since_minutes,
-        query_news_articles,
+        query_news_articles_with_fallback,
         resolve_news_database_schema,
         resolve_news_database_url,
     )
@@ -26,7 +26,7 @@ except ModuleNotFoundError:
         StoredNewsArticle,
         clamp_limit,
         clamp_since_minutes,
-        query_news_articles,
+        query_news_articles_with_fallback,
         resolve_news_database_schema,
         resolve_news_database_url,
     )
@@ -117,6 +117,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--timeout", type=float, default=5.0, help="psql timeout in seconds (default: 5)")
     parser.add_argument("--database-url", default="", help="Optional DB override; defaults to config/.env resolution")
+    parser.add_argument(
+        "--no-rss-fallback",
+        action="store_true",
+        help="Do not fall back to built-in RSS/direct feeds when PostgreSQL is down",
+    )
     return parser
 
 
@@ -146,7 +151,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     table_name = f"{schema}.news_articles"
 
     try:
-        rows = query_news_articles(
+        rows, source_meta, warnings = query_news_articles_with_fallback(
+            PROJECT_ROOT,
             db_url,
             symbol=str(request["symbol"] or ""),
             query=str(request["query"] or ""),
@@ -154,6 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             since_minutes=int(request["since_minutes"]),
             timeout_s=float(args.timeout),
             schema=schema,
+            allow_rss_fallback=not bool(args.no_rss_fallback),
         )
     except Exception as exc:
         _emit(
@@ -169,17 +176,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    _emit(
-        {
-            "ok": True,
-            "tool": TOOL_NAME,
-            "ts": _utc_now_iso(),
-            "source": _source_payload(table_name),
-            "request": request,
-            "data": [_article_payload(row) for row in rows],
-            "error": None,
-        }
-    )
+    payload: dict[str, object] = {
+        "ok": True,
+        "tool": TOOL_NAME,
+        "ts": _utc_now_iso(),
+        "source": source_meta,
+        "request": request,
+        "data": [_article_payload(row) for row in rows],
+        "error": None,
+    }
+    if warnings:
+        payload["warnings"] = warnings
+    _emit(payload)
     return 0
 
 

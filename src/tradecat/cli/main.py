@@ -4,7 +4,7 @@ from __future__ import annotations
 import click
 
 from tradecat import __version__
-from tradecat.cli import analyze, backtest, connector, daemon, execute, fetch, indicator, migrate, paper, signal, tui
+from tradecat.cli import agent, analyze, backtest, connector, daemon, execute, fetch, indicator, migrate, paper, signal, tui
 
 
 @click.group(invoke_without_command=True)
@@ -17,6 +17,7 @@ def cli(ctx: click.Context) -> None:
 
 
 def main() -> None:
+    cli.add_command(agent.agent)
     cli.add_command(analyze.analyze)
     cli.add_command(backtest.backtest)
     cli.add_command(connector.connector_cmd)

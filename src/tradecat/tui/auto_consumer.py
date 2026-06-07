@@ -17,6 +17,11 @@ from tradecat.core.symbols import infer_market_from_symbol, is_close_only_sell, 
 logger = logging.getLogger(__name__)
 
 
+def agent_mode_enabled() -> bool:
+    """When set, TUI must not auto-trade paper; Agent harness owns writes (P6 / E1)."""
+    return (os.getenv("TRADEAGNT_AGENT_MODE") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _resolve_consumer_markets() -> set[str]:
     """Markets auto-consumer may trade. ``all`` / ``*`` → crypto + us_stock."""
     explicit = (os.getenv("PAPER_AUTO_MARKET") or os.getenv("TUI_SIGNAL_MARKET") or "").strip()
@@ -195,7 +200,11 @@ def _execute_signal(
     return engine.from_signal(account_id, payload, price)
 
 
-def start_auto_consumer(signal_db: str, paper_db: str, refresh_s: float = 5.0) -> threading.Thread:
+def start_auto_consumer(signal_db: str, paper_db: str, refresh_s: float = 5.0) -> threading.Thread | None:
+    if agent_mode_enabled():
+        logger.info("TRADEAGNT_AGENT_MODE enabled: auto_consumer not started (paper writes via Agent only)")
+        return None
+
     from tradecat.core.paper_trading.engine import PaperTradingEngine
     from tradecat.core.paper_trading.repository import SqliteRepository
 

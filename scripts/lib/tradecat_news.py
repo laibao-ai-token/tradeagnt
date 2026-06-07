@@ -433,6 +433,147 @@ def query_news_articles(
     return _run_copy_query(db_url, sql=sql, timeout_s=timeout_s, app_name="tradecat_get_news")
 
 
+def _news_item_matches_symbol(item_symbols: tuple[str, ...], title: str, summary: str, symbol_value: str) -> bool:
+    terms = _symbol_search_terms(symbol_value)
+    if not terms:
+        return True
+    blob = " ".join([*item_symbols, title, summary])
+    upper_blob = blob.upper()
+    normalized_blob = _normalize_symbol_term(blob)
+    for term in terms:
+        if term in normalized_blob or term in upper_blob:
+            return True
+        if len(term) >= 3 and term[:3] in upper_blob:
+            return True
+    return False
+
+
+def _query_news_rss_fallback(
+    repo_root: Path,
+    *,
+    symbol: str = "",
+    query: str = "",
+    limit: int = 20,
+    since_minutes: int = 24 * 60,
+    timeout_s: float = 5.0,
+) -> list[StoredNewsArticle]:
+    """Fetch news from built-in direct/RSS feeds when PostgreSQL is unavailable (same feeds as TUI)."""
+    import sys
+    import time
+
+    src = repo_root / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+
+    from tradecat.tui.news_defaults import CORE_TUI_NEWS_RSS_FEEDS
+    from tradecat.tui.pages.news import RssNewsPoller
+
+    # Core direct/RSS feeds only (fast); full TUI preset can be 700+ entries.
+    feeds = list(CORE_TUI_NEWS_RSS_FEEDS)
+    if not feeds:
+        return []
+
+    safe_limit = clamp_limit(limit)
+    safe_since = clamp_since_minutes(since_minutes)
+    poller = RssNewsPoller(
+        feeds,
+        timeout_s=max(12.0, float(timeout_s)),
+        max_items=max(safe_limit * 8, 80),
+        database_url="",
+    )
+    started = time.time()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; TradeCat/1.0; +https://tradecat.local)",
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    }
+    items, _errors = poller._fetch_live_items(started, headers)  # noqa: SLF001 — shared with TUI poller
+    cutoff = started - safe_since * 60
+    needle = str(query or "").strip().lower()
+
+    rows: list[StoredNewsArticle] = []
+    for item in items:
+        if float(item.published_at) < cutoff:
+            continue
+        title = str(item.title or "").strip()
+        summary = str(item.summary or "").strip()
+        if needle and needle not in f"{title} {summary}".lower():
+            continue
+        symbols = tuple(item.symbols or item.impact_assets or ())
+        if not _news_item_matches_symbol(symbols, title, summary, symbol):
+            continue
+        rows.append(
+            StoredNewsArticle(
+                dedup_hash=str(item.id or ""),
+                published_at=float(item.published_at),
+                source=str(item.source or ""),
+                url=str(item.url or ""),
+                title=title,
+                summary=summary,
+                symbols=symbols,
+                categories=(str(item.category or "").strip(),) if getattr(item, "category", "") else (),
+                language="en",
+            )
+        )
+
+    rows.sort(key=lambda row: row.published_at, reverse=True)
+    return rows[:safe_limit]
+
+
+def query_news_articles_with_fallback(
+    repo_root: Path,
+    db_url: str,
+    *,
+    symbol: str = "",
+    query: str = "",
+    limit: int = 20,
+    since_minutes: int = 24 * 60,
+    timeout_s: float = 5.0,
+    schema: str = DEFAULT_NEWS_DATABASE_SCHEMA,
+    allow_rss_fallback: bool = True,
+) -> tuple[list[StoredNewsArticle], dict[str, object], list[str]]:
+    """Try PostgreSQL first; on connection failure optionally fall back to live RSS/direct feeds."""
+    warnings: list[str] = []
+    table_name = f"{schema}.{DEFAULT_NEWS_TABLE}"
+    try:
+        rows = query_news_articles(
+            db_url,
+            symbol=symbol,
+            query=query,
+            limit=limit,
+            since_minutes=since_minutes,
+            timeout_s=timeout_s,
+            schema=schema,
+        )
+        source = {
+            "type": "postgresql",
+            "table": table_name,
+            "reader": "scripts/lib/tradecat_news.py",
+            "writes": False,
+        }
+        return rows, source, warnings
+    except RuntimeError as exc:
+        detail = str(exc)
+        if not allow_rss_fallback or not _is_connection_error(detail):
+            raise
+        warnings.append(f"postgresql_unavailable:{detail[:120]}")
+        rows = _query_news_rss_fallback(
+            repo_root,
+            symbol=symbol,
+            query=query,
+            limit=limit,
+            since_minutes=since_minutes,
+            timeout_s=timeout_s,
+        )
+        source = {
+            "type": "rss_fallback",
+            "table": table_name,
+            "reader": "tradecat.tui.pages.news.RssNewsPoller",
+            "writes": False,
+            "note": "PostgreSQL unreachable; served from built-in RSS/direct feeds",
+        }
+        return rows, source, warnings
+
+
 def fetch_recent_news_articles(
     db_url: str,
     *,
