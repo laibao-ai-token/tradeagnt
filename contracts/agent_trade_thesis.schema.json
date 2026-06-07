@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tradecat.local/contracts/agent_trade_thesis.schema.json",
+  "title": "TradeCat Agent Trade Thesis",
+  "description": "Agent research thesis for paper/watch only.",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "ok",
+    "symbol",
+    "mode",
+    "direction",
+    "confidence",
+    "rationale",
+    "provenance",
+    "safety",
+    "limitations"
+  ],
+  "properties": {
+    "schema": {"const": "tradecat_auto.agent_trade_thesis.v1"},
+    "schema_version": {"const": "1.0.0"},
+    "ok": {"type": "boolean"},
+    "thesis_id": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "mode": {"const": "paper_research"},
+    "direction": {"enum": ["LONG", "SHORT", "WATCH_ONLY"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "holding_horizon": {"enum": ["intraday", "multi_day", "unknown"]},
+    "risk_notes": {"type": "array", "items": {"type": "string"}},
+    "invalidation_price": {"type": "number", "exclusiveMinimum": 0},
+    "take_profit_price": {"type": "number", "exclusiveMinimum": 0},
+    "max_holding_minutes": {"type": "number", "exclusiveMinimum": 0},
+    "paper_intent": {
+      "type": "object",
+      "properties": {
+        "requested_margin_usdt": {"type": "number", "exclusiveMinimum": 0},
+        "paper_leverage": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+        "requested_notional_usdt": {"type": "number", "exclusiveMinimum": 0},
+        "real_order": {"const": false},
+        "account_id": {"type": "string"},
+        "client_order_id": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "rationale": {"type": "string", "minLength": 1},
+    "provenance": {"type": "object", "required": ["source"], "additionalProperties": true},
+    "safety": {
+      "type": "object",
+      "required": [
+        "public_readonly_market_data",
+        "public_readonly",
+        "paper_or_watch_only",
+        "real_orders",
+        "signed_requests",
+        "reads_api_keys",
+        "binance_account_state"
+      ],
+      "properties": {
+        "public_readonly_market_data": {"const": true},
+        "public_readonly": {"const": true},
+        "paper_or_watch_only": {"const": true},
+        "real_orders": {"const": false},
+        "signed_requests": {"const": false},
+        "reads_api_keys": {"const": false},
+        "binance_account_state": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    }
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"direction": {"enum": ["LONG", "SHORT"]}},
+        "required": ["direction"]
+      },
+      "then": {
+        "required": ["paper_intent", "invalidation_price", "take_profit_price"],
+        "properties": {
+          "paper_intent": {
+            "required": ["requested_margin_usdt", "paper_leverage", "real_order"],
+            "properties": {"real_order": {"const": false}}
+          }
+        }
+      }
+    }
+  ]
+}
