@@ -1,15 +1,22 @@
-# tradeagnt → Pi Extension
+# tradeagnt → Pi Extension（E2）
 
-**目的**：让 **Pi 拥有垂类 Trade Agent 能力**（不是让 Pi 当配角）。
+实现进度见：`pi/docs/trade-agent/execution/E2-TOOLS.md`
 
-- Pi 源码：`../../vendor/pi/`
-- Python 能力：`../../src/tradecat/`、`../../scripts/`
+## E2 工具（目标）
 
-本地调试示例（路径以实现为准）：
+| 工具 | 脚本 |
+|:---|:---|
+| `trade_get_quotes` | `scripts/tradecat_get_quotes.py` |
+| `trade_get_indicators` | `scripts/tradecat_get_indicators.py` |
+| `trade_get_news` | `scripts/tradecat_get_news.py` |
+
+## 本地调试
 
 ```bash
-cd ../../vendor/pi/packages/coding-agent
-# pi --extension ../../../pi-extensions/tradeagnt/index.ts
+export TRADEAGNT_ROOT=/path/to/tradeagnt
+cd ../pi
+pi -e "$TRADEAGNT_ROOT/pi-extensions/tradeagnt/index.ts" \
+  --provider xiaomi-token-plan-sgp --model mimo-v2.5-pro
 ```
 
-v2-base：注册工具 `context_pack`、`get_quotes`、`get_signals` 等（调 repo 根下 Python 脚本）。
+`run-trade-agent.sh` 在存在 `index.ts` 时自动 `-e` 本扩展。
