@@ -15,7 +15,8 @@
   "command_risk_classes": {
     "local_readonly": "Reads local DB/SQLite and in-process providers only.",
     "network_readonly": "Fetches public market data via configured providers.",
-    "paper_runtime_write": "Local paper trading only via tradecat agent submit-thesis (fail-closed gates)."
+    "paper_runtime_write": "Local paper trading only via tradecat agent submit-thesis (fail-closed gates).",
+    "strategy_file_write": "Writes local strategy YAML candidates under config/strategies only; no live orders. Activation is explicit and release-based."
   },
   "extension_tools": [
     {
@@ -44,6 +45,42 @@
       "pi_tool": "pi-extensions/tradeagnt/tools/backtest.ts",
       "timeout_ms": 120000,
       "description": "Run a strategy backtest via tradecat backtest CLI; returns structured JSON summary."
+    },
+    {
+      "name": "trade_feedback_pack",
+      "stage": "E4",
+      "risk_class": "local_readonly",
+      "maps_to": "scripts/tradecat_agent_feedback_pack.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/feedback-pack.ts",
+      "timeout_ms": 30000,
+      "description": "Build a read-only feedback pack from paper audit, paper report, and recent signal history. Does not submit orders or write strategies."
+    },
+    {
+      "name": "trade_strategy_manage",
+      "stage": "E4-MVP",
+      "risk_class": "strategy_file_write",
+      "maps_to": "scripts/tradecat_strategy_manage.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/strategy-manage.ts",
+      "timeout_ms": 30000,
+      "description": "Safely read, validate, write, snapshot, and activate local strategy YAML files. Writes are constrained to config/strategies; use activation is explicit."
+    },
+    {
+      "name": "trade_strategy_compare",
+      "stage": "E4-MVP",
+      "risk_class": "local_readonly",
+      "maps_to": "scripts/tradecat_strategy_compare.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/strategy-compare.ts",
+      "timeout_ms": 180000,
+      "description": "Compare a baseline plus candidate strategy YAMLs through structured backtests and return ranking, winner, and rejected reasons. Does not activate strategies."
+    },
+    {
+      "name": "trade_strategy_evolve",
+      "stage": "E4-MVP",
+      "risk_class": "strategy_file_write",
+      "maps_to": "scripts/tradecat_strategy_evolve.py",
+      "pi_tool": "pi-extensions/tradeagnt/tools/strategy-evolve.ts",
+      "timeout_ms": 300000,
+      "description": "Dry-run strategy loop controller: generate 2-3 local candidate YAMLs, validate/write them, run compare, and recommend a winner without changing current."
     },
     {
       "name": "trade_get_quotes",

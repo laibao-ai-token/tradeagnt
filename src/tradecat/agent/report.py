@@ -25,8 +25,14 @@ def build_paper_report(*, symbol: str | None = None, include_rejects: int = 5) -
         accounts = [engine.create_account("default")]
     account = accounts[0]
     status = engine.status(account.account_id)
-    # json.dumps(default=str) 自动处理 Decimal/UUID/datetime
-    status_safe = json.loads(json.dumps(status, default=str))
+    status_safe = {
+        key: [_to_json_safe(item) for item in value]
+        if isinstance(value, list)
+        else _to_json_safe(value)
+        for key, value in status.items()
+    }
+    # json.dumps(default=str) handles Decimal/UUID/datetime left inside dicts.
+    status_safe = json.loads(json.dumps(status_safe, default=str))
     data: dict[str, Any] = {
         "account_id": str(account.account_id),
         "account_name": account.name,

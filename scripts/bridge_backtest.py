@@ -202,6 +202,11 @@ _RE_SIGNAL_LINE = re.compile(
 
 # "  Trades:        1"
 _RE_PAPER_TRADES = re.compile(rf"^Trades:\s+({_INT})\s*$", re.IGNORECASE)
+_RE_PAPER_CLOSED_TRADES = re.compile(rf"^Closed\s+Trades:\s+({_INT})\s*$", re.IGNORECASE)
+_RE_PAPER_WIN_RATE = re.compile(rf"^Win\s+Rate:\s+({_NUM}|--)\s*%?\s*$", re.IGNORECASE)
+_RE_PAPER_MAX_DRAWDOWN = re.compile(rf"^Max\s+Drawdown:\s+({_NUM})\s*%\s*$", re.IGNORECASE)
+_RE_PAPER_AVG_HOLD = re.compile(rf"^Avg\s+Hold:\s+({_NUM}|--)\s+min\s*$", re.IGNORECASE)
+_RE_PAPER_EXPOSURE = re.compile(rf"^Exposure:\s+({_NUM}|--)\s*%?\s*$", re.IGNORECASE)
 _RE_PAPER_PNL = re.compile(rf"^Realized\s+PnL:\s+({_NUM})\s*$", re.IGNORECASE)
 _RE_PAPER_NAV = re.compile(rf"^NAV:\s+({_NUM})\s*$", re.IGNORECASE)
 _RE_PAPER_RETURN = re.compile(rf"^Return:\s+({_NUM})\s*%\s*$", re.IGNORECASE)
@@ -252,6 +257,11 @@ def _parse_backtest_stdout(stdout: str) -> dict[str, Any]:
         "paper": {
             "enabled": False,
             "trades": None,
+            "closed_trades": None,
+            "win_rate_pct": None,
+            "max_drawdown_pct": None,
+            "avg_hold_minutes": None,
+            "exposure_pct": None,
             "realized_pnl": None,
             "nav": None,
             "return_pct": None,
@@ -345,6 +355,26 @@ def _parse_backtest_stdout(stdout: str) -> dict[str, Any]:
             if m:
                 parsed["paper"]["trades"] = _safe_int(m.group(1))
                 continue
+            m = _RE_PAPER_CLOSED_TRADES.match(stripped)
+            if m:
+                parsed["paper"]["closed_trades"] = _safe_int(m.group(1))
+                continue
+            m = _RE_PAPER_WIN_RATE.match(stripped)
+            if m:
+                parsed["paper"]["win_rate_pct"] = None if m.group(1) == "--" else _safe_float(m.group(1))
+                continue
+            m = _RE_PAPER_MAX_DRAWDOWN.match(stripped)
+            if m:
+                parsed["paper"]["max_drawdown_pct"] = _safe_float(m.group(1))
+                continue
+            m = _RE_PAPER_AVG_HOLD.match(stripped)
+            if m:
+                parsed["paper"]["avg_hold_minutes"] = None if m.group(1) == "--" else _safe_float(m.group(1))
+                continue
+            m = _RE_PAPER_EXPOSURE.match(stripped)
+            if m:
+                parsed["paper"]["exposure_pct"] = None if m.group(1) == "--" else _safe_float(m.group(1))
+                continue
             m = _RE_PAPER_PNL.match(stripped)
             if m:
                 parsed["paper"]["realized_pnl"] = _safe_float(m.group(1))
@@ -376,6 +406,59 @@ def _summarize(parsed: dict[str, Any]) -> dict[str, Any]:
         "signals_sell": signals.get("sell"),
         "signals_strong": signals.get("strong"),
         "paper_trade_count": paper.get("trades"),
+    }
+
+
+def _tail_lines(text: str, *, limit: int = 10) -> list[str]:
+    return [line.rstrip() for line in (text or "").splitlines() if line.strip()][-limit:]
+
+
+def _useful_tail(lines: list[str], *, limit: int = 3) -> str:
+    useful: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.lower() in {"backtest error:", "error:"}:
+            continue
+        useful.append(stripped)
+    return " | ".join(useful[-limit:])
+
+
+def _diagnostic_details(
+    *,
+    request_payload: dict[str, Any],
+    tradecat_bin: str,
+    child_argv: list[str],
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    spawn_error: str | None = None,
+) -> dict[str, Any]:
+    stderr_tail = _tail_lines(stderr)
+    stdout_tail = _tail_lines(stdout)
+    scope = {
+        "strategy": request_payload.get("strategy"),
+        "symbol": request_payload.get("symbol"),
+        "market": request_payload.get("market"),
+        "timeframe": request_payload.get("timeframe"),
+        "provider": request_payload.get("provider"),
+        "days": request_payload.get("days"),
+        "mode": request_payload.get("mode"),
+    }
+    useful = _useful_tail(stderr_tail) or _useful_tail(stdout_tail)
+    detail = useful or "no specific stderr/stdout detail captured"
+    summary_bits = [f"{key}={value}" for key, value in scope.items() if value not in (None, "")]
+    summary = f"backtest failed ({', '.join(summary_bits)}, exit_code={exit_code}); detail={detail}"
+    if spawn_error:
+        summary = f"{summary}; spawn_error={spawn_error}"
+    return {
+        **scope,
+        "exit_code": exit_code,
+        "tradecat_bin": tradecat_bin,
+        "child_argv": child_argv,
+        "stderr_tail": stderr_tail,
+        "stdout_tail": stdout_tail,
+        "diagnostic_summary": summary,
+        "spawn_error": spawn_error,
     }
 
 
@@ -481,7 +564,15 @@ def execute(argv: Optional[Sequence[str]] = None) -> tuple[int, dict[str, Any]]:
         response["error"] = _error_payload(
             "timeout",
             spawn_error,
-            details={"exit_code": exit_code, "stderr_tail": stderr[-2000:] if stderr else ""},
+            details=_diagnostic_details(
+                request_payload=request_payload,
+                tradecat_bin=tradecat_bin,
+                child_argv=child_argv,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                spawn_error=spawn_error,
+            ),
         )
         return 1, response
 
@@ -489,7 +580,15 @@ def execute(argv: Optional[Sequence[str]] = None) -> tuple[int, dict[str, Any]]:
         response["error"] = _error_payload(
             "spawn",
             spawn_error,
-            details={"exit_code": exit_code, "stderr_tail": stderr[-2000:] if stderr else ""},
+            details=_diagnostic_details(
+                request_payload=request_payload,
+                tradecat_bin=tradecat_bin,
+                child_argv=child_argv,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                spawn_error=spawn_error,
+            ),
         )
         return 1, response
 
@@ -505,9 +604,16 @@ def execute(argv: Optional[Sequence[str]] = None) -> tuple[int, dict[str, Any]]:
             "backtest_failed",
             "could not parse `tradecat backtest` header line; check args / CLI output",
             details={
-                "exit_code": exit_code,
+                **_diagnostic_details(
+                    request_payload=request_payload,
+                    tradecat_bin=tradecat_bin,
+                    child_argv=child_argv,
+                    exit_code=exit_code,
+                    stdout=stdout,
+                    stderr=stderr,
+                    spawn_error=spawn_error,
+                ),
                 "stderr_tail": tail,
-                "stdout_tail": (stdout or "").splitlines()[-10:],
             },
         )
         return 1, response
@@ -523,7 +629,7 @@ def execute(argv: Optional[Sequence[str]] = None) -> tuple[int, dict[str, Any]]:
         "signals": parsed["signals"],
         "paper": parsed["paper"],
         "exit_code": exit_code,
-        "stderr_tail": (stderr or "").splitlines()[-10:] if stderr else [],
+        "stderr_tail": _tail_lines(stderr) if stderr else [],
     }
 
     if exit_code != 0 and not parsed["signals"]["samples"]:
@@ -531,7 +637,15 @@ def execute(argv: Optional[Sequence[str]] = None) -> tuple[int, dict[str, Any]]:
         response["error"] = _error_payload(
             "backtest_failed",
             f"tradecat backtest exited with code {exit_code}",
-            details={"stderr_tail": (stderr or "").splitlines()[-10:]},
+            details=_diagnostic_details(
+                request_payload=request_payload,
+                tradecat_bin=tradecat_bin,
+                child_argv=child_argv,
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                spawn_error=spawn_error,
+            ),
         )
         return exit_code or 1, response
 

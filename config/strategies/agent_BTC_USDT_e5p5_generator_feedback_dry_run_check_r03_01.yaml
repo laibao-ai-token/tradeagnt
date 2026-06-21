@@ -1,0 +1,43 @@
+name: Paper RSI 5m candidate 1
+market: crypto
+symbols:
+- BTC_USDT
+timeframe: 5m
+indicators:
+- name: rsi
+  params:
+    period: 14
+rules:
+- name: RSI超卖反弹买入
+  category: momentum
+  subcategory: rsi
+  direction: BUY
+  strength: 62
+  priority: high
+  cooldown: 180
+  min_volume: 0
+  condition:
+    type: threshold_cross_up
+    field: rsi
+    threshold: 38
+  message_template: 'RSI超卖反弹: {rsi:.1f}'
+  fields:
+    rsi: rsi
+- name: RSI超买回落卖出
+  category: momentum
+  subcategory: rsi
+  direction: SELL
+  strength: 62
+  priority: high
+  cooldown: 180
+  min_volume: 0
+  condition:
+    type: threshold_cross_down
+    field: rsi
+    threshold: 62
+  message_template: 'RSI超买回落: {rsi:.1f}'
+  fields:
+    rsi: rsi
+thresholds:
+  min_strength: 45
+  max_cooldown: 600

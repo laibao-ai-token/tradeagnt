@@ -17,6 +17,9 @@ import pandas as pd
 TOOL_NAME = "tradecat_get_indicators"
 SCRIPT_PATH = Path(__file__).resolve()
 REPO_ROOT = SCRIPT_PATH.parents[1]
+SRC = REPO_ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 MIN_BARS = 30
 
@@ -121,6 +124,7 @@ async def _fetch_klines_df(
     market: str,
     timeframe: str,
     limit: int,
+    provider_name: str = "",
 ) -> tuple[pd.DataFrame, str, list[str]]:
     """Return (dataframe, source_note, warnings)."""
     warnings: list[str] = []
@@ -164,7 +168,7 @@ async def _fetch_klines_df(
 
     registry = ProviderRegistry()
     registry.auto_register()
-    provider = registry.resolve(symbol)
+    provider = registry.resolve_by_name(provider_name) if provider_name else registry.resolve(symbol)
     df = await provider.fetch_klines(symbol, tf, limit=limit)
     return df, f"provider.{getattr(provider, 'name', 'unknown')}", warnings
 
@@ -187,6 +191,7 @@ async def build_payload(
     timeframe: str,
     indicator_specs: list[dict[str, Any]],
     limit: int = 200,
+    provider: str = "",
 ) -> dict[str, Any]:
     from tradecat.core.indicators import auto_register
     from tradecat.core.indicators.base import IndicatorRegistry
@@ -202,6 +207,7 @@ async def build_payload(
             market=resolved_market,
             timeframe=timeframe,
             limit=limit,
+            provider_name=provider,
         )
         warnings.extend(kline_warnings)
     except Exception as exc:
@@ -213,6 +219,7 @@ async def build_payload(
                 "symbol": symbol,
                 "market": resolved_market,
                 "timeframe": timeframe,
+                "provider": provider or None,
                 "indicators": indicator_specs,
             },
             "data": None,
@@ -232,6 +239,7 @@ async def build_payload(
                 "symbol": symbol,
                 "market": resolved_market,
                 "timeframe": timeframe,
+                "provider": provider or None,
                 "indicators": indicator_specs,
             },
             "data": {"bars": len(df) if df is not None else 0, "hint": hint},
@@ -284,6 +292,7 @@ async def build_payload(
             "symbol": symbol,
             "market": resolved_market,
             "timeframe": timeframe,
+            "provider": provider or None,
             "indicators": indicator_specs,
             "limit": limit,
             "bars": len(df),
@@ -305,6 +314,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Compute technical indicators from K-lines")
     parser.add_argument("--symbol", default="BTC_USDT", help="Symbol, e.g. BTC_USDT or SH688041")
     parser.add_argument("--market", default="", help="Optional: cn_stock, us_stock, crypto_spot, ...")
+    parser.add_argument("--provider", default="", help="Optional provider override, e.g. gate")
     parser.add_argument("--timeframe", default="5m", help="Kline timeframe; cn_stock closed hours: use 1d")
     parser.add_argument("--indicator", default="", help="Comma-separated: rsi,ema,macd,...")
     parser.add_argument("--limit", type=int, default=200, help="Kline bar limit")
@@ -318,6 +328,7 @@ def main() -> int:
             timeframe=args.timeframe.strip(),
             indicator_specs=specs,
             limit=max(50, min(args.limit, 500)),
+            provider=args.provider.strip(),
         )
     )
     sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2))

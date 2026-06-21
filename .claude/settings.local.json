@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf /public/home/laibao/pkg/dcu/codex/trade-agent/tradeagnt/repository/tradecat-upstream/*)",
+      "Bash(cp -r /tmp/tradecat-upstream/* /public/home/laibao/pkg/dcu/codex/trade-agent/tradeagnt/repository/tradecat-upstream/)",
+      "Bash(cp -r /tmp/tradecat-upstream/.* /public/home/laibao/pkg/dcu/codex/trade-agent/tradeagnt/repository/tradecat-upstream/)",
+      "Read(//tmp/tradecat-upstream/**)",
+      "Bash(tar --exclude='.git' -cf - .)",
+      "Bash(shopt -s dotglob)"
+    ]
+  }
+}

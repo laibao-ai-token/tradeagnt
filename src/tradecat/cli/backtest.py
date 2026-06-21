@@ -133,6 +133,17 @@ def backtest(
                 click.echo("-" * 60)
                 click.echo(click.style("Paper Simulation", fg="magenta", bold=True))
                 click.echo(f"  Trades:        {summary['trade_count']}")
+                click.echo(f"  Closed Trades: {summary['closed_trade_count']}")
+                win_rate = summary.get("win_rate_pct")
+                win_rate_text = "--" if win_rate is None else f"{win_rate:.2f}%"
+                click.echo(f"  Win Rate:      {win_rate_text}")
+                click.echo(f"  Max Drawdown:  {summary['max_drawdown_pct']:.2f}%")
+                avg_hold = summary.get("avg_hold_minutes")
+                avg_hold_text = "--" if avg_hold is None else f"{avg_hold:.2f}"
+                exposure = summary.get("exposure_pct")
+                exposure_text = "--" if exposure is None else f"{exposure:.2f}%"
+                click.echo(f"  Avg Hold:      {avg_hold_text} min")
+                click.echo(f"  Exposure:      {exposure_text}")
                 click.echo(f"  Realized PnL:  {summary['realized_pnl']:.2f}")
                 click.echo(f"  NAV:           {summary['nav']:.2f}")
                 click.echo(f"  Return:        {summary['return_pct']:.2f}%")

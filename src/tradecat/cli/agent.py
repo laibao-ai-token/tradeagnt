@@ -72,3 +72,32 @@ def audit_tail_cmd(limit: int, symbol: str) -> None:
 
     rows = tail_audit(limit=limit, symbol=symbol or None)
     click.echo(json.dumps(rows, ensure_ascii=False, indent=2))
+
+
+@agent.command(name="feedback-pack")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON envelope")
+@click.option("--symbol", default="", help="Optional symbol filter")
+@click.option("--audit-limit", default=20, show_default=True, type=int)
+@click.option("--signal-limit", default=10, show_default=True, type=int)
+def feedback_pack_cmd(as_json: bool, symbol: str, audit_limit: int, signal_limit: int) -> None:
+    """Build a read-only feedback pack for the next agent step."""
+    from tradecat.agent.feedback import build_feedback_pack
+
+    env = build_feedback_pack(
+        symbol=symbol or None,
+        audit_limit=audit_limit,
+        signal_limit=signal_limit,
+    )
+    if as_json:
+        _emit(env)
+        return
+    if not env.ok or not env.data:
+        click.echo(json.dumps(env.to_dict(), indent=2))
+        return
+    d = env.data
+    click.echo("Feedback pack")
+    for item in d.get("observations") or []:
+        click.echo(f"- {item}")
+    click.echo("Recommendations")
+    for item in d.get("recommendations") or []:
+        click.echo(f"- {item.get('action')}: {item.get('reason')}")
